@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="GradleMigrationSettings" migrationVersion="1" />
+  <component name="GradleSettings">
+    <option name="linkedExternalProjectsSettings">
+      <GradleProjectSettings>
+        <compositeConfiguration>
+          <compositeBuild compositeDefinitionSource="SCRIPT">
+            <builds>
+              <build path="$PROJECT_DIR$/../node_modules/expo-modules-core/expo-module-gradle-plugin" name="expo-module-gradle-plugin">
+                <projects>
+                  <project path="$PROJECT_DIR$/../node_modules/expo-modules-core/expo-module-gradle-plugin" />
+                </projects>
+              </build>
+              <build path="$PROJECT_DIR$/../node_modules/@react-native/gradle-plugin" name="gradle-plugin-root">
+                <projects>
+                  <project path="$PROJECT_DIR$/../node_modules/@react-native/gradle-plugin" />
+                  <project path="$PROJECT_DIR$/../node_modules/@react-native/gradle-plugin/react-native-gradle-plugin" />
+                  <project path="$PROJECT_DIR$/../node_modules/@react-native/gradle-plugin/settings-plugin" />
+                  <project path="$PROJECT_DIR$/../node_modules/@react-native/gradle-plugin/shared" />
+                  <project path="$PROJECT_DIR$/../node_modules/@react-native/gradle-plugin/shared-testutil" />
+                </projects>
+              </build>
+            </builds>
+          </compositeBuild>
+        </compositeConfiguration>
+        <option name="testRunner" value="CHOOSE_PER_TEST" />
+        <option name="externalProjectPath" value="$PROJECT_DIR$" />
+        <option name="gradleJvm" value="#GRADLE_LOCAL_JAVA_HOME" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$" />
+            <option value="$PROJECT_DIR$/app" />
+            <option value="$PROJECT_DIR$/../node_modules/@react-native-async-storage/async-storage/android" />
+            <option value="$PROJECT_DIR$/../node_modules/@react-native/gradle-plugin" />
+            <option value="$PROJECT_DIR$/../node_modules/@react-native/gradle-plugin/react-native-gradle-plugin" />
+            <option value="$PROJECT_DIR$/../node_modules/@react-native/gradle-plugin/settings-plugin" />
+            <option value="$PROJECT_DIR$/../node_modules/@react-native/gradle-plugin/shared" />
+            <option value="$PROJECT_DIR$/../node_modules/@react-native/gradle-plugin/shared-testutil" />
+            <option value="$PROJECT_DIR$/../node_modules/expo-application/android" />
+            <option value="$PROJECT_DIR$/../node_modules/expo-asset/android" />
+            <option value="$PROJECT_DIR$/../node_modules/expo-blur/android" />
+            <option value="$PROJECT_DIR$/../node_modules/expo-constants/android" />
+            <option value="$PROJECT_DIR$/../node_modules/expo-crypto/android" />
+            <option value="$PROJECT_DIR$/../node_modules/expo-document-picker/android" />
+            <option value="$PROJECT_DIR$/../node_modules/expo-file-system/android" />
+            <option value="$PROJECT_DIR$/../node_modules/expo-font/android" />
+            <option value="$PROJECT_DIR$/../node_modules/expo-image-loader/android" />
+            <option value="$PROJECT_DIR$/../node_modules/expo-image-picker/android" />
+            <option value="$PROJECT_DIR$/../node_modules/expo-keep-awake/android" />
+            <option value="$PROJECT_DIR$/../node_modules/expo-linear-gradient/android" />
+            <option value="$PROJECT_DIR$/../node_modules/expo-linking/android" />
+            <option value="$PROJECT_DIR$/../node_modules/expo-modules-core/android" />
+            <option value="$PROJECT_DIR$/../node_modules/expo-modules-core/expo-module-gradle-plugin" />
+            <option value="$PROJECT_DIR$/../node_modules/expo-splash-screen/android" />
+            <option value="$PROJECT_DIR$/../node_modules/expo-system-ui/android" />
+            <option value="$PROJECT_DIR$/../node_modules/expo-web-browser/android" />
+            <option value="$PROJECT_DIR$/../node_modules/expo/android" />
+            <option value="$PROJECT_DIR$/../node_modules/react-native-gesture-handler/android" />
+            <option value="$PROJECT_DIR$/../node_modules/react-native-reanimated/android" />
+            <option value="$PROJECT_DIR$/../node_modules/react-native-safe-area-context/android" />
+            <option value="$PROJECT_DIR$/../node_modules/react-native-screens/android" />
+            <option value="$PROJECT_DIR$/../node_modules/react-native-worklets/android" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+    </option>
+  </component>
+</project>
