@@ -42,7 +42,6 @@ export default function ResearchDetailsScreen() {
   const [canDelete, setCanDelete] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>("context");
   const [selectedLang, setSelectedLang] = useState<LangType>("en");
-  const [translating, setTranslating] = useState(false);
 
   // Audio Player states
   const [isPlaying, setIsPlaying] = useState(false);
@@ -66,6 +65,19 @@ export default function ResearchDetailsScreen() {
   // Page Access / Subscription check
   useEffect(() => {
     async function checkAccessAndFetch() {
+      // Load user language preference from global settings
+      const userVal = await AsyncStorage.getItem("shords.currentUser");
+      if (userVal) {
+        const parsedUser = JSON.parse(userVal);
+        const mappedLang: Record<string, LangType> = {
+          "English": "en",
+          "Hindi": "hi",
+          "Spanish": "es"
+        };
+        const lang = mappedLang[parsedUser.language] || "en";
+        setSelectedLang(lang);
+      }
+
       const { isSubscribed, incrementFreeViews, hasFreeViewsRemaining } = await import("@/services/subscriptionService");
       
       const premium = await isSubscribed();
@@ -192,15 +204,7 @@ export default function ResearchDetailsScreen() {
     );
   }
 
-  // Handle translation switch with dynamic loader if translation does not exist
-  const handleLangChange = (lang: LangType) => {
-    if (lang === selectedLang) return;
-    setTranslating(true);
-    setTimeout(() => {
-      setSelectedLang(lang);
-      setTranslating(false);
-    }, 900); // Sleek mock translate delay
-  };
+
 
   // Parse sections
   const sections = parsePaperSections(displayExplanation, displayTitle, displaySummary, paper.domain);
@@ -323,35 +327,7 @@ export default function ResearchDetailsScreen() {
           </View>
         </View>
 
-        {/* Translation switches */}
-        <View style={styles.langSelector}>
-          <Pressable
-            onPress={() => handleLangChange("en")}
-            style={[styles.langBtn, selectedLang === "en" && styles.langBtnActive]}
-          >
-            <Text style={[styles.langText, selectedLang === "en" && styles.langTextActive]}>English</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => handleLangChange("hi")}
-            style={[styles.langBtn, selectedLang === "hi" && styles.langBtnActive]}
-          >
-            <Text style={[styles.langText, selectedLang === "hi" && styles.langTextActive]}>हिंदी (Hindi)</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => handleLangChange("es")}
-            style={[styles.langBtn, selectedLang === "es" && styles.langBtnActive]}
-          >
-            <Text style={[styles.langText, selectedLang === "es" && styles.langTextActive]}>Español</Text>
-          </Pressable>
-        </View>
 
-        {/* Dynamic translator loader overlay */}
-        {translating && (
-          <View style={styles.translatorLoader}>
-            <ActivityIndicator size="small" color={colors.accentSoft} />
-            <Text style={styles.translatorLoaderText}>AI Translator compiling text...</Text>
-          </View>
-        )}
 
         {/* Hero Card */}
         <View style={styles.hero}>
