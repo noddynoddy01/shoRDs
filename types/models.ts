@@ -6,7 +6,16 @@ export type Domain =
   | "Quantum Computing"
   | "Space Tech"
   | "Cybersecurity"
-  | "Renewable Energy";
+  | "Renewable Energy"
+  | "Nanotechnology"
+  | "Genetics"
+  | "Material Science"
+  | "Climate Tech"
+  | "Blockchain & Web3"
+  | "Neuroscience"
+  | "Nuclear Fusion"
+  | "Medical Devices"
+  | "IoT & Edge Computing";
 
 export type UserProfile = {
   id: string;
@@ -15,6 +24,15 @@ export type UserProfile = {
   bio: string;
   interests: string[];
   profileImage: string;
+  role?: "admin" | "user" | "mentor";
+  phoneNumber?: string;
+  country?: string;
+  language?: string;
+  subscription?: {
+    tier: "free" | "premium";
+    expiresAt: string;
+    currency: "USD" | "INR";
+  };
 };
 
 export type Mentor = {
@@ -41,4 +59,36 @@ export type Paper = {
   readingTime: string;
   savedCount: number;
   createdAt: Date;
+  pdfUri?: string;
+  organization?: string;
+  pubYear?: number;
+  doi?: string;
+  illustrations?: string[];
+  insights?: string[];
+  audioUrl?: string;
+  videoUrl?: string;
+  translations?: Record<
+    string,
+    {
+      title: string;
+      summary: string;
+      fullExplanation: string;
+    }
+  >;
+};
+
+export type Message = {
+  id: string;
+  senderId: string;
+  text: string;
+  timestamp: number;
+};
+
+export type ChatSession = {
+  id: string;
+  participants: string[]; // [user1, user2]
+  participantNames: string[];
+  lastMessageText: string;
+  lastMessageTimestamp: number;
+  unreadCount: number;
 };

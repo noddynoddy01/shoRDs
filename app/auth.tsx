@@ -16,21 +16,27 @@ import { Chip } from "@/components/Chip";
 import { GlassButton } from "@/components/GlassButton";
 import { Logo } from "@/components/Logo";
 import { Screen } from "@/components/Screen";
-import { colors, radius } from "@/constants/theme";
+import { colors as defaultColors, radius } from "@/constants/theme";
 import { domains } from "@/data/samplePapers";
-import { loginWithEmail, signupWithEmail } from "@/services/firebase";
+import { loginWithEmail, signupWithEmail, firebaseApp } from "@/services/firebase";
+import { useTheme } from "@/context/ThemeContext";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-type AuthMode = "login" | "signup";
+type AuthMode = "login" | "signup" | "mentor";
 
 export default function AuthScreen() {
+  const { colors, fontSizeScale, theme } = useTheme();
   const [mode, setMode] = useState<AuthMode>("login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [interests, setInterests] = useState<string[]>(["AI / ML"]);
   const [loading, setLoading] = useState(false);
   const float = useRef(new Animated.Value(0)).current;
   const reveal = useRef(new Animated.Value(0)).current;
+
+  const styles = getStyles(colors, fontSizeScale);
 
   useEffect(() => {
     Animated.timing(reveal, {
@@ -76,16 +82,111 @@ export default function AuthScreen() {
   async function submit() {
     setLoading(true);
     try {
+      // 1. Admin login check
+      const usernameInput = email.trim().toUpperCase();
+      if (usernameInput === "ABHINAV01" && password === "HELLO") {
+        const adminProfile = {
+          id: "admin-user",
+          name: "Abhinav Prakash (Admin)",
+          email: "abhinav01@shords.app",
+          bio: "Lead Research Administrator for shoRDs.",
+          interests: ["AI / ML", "Quantum Computing", "Space Tech", "Robotics"],
+          profileImage: "",
+          role: "admin" as const,
+          phoneNumber: "+91 8757674333",
+          country: "India",
+          language: "English"
+        };
+        await AsyncStorage.setItem("shords.currentUser", JSON.stringify(adminProfile));
+        Alert.alert("Admin Login Successful", "Welcome back, Abhinav! You have administrator privileges.");
+        router.replace("/(tabs)");
+        return;
+      }
+
+      // 2. Mentor login check
+      if (mode === "mentor") {
+        const mentorId = email.trim().toLowerCase();
+        const { mentors } = await import("@/data/samplePapers");
+        const found = mentors.find((m) => m.id === mentorId || m.name.toLowerCase().includes(mentorId));
+        
+        const mentorProfile = {
+          id: found?.id || `mentor-${Date.now()}`,
+          name: found?.name || "Dr. " + (email.split("@")[0] || "Scholarly Mentor"),
+          email: found?.id ? `${found.id}@shords.app` : email,
+          bio: found?.bio || "Research mentor dedicated to guidance.",
+          interests: found?.focus ? [found.focus] : ["Research"],
+          profileImage: "",
+          role: "mentor" as const,
+          phoneNumber: "+91 9999999999",
+          country: "India",
+          language: "English"
+        };
+        await AsyncStorage.setItem("shords.currentUser", JSON.stringify(mentorProfile));
+        Alert.alert("Mentor Login Successful", `Welcome, ${mentorProfile.name}!`);
+        router.replace("/(tabs)");
+        return;
+      }
+
+      // 3. Standard login/signup
       if (mode === "login") {
-        await loginWithEmail(email, password);
+        if (firebaseApp) {
+          await loginWithEmail(email, password);
+        }
+        
+        // Mock profile write for local use
+        const userProfile = {
+          id: `user-${Date.now()}`,
+          name: email.split("@")[0] || "Researcher",
+          email: email,
+          bio: "Learning emerging technology through simplified research discoveries.",
+          interests: ["AI / ML"],
+          profileImage: "",
+          role: "user" as const,
+          phoneNumber: "+1 555-0199",
+          country: "International",
+          language: "English"
+        };
+        await AsyncStorage.setItem("shords.currentUser", JSON.stringify(userProfile));
       } else {
-        await signupWithEmail(name, email, password, interests);
+        if (firebaseApp) {
+          await signupWithEmail(name, email, password, interests);
+        }
+        
+        const isIndia = phoneNumber.trim().startsWith("+91") || phoneNumber.trim().startsWith("91");
+        const userProfile = {
+          id: `user-${Date.now()}`,
+          name: name,
+          email: email,
+          bio: "Learning emerging technology through simplified research discoveries.",
+          interests: interests,
+          profileImage: "",
+          role: "user" as const,
+          phoneNumber: phoneNumber,
+          country: isIndia ? "India" : "International",
+          language: "English"
+        };
+        await AsyncStorage.setItem("shords.currentUser", JSON.stringify(userProfile));
       }
       router.replace("/(tabs)");
     } catch (error) {
-      if (!email || !password || (mode === "signup" && !name)) {
+      if (!email || !password || (mode === "signup" && (!name || !phoneNumber))) {
         Alert.alert("Complete the form", "Add the required account details to continue.");
       } else {
+        // Fallback for offline/local sandbox run
+        const isIndia = phoneNumber.trim().startsWith("+91") || phoneNumber.trim().startsWith("91");
+        const fallbackProfile = {
+          id: `user-${Date.now()}`,
+          name: mode === "signup" ? name : email.split("@")[0] || "Researcher",
+          email: email,
+          bio: "Learning emerging technology through simplified research discoveries.",
+          interests: mode === "signup" ? interests : ["AI / ML"],
+          profileImage: "",
+          role: "user" as const,
+          phoneNumber: phoneNumber || "+1 555-0199",
+          country: isIndia ? "India" : "International",
+          language: "English"
+        };
+        await AsyncStorage.setItem("shords.currentUser", JSON.stringify(fallbackProfile));
         router.replace("/(tabs)");
       }
     } finally {
@@ -100,13 +201,17 @@ export default function AuthScreen() {
     );
   }
 
+  const haloGlow = theme === "light" || theme === "sepia"
+    ? "rgba(6, 182, 212, 0.08)"
+    : "rgba(6, 182, 212, 0.12)";
+
   return (
     <Screen>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.keyboard}
       >
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <Animated.View
             style={[
               styles.brandStage,
@@ -123,7 +228,7 @@ export default function AuthScreen() {
               }
             ]}
           >
-            <View style={styles.brandHalo} />
+            <View style={[styles.brandHalo, { backgroundColor: haloGlow }]} />
             <Animated.View
               style={[
                 styles.logoFloat,
@@ -163,6 +268,14 @@ export default function AuthScreen() {
                 </Text>
               </Pressable>
               <Pressable
+                onPress={() => setMode("mentor")}
+                style={[styles.segmentButton, mode === "mentor" && styles.segmentActive]}
+              >
+                <Text style={[styles.segmentText, mode === "mentor" && styles.segmentTextActive]}>
+                  Mentor
+                </Text>
+              </Pressable>
+              <Pressable
                 onPress={() => setMode("signup")}
                 style={[styles.segmentButton, mode === "signup" && styles.segmentActive]}
               >
@@ -173,30 +286,42 @@ export default function AuthScreen() {
             </View>
 
             <Text style={styles.title}>
-              {mode === "login" ? "Enter your research space" : "Create your research profile"}
+              {mode === "login" ? "Enter your research space" : mode === "mentor" ? "Mentor Hub Login" : "Create your research profile"}
             </Text>
             <Text style={styles.subtitle}>
               {mode === "login"
                 ? "A calmer way to discover papers, technologies, and ideas."
+                : mode === "mentor"
+                ? "Connect with students, manage chats, and review papers."
                 : "Choose the domains that should shape your discovery feed."}
             </Text>
 
-            {mode === "signup" ? (
-              <TextInput
-                value={name}
-                onChangeText={setName}
-                placeholder="Full Name"
-                placeholderTextColor={colors.subdued}
-                style={styles.input}
-              />
-            ) : null}
+            {mode === "signup" && (
+              <>
+                <TextInput
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="Full Name"
+                  placeholderTextColor={colors.subdued}
+                  style={styles.input}
+                />
+                <TextInput
+                  value={phoneNumber}
+                  onChangeText={setPhoneNumber}
+                  placeholder="Phone (e.g. +91 8757674333)"
+                  placeholderTextColor={colors.subdued}
+                  keyboardType="phone-pad"
+                  style={styles.input}
+                />
+              </>
+            )}
             <TextInput
               value={email}
               onChangeText={setEmail}
-              placeholder="Email"
+              placeholder={mode === "login" ? "Email or Admin Username" : mode === "mentor" ? "Mentor ID (e.g. rajeev-shorey)" : "Email"}
               placeholderTextColor={colors.subdued}
               autoCapitalize="none"
-              keyboardType="email-address"
+              keyboardType={mode === "signup" ? "email-address" : "default"}
               style={styles.input}
             />
             <TextInput
@@ -208,7 +333,7 @@ export default function AuthScreen() {
               style={styles.input}
             />
 
-            {mode === "signup" ? (
+            {mode === "signup" && (
               <View style={styles.interests}>
                 <Text style={styles.label}>Domain Interests</Text>
                 <View style={styles.chips}>
@@ -222,11 +347,11 @@ export default function AuthScreen() {
                   ))}
                 </View>
               </View>
-            ) : null}
+            )}
 
             <GlassButton
-              title={loading ? "Please wait" : mode === "login" ? "Login" : "Create Account"}
-              icon={mode === "login" ? "log-in-outline" : "person-add-outline"}
+              title={loading ? "Please wait" : mode === "login" ? "Login" : mode === "mentor" ? "Enter Mentor Hub" : "Create Account"}
+              icon={mode === "login" || mode === "mentor" ? "log-in-outline" : "person-add-outline"}
               onPress={submit}
               disabled={loading}
             />
@@ -239,125 +364,126 @@ export default function AuthScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  keyboard: {
-    flex: 1
-  },
-  content: {
-    flexGrow: 1,
-    padding: 22,
-    justifyContent: "center",
-    gap: 18
-  },
-  brandStage: {
-    minHeight: 246,
-    alignItems: "center",
-    justifyContent: "center"
-  },
-  brandHalo: {
-    position: "absolute",
-    width: 236,
-    height: 236,
-    borderRadius: 118,
-    backgroundColor: "rgba(6, 182, 212, 0.12)",
-    borderWidth: 1,
-    borderColor: "rgba(103, 232, 249, 0.16)"
-  },
-  logoFloat: {
-    width: 250,
-    height: 128,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: colors.accent,
-    shadowOpacity: 0.32,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 12
-  },
-  brandLine: {
-    color: colors.muted,
-    fontSize: 13,
-    marginTop: 5,
-    fontWeight: "400"
-  },
-  panel: {
-    backgroundColor: "rgba(21, 27, 47, 0.86)",
-    borderRadius: 28,
-    borderWidth: 1,
-    borderColor: "rgba(203, 213, 225, 0.18)",
-    padding: 18,
-    gap: 14,
-    shadowColor: "#000",
-    shadowOpacity: 0.26,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 18 },
-    elevation: 10
-  },
-  segment: {
-    flexDirection: "row",
-    backgroundColor: "rgba(11, 16, 32, 0.7)",
-    padding: 4,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: "rgba(203, 213, 225, 0.08)"
-  },
-  segmentButton: {
-    flex: 1,
-    height: 48,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radius.pill
-  },
-  segmentActive: {
-    backgroundColor: colors.primary,
-    shadowColor: colors.primary,
-    shadowOpacity: 0.36,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 6
-  },
-  segmentText: {
-    color: colors.subdued,
-    fontWeight: "600"
-  },
-  segmentTextActive: {
-    color: colors.text
-  },
-  title: {
-    color: colors.text,
-    fontSize: 25,
-    lineHeight: 31,
-    fontWeight: "700",
-    marginTop: 6
-  },
-  subtitle: {
-    color: colors.muted,
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: -5
-  },
-  input: {
-    height: 56,
-    borderRadius: 18,
-    backgroundColor: "rgba(27, 36, 64, 0.86)",
-    borderColor: "rgba(203, 213, 225, 0.16)",
-    borderWidth: 1,
-    color: colors.text,
-    paddingHorizontal: 16,
-    fontSize: 15,
-    fontWeight: "500"
-  },
-  interests: {
-    gap: 10
-  },
-  label: {
-    color: colors.muted,
-    fontSize: 13,
-    fontWeight: "600"
-  },
-  chips: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8
-  }
-});
+function getStyles(colors: typeof defaultColors, scale: number) {
+  return StyleSheet.create({
+    keyboard: {
+      flex: 1
+    },
+    content: {
+      flexGrow: 1,
+      padding: 22,
+      justifyContent: "center",
+      gap: 18
+    },
+    brandStage: {
+      minHeight: 220,
+      alignItems: "center",
+      justifyContent: "center"
+    },
+    brandHalo: {
+      position: "absolute",
+      width: 236,
+      height: 236,
+      borderRadius: 118,
+      borderWidth: 1,
+      borderColor: colors.border
+    },
+    logoFloat: {
+      width: 250,
+      height: 128,
+      alignItems: "center",
+      justifyContent: "center",
+      shadowColor: colors.accent,
+      shadowOpacity: 0.16,
+      shadowRadius: 20,
+      shadowOffset: { width: 0, height: 10 },
+      elevation: 6
+    },
+    brandLine: {
+      color: colors.muted,
+      fontSize: 12 * scale,
+      marginTop: 5,
+      fontWeight: "500"
+    },
+    panel: {
+      backgroundColor: colors.card,
+      borderRadius: 28,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 18,
+      gap: 14,
+      shadowColor: "#000",
+      shadowOpacity: 0.15,
+      shadowRadius: 16,
+      shadowOffset: { width: 0, height: 12 },
+      elevation: 8
+    },
+    segment: {
+      flexDirection: "row",
+      backgroundColor: colors.cardElevated,
+      padding: 4,
+      borderRadius: radius.pill,
+      borderWidth: 1,
+      borderColor: colors.border
+    },
+    segmentButton: {
+      flex: 1,
+      height: 44,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: radius.pill
+    },
+    segmentActive: {
+      backgroundColor: colors.primary,
+      shadowColor: colors.primary,
+      shadowOpacity: 0.22,
+      shadowRadius: 10,
+      elevation: 4
+    },
+    segmentText: {
+      color: colors.subdued,
+      fontWeight: "700",
+      fontSize: 13 * scale
+    },
+    segmentTextActive: {
+      color: colors.text
+    },
+    title: {
+      color: colors.text,
+      fontSize: 22 * scale,
+      lineHeight: 28 * scale,
+      fontWeight: "800",
+      marginTop: 6
+    },
+    subtitle: {
+      color: colors.muted,
+      fontSize: 13 * scale,
+      lineHeight: 19 * scale,
+      marginTop: -4
+    },
+    input: {
+      height: 54,
+      borderRadius: 18,
+      backgroundColor: colors.cardElevated,
+      borderColor: colors.border,
+      borderWidth: 1,
+      color: colors.text,
+      paddingHorizontal: 16,
+      fontSize: 14 * scale,
+      fontWeight: "600"
+    },
+    interests: {
+      gap: 10
+    },
+    label: {
+      color: colors.muted,
+      fontSize: 12 * scale,
+      fontWeight: "700"
+    },
+    chips: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8
+    }
+  });
+}

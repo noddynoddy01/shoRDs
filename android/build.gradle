@@ -39,3 +39,15 @@ allprojects {
         maven { url 'https://www.jitpack.io' }
     }
 }
+
+// Fast deploy for Android Studio (no 15-minute native build). Same APK as phone.
+tasks.register("installPrebuiltApk", Exec) {
+    group = "shoRDs"
+    description = "Install shoRDs-android-studio-emulator.apk and launch (no Gradle build)."
+    workingDir rootDir
+    if (System.getProperty("os.name").toLowerCase().contains("windows")) {
+        commandLine "powershell", "-ExecutionPolicy", "Bypass", "-File", "${rootDir}/install-and-launch.ps1"
+    } else {
+        commandLine "bash", "${rootDir}/install-and-launch.sh"
+    }
+}

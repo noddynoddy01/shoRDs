@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text } from "react-native";
-import { colors, radius } from "@/constants/theme";
+import { useTheme } from "../context/ThemeContext";
+import { colors as defaultColors, radius } from "../constants/theme";
 
 type ChipProps = {
   label: string;
@@ -8,6 +9,9 @@ type ChipProps = {
 };
 
 export function Chip({ label, selected, onPress }: ChipProps) {
+  const { colors, fontSizeScale } = useTheme();
+  const styles = getStyles(colors, fontSizeScale);
+
   return (
     <Pressable
       onPress={onPress}
@@ -19,25 +23,27 @@ export function Chip({ label, selected, onPress }: ChipProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  chip: {
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: 13,
-    paddingVertical: 8,
-    backgroundColor: "rgba(255,255,255,0.03)"
-  },
-  selected: {
-    backgroundColor: "rgba(124, 58, 237, 0.22)",
-    borderColor: colors.primary
-  },
-  text: {
-    color: colors.muted,
-    fontSize: 13,
-    fontWeight: "600"
-  },
-  textSelected: {
-    color: colors.text
-  }
-});
+function getStyles(colors: typeof defaultColors, scale: number) {
+  return StyleSheet.create({
+    chip: {
+      borderRadius: radius.pill,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: 13,
+      paddingVertical: 7,
+      backgroundColor: colors.card
+    },
+    selected: {
+      backgroundColor: "rgba(124, 58, 237, 0.16)",
+      borderColor: colors.primary
+    },
+    text: {
+      color: colors.muted,
+      fontSize: 12 * scale,
+      fontWeight: "700"
+    },
+    textSelected: {
+      color: colors.text
+    }
+  });
+}

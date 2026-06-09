@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Pressable, Share, StyleSheet, Text, View } from "react-native";
+import { Alert, Animated, Pressable, Share, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "../context/ThemeContext";
 import { colors as defaultColors, radius } from "../constants/theme";
@@ -13,17 +13,20 @@ import { ResearchIllustration } from "./ResearchIllustration";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { isSubscribed, hasFreeViewsRemaining } from "@/services/subscriptionService";
 
-type ResearchCardProps = {
+type ReelCardProps = {
   paper: Paper;
-  compact?: boolean;
+  height: number;
+  index: number;
+  onDelete?: () => void;
 };
 
-export function ResearchCard({ paper, compact }: ResearchCardProps) {
+export function ReelCard({ paper, height, index, onDelete }: ReelCardProps) {
   const { colors, fontSizeScale, theme } = useTheme();
-  const entrance = useRef(new Animated.Value(0)).current;
-  const pulse = useRef(new Animated.Value(1)).current;
   const [saved, setSaved] = useState(false);
+  const [canDelete, setCanDelete] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
+  const pulse = useRef(new Animated.Value(1)).current;
+  const entrance = useRef(new Animated.Value(0)).current;
 
   const styles = getStyles(colors, fontSizeScale, theme);
 
@@ -31,13 +34,23 @@ export function ResearchCard({ paper, compact }: ResearchCardProps) {
     entrance.setValue(0);
     Animated.timing(entrance, {
       toValue: 1,
-      duration: 520,
+      duration: 480,
       useNativeDriver: true
     }).start();
   }, [entrance, paper.id]);
 
   useEffect(() => {
     isPaperSaved(paper.id).then(setSaved);
+    
+    // Check if user has permission to delete this paper
+    AsyncStorage.getItem("shords.currentUser").then((val) => {
+      if (val) {
+        const parsed = JSON.parse(val);
+        setCanDelete(parsed.role === "admin" || parsed.id === paper.authorId || paper.authorId === "local-uploader");
+      } else {
+        setCanDelete(paper.authorId === "local-uploader");
+      }
+    });
 
     // Check lock status
     async function checkLock() {
@@ -53,7 +66,7 @@ export function ResearchCard({ paper, compact }: ResearchCardProps) {
       }
     }
     checkLock();
-  }, [paper.id]);
+  }, [paper.id, paper.authorId]);
 
   async function sharePaper() {
     const shareMessage = `📚 Discover Research on shoRDs!
@@ -81,9 +94,29 @@ Download shoRDs for quick, simplified, and technical research updates! 🚀`;
     const next = await toggleSavedPaper(paper.id);
     setSaved(next);
     Animated.sequence([
-      Animated.timing(pulse, { toValue: 1.16, duration: 110, useNativeDriver: true }),
-      Animated.timing(pulse, { toValue: 1, duration: 110, useNativeDriver: true })
+      Animated.timing(pulse, { toValue: 1.18, duration: 120, useNativeDriver: true }),
+      Animated.timing(pulse, { toValue: 1, duration: 120, useNativeDriver: true })
     ]).start();
+  }
+
+  async function handleDelete() {
+    Alert.alert(
+      "Delete Paper",
+      "Are you sure you want to delete this research brief from the feed? This action is permanent.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            const { deletePaper } = await import("@/services/papersStore");
+            await deletePaper(paper.id);
+            Alert.alert("Success", "Research brief removed successfully.");
+            if (onDelete) onDelete();
+          }
+        }
+      ]
+    );
   }
 
   const handleCardPress = () => {
@@ -94,41 +127,33 @@ Download shoRDs for quick, simplified, and technical research updates! 🚀`;
     }
   };
 
-  const cardColors = theme === "light" || theme === "sepia"
-    ? [colors.card, colors.cardElevated]
-    : ["rgba(255,255,255,0.06)", "rgba(255,255,255,0.01)"];
-
-  const glowColors = theme === "light"
-    ? ["rgba(6,182,212,0.12)", "rgba(124,58,237,0.06)", "transparent"]
-    : theme === "sepia"
-    ? ["rgba(160,82,45,0.12)", "rgba(205,133,63,0.06)", "transparent"]
-    : ["rgba(6,182,212,0.28)", "rgba(124,58,237,0.12)", "transparent"];
-
   return (
     <Animated.View
-      style={{
-        opacity: entrance,
-        transform: [
-          {
-            translateY: entrance.interpolate({
-              inputRange: [0, 1],
-              outputRange: [20, 0]
-            })
-          }
-        ]
-      }}
+      style={[
+        styles.frame,
+        {
+          height,
+          opacity: entrance,
+          transform: [{ translateY: entrance.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }]
+        }
+      ]}
     >
-      <View style={[styles.card, compact && styles.compact]}>
+      <View style={styles.card}>
+        <LinearGradient
+          colors={colors.cardGradient as any}
+          style={StyleSheet.absoluteFill}
+        />
+
         {/* Lock Overlay */}
         {isLocked && (
           <View style={styles.lockOverlay}>
-            <Ionicons name="lock-closed-outline" size={40} color={colors.accentSoft} />
-            <Text style={styles.lockTitle}>Premium Brief</Text>
+            <Ionicons name="lock-closed-outline" size={48} color={colors.accentSoft} />
+            <Text style={styles.lockTitle}>Premium Research Journal</Text>
             <Text style={styles.lockDesc}>
-              Upgrade to premium to read full briefs, play audio summaries, and connect with academic mentors.
+              You have viewed your limit of 5 free research papers. Upgrade to Premium for unlimited access, expert chats, and translations.
             </Text>
             <GlassButton
-              title="Unlock Now"
+              title="Unlock Premium"
               icon="sparkles"
               onPress={() => router.push("/paywall" as never)}
               style={styles.lockBtn}
@@ -136,22 +161,12 @@ Download shoRDs for quick, simplified, and technical research updates! 🚀`;
           </View>
         )}
 
-        <Pressable
-          style={({ pressed }) => [styles.cardBody, pressed && styles.pressed]}
-          onPress={handleCardPress}
-        >
-          <LinearGradient
-            colors={cardColors as any}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
+        <View style={styles.topMeta}>
+          <Text style={styles.stackLabel}>STACK {String(index + 1).padStart(2, "0")}</Text>
+          <Text style={styles.readingTime}>{paper.readingTime}</Text>
+        </View>
 
-          <View style={styles.topRow}>
-            <Text style={styles.stackLabel}>JOURNAL ARCHIVE</Text>
-            <Text style={styles.readingTime}>{paper.readingTime}</Text>
-          </View>
-
+        <Pressable style={styles.body} onPress={handleCardPress} disabled={false}>
           {/* Authentic Journal Header */}
           <View style={styles.journalHeader}>
             <Text style={styles.journalName}>{paper.organization || "ACADEMIC PUBLICATION"}</Text>
@@ -170,31 +185,27 @@ Download shoRDs for quick, simplified, and technical research updates! 🚀`;
 
           {/* Authentic Heading Cutout */}
           <View style={styles.cutoutBlock}>
-            <Text style={styles.cutoutTitle} numberOfLines={compact ? 2 : 3}>{paper.title}</Text>
+            <Text style={styles.cutoutTitle} numberOfLines={3}>{paper.title}</Text>
           </View>
 
-          {!compact && (
-            <>
-              <Text style={styles.summary} numberOfLines={2}>{paper.summary}</Text>
+          <Text style={styles.summary} numberOfLines={2}>{paper.summary}</Text>
 
-              {/* Dynamic Vector Illustration */}
-              {paper.illustrations && paper.illustrations.length > 0 && (
-                <ResearchIllustration dataString={paper.illustrations[0]} />
-              )}
+          {/* Dynamic Vector Illustration */}
+          {paper.illustrations && paper.illustrations.length > 0 && (
+            <ResearchIllustration dataString={paper.illustrations[0]} />
+          )}
 
-              {/* Highlights / Bullet Insights */}
-              {paper.insights && paper.insights.length > 0 && (
-                <View style={styles.insightsContainer}>
-                  <Text style={styles.insightsLabel}>KEY HIGHLIGHTS</Text>
-                  {paper.insights.slice(0, 2).map((insight, idx) => (
-                    <View key={idx} style={styles.insightRow}>
-                      <Text style={styles.insightBullet}>✦</Text>
-                      <Text style={styles.insightText} numberOfLines={1}>{insight}</Text>
-                    </View>
-                  ))}
+          {/* Highlights / Bullet Insights */}
+          {paper.insights && paper.insights.length > 0 && (
+            <View style={styles.insightsContainer}>
+              <Text style={styles.insightsLabel}>KEY HIGHLIGHTS</Text>
+              {paper.insights.slice(0, 2).map((insight, idx) => (
+                <View key={idx} style={styles.insightRow}>
+                  <Text style={styles.insightBullet}>✦</Text>
+                  <Text style={styles.insightText} numberOfLines={1}>{insight}</Text>
                 </View>
-              )}
-            </>
+              ))}
+            </View>
           )}
 
           {/* Media Indicators */}
@@ -202,25 +213,20 @@ Download shoRDs for quick, simplified, and technical research updates! 🚀`;
             {paper.audioUrl && (
               <View style={styles.mediaPill}>
                 <Ionicons name="volume-high" size={12} color={colors.accentSoft} />
-                <Text style={styles.mediaPillText}>AUDIO</Text>
+                <Text style={styles.mediaPillText}>AUDIO BRIEF</Text>
               </View>
             )}
             {paper.videoUrl && (
               <View style={styles.mediaPill}>
                 <Ionicons name="play-circle" size={12} color={colors.accentSoft} />
-                <Text style={styles.mediaPillText}>VIDEO</Text>
+                <Text style={styles.mediaPillText}>VIDEO OVERVIEW</Text>
               </View>
             )}
           </View>
 
-          <View style={styles.metaRow}>
-            <View>
-              <Text style={styles.author}>{paper.authorName}</Text>
-              <Text style={styles.role}>{paper.authorRole}</Text>
-            </View>
-            <Text style={styles.saved}>
-              {(paper.savedCount + (saved ? 1 : 0)).toLocaleString()} saves
-            </Text>
+          <View style={styles.authorBlock}>
+            <Text style={styles.author}>{paper.authorName}</Text>
+            <Text style={styles.role}>{paper.authorRole}</Text>
           </View>
 
           <View style={styles.tags}>
@@ -231,36 +237,32 @@ Download shoRDs for quick, simplified, and technical research updates! 🚀`;
           </View>
         </Pressable>
 
-        <View style={styles.actions}>
+        <View style={styles.rail}>
           <Animated.View style={{ transform: [{ scale: pulse }] }}>
-            <Pressable style={[styles.iconButton, saved && styles.iconButtonActive]} onPress={toggleSave}>
+            <Pressable style={[styles.railButton, saved && styles.railButtonActive]} onPress={toggleSave}>
               <Ionicons
                 name={saved ? "bookmark" : "bookmark-outline"}
                 color={saved ? colors.accentSoft : colors.text}
-                size={20}
+                size={22}
               />
+              <Text style={[styles.railLabel, saved && { color: colors.accentSoft }]}>{saved ? "Saved" : "Save"}</Text>
             </Pressable>
           </Animated.View>
-          <Pressable style={styles.iconButton} onPress={sharePaper}>
-            <Ionicons name="share-social-outline" color={colors.text} size={20} />
+          <Pressable style={styles.railButton} onPress={sharePaper}>
+            <Ionicons name="share-social-outline" color={colors.text} size={22} />
+            <Text style={styles.railLabel}>Share</Text>
           </Pressable>
-          <GlassButton
-            title={isLocked ? "Unlock Premium" : "Read Summary"}
-            icon={isLocked ? "lock-closed-outline" : "arrow-forward"}
-            onPress={handleCardPress}
-            style={styles.readMore}
-          />
+          <Pressable style={styles.railButton} onPress={handleCardPress}>
+            <Ionicons name={isLocked ? "lock-closed-outline" : "book-outline"} color={isLocked ? colors.accentSoft : colors.text} size={22} />
+            <Text style={[styles.railLabel, isLocked && { color: colors.accentSoft }]}>{isLocked ? "Unlock" : "Read"}</Text>
+          </Pressable>
+          {canDelete && (
+            <Pressable style={styles.railButton} onPress={handleDelete}>
+              <Ionicons name="trash-outline" color="#EF4444" size={22} />
+              <Text style={[styles.railLabel, { color: "#EF4444" }]}>Delete</Text>
+            </Pressable>
+          )}
         </View>
-
-        {!compact && (
-          <>
-            <LinearGradient
-              colors={glowColors as any}
-              style={styles.glow}
-            />
-            <View style={styles.orbitLine} />
-          </>
-        )}
       </View>
     </Animated.View>
   );
@@ -268,60 +270,53 @@ Download shoRDs for quick, simplified, and technical research updates! 🚀`;
 
 function getStyles(colors: typeof defaultColors, scale: number, theme: string) {
   return StyleSheet.create({
+    frame: {
+      paddingHorizontal: 14,
+      paddingVertical: 6
+    },
     card: {
-      minHeight: 460,
+      flex: 1,
       borderRadius: radius.lg,
-      backgroundColor: colors.card,
       borderWidth: 1,
       borderColor: colors.border,
-      padding: 20,
       overflow: "hidden",
-      justifyContent: "space-between",
-      shadowColor: colors.accent,
-      shadowOpacity: 0.08,
-      shadowRadius: 16,
-      shadowOffset: { width: 0, height: 10 },
-      gap: 12
+      padding: 18,
+      justifyContent: "space-between"
     },
-    cardBody: {
-      flex: 1,
-      gap: 10
-    },
-    compact: {
-      minHeight: 0,
-      gap: 10
-    },
-    pressed: {
-      transform: [{ scale: 0.992 }]
-    },
-    topRow: {
+    topMeta: {
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
-      gap: 12
+      zIndex: 10,
+      elevation: 2
     },
     stackLabel: {
       color: colors.accentSoft,
-      fontSize: 11 * scale,
+      fontSize: 12 * scale,
       fontWeight: "800",
-      letterSpacing: 1.5
+      letterSpacing: 1
     },
     readingTime: {
       color: colors.subdued,
       fontSize: 12 * scale,
       fontWeight: "600"
     },
+    body: {
+      flex: 1,
+      justifyContent: "center",
+      gap: 8,
+      paddingRight: 58,
+      marginTop: 6,
+      marginBottom: 6
+    },
     summary: {
       color: colors.muted,
       fontSize: 13 * scale,
-      lineHeight: 20 * scale
+      lineHeight: 19 * scale
     },
-    metaRow: {
-      flexDirection: "row",
-      alignItems: "flex-end",
-      justifyContent: "space-between",
-      gap: 12,
-      marginTop: 4
+    authorBlock: {
+      gap: 1,
+      marginTop: 2
     },
     author: {
       color: colors.text,
@@ -330,67 +325,40 @@ function getStyles(colors: typeof defaultColors, scale: number, theme: string) {
     },
     role: {
       color: colors.subdued,
-      fontSize: 11 * scale,
-      marginTop: 1
-    },
-    saved: {
-      color: colors.success,
-      fontSize: 11 * scale,
-      fontWeight: "700"
+      fontSize: 11 * scale
     },
     tags: {
       flexDirection: "row",
       flexWrap: "wrap",
-      gap: 6
+      gap: 6,
+      marginTop: 2
     },
-    actions: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 10,
-      zIndex: 2,
-      elevation: 2,
-      marginTop: 6
-    },
-    iconButton: {
-      width: 44,
-      height: 44,
-      borderRadius: 14,
-      borderWidth: 1,
-      borderColor: colors.border,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: colors.cardElevated
-    },
-    iconButtonActive: {
-      borderColor: "rgba(103, 232, 249, 0.42)",
-      backgroundColor: "rgba(6, 182, 212, 0.12)"
-    },
-    readMore: {
-      flex: 1
-    },
-    glow: {
+    rail: {
       position: "absolute",
-      width: 190,
-      height: 190,
-      borderRadius: 95,
-      right: -72,
-      top: -64,
-      opacity: 0.8
+      right: 14,
+      bottom: 18,
+      gap: 12,
+      alignItems: "center"
     },
-    orbitLine: {
-      position: "absolute",
-      right: -18,
-      top: 94,
-      width: 150,
-      height: 1,
-      backgroundColor: colors.border,
-      transform: [{ rotate: "-14deg" }]
+    railButton: {
+      width: 52,
+      alignItems: "center",
+      gap: 3
+    },
+    railButtonActive: {
+      opacity: 1
+    },
+    railLabel: {
+      color: colors.subdued,
+      fontSize: 10 * scale,
+      fontWeight: "700",
+      textAlign: "center"
     },
     journalHeader: {
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
       paddingBottom: 6,
-      marginBottom: 2,
+      marginBottom: 4,
     },
     journalName: {
       fontFamily: "serif",
@@ -428,7 +396,7 @@ function getStyles(colors: typeof defaultColors, scale: number, theme: string) {
       borderStyle: "dashed",
       padding: 10,
       borderRadius: radius.sm,
-      marginVertical: 2,
+      marginVertical: 4,
     },
     cutoutTitle: {
       fontFamily: "serif",
@@ -496,9 +464,9 @@ function getStyles(colors: typeof defaultColors, scale: number, theme: string) {
     },
     lockTitle: {
       color: colors.text,
-      fontSize: 17 * scale,
+      fontSize: 18 * scale,
       fontWeight: "800",
-      marginTop: 8,
+      marginTop: 10,
       marginBottom: 4,
       textAlign: "center",
     },
@@ -507,7 +475,7 @@ function getStyles(colors: typeof defaultColors, scale: number, theme: string) {
       fontSize: 12 * scale,
       lineHeight: 18 * scale,
       textAlign: "center",
-      marginBottom: 12,
+      marginBottom: 16,
     },
     lockBtn: {
       width: "100%",

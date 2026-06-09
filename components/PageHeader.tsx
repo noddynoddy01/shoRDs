@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
-import { colors } from "@/constants/theme";
+import { useTheme } from "../context/ThemeContext";
+import { colors as defaultColors } from "../constants/theme";
 import { Logo } from "./Logo";
 
 type PageHeaderProps = {
@@ -9,6 +10,9 @@ type PageHeaderProps = {
 };
 
 export function PageHeader({ kicker, title, subtitle }: PageHeaderProps) {
+  const { colors, fontSizeScale } = useTheme();
+  const styles = getStyles(colors, fontSizeScale);
+
   return (
     <View style={styles.header}>
       <Logo />
@@ -21,29 +25,31 @@ export function PageHeader({ kicker, title, subtitle }: PageHeaderProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  header: {
-    gap: 12
-  },
-  copy: {
-    gap: 5
-  },
-  kicker: {
-    color: colors.accent,
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "uppercase"
-  },
-  title: {
-    color: colors.text,
-    fontSize: 27,
-    lineHeight: 34,
-    fontWeight: "800",
-    letterSpacing: 0
-  },
-  subtitle: {
-    color: colors.muted,
-    fontSize: 14,
-    lineHeight: 21
-  }
-});
+function getStyles(colors: typeof defaultColors, scale: number) {
+  return StyleSheet.create({
+    header: {
+      gap: 12
+    },
+    copy: {
+      gap: 5
+    },
+    kicker: {
+      color: colors.accent,
+      fontSize: 12 * scale,
+      fontWeight: "800",
+      textTransform: "uppercase"
+    },
+    title: {
+      color: colors.text,
+      fontSize: 26 * scale,
+      lineHeight: 32 * scale,
+      fontWeight: "800",
+      letterSpacing: 0
+    },
+    subtitle: {
+      color: colors.muted,
+      fontSize: 13 * scale,
+      lineHeight: 20 * scale
+    }
+  });
+}

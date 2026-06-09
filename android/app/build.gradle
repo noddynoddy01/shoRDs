@@ -31,7 +31,8 @@ react {
     //   The list of variants to that are debuggable. For those we're going to
     //   skip the bundling of the JS bundle and the assets. By default is just 'debug'.
     //   If you add flavors like lite, prod, etc. you'll have to list your debuggableVariants.
-    // debuggableVariants = ["liteDebug", "prodDebug"]
+    // Empty list = bundle JS for ALL variants (including debug). Required so Android Studio Run matches release APK.
+    debuggableVariants = []
 
     /* Bundling */
     //   A list containing the node command and its flags. Default is just 'node'.
@@ -60,6 +61,13 @@ react {
 
     /* Autolinking */
     autolinkLibrariesWithApp()
+}
+
+// Always rebuild the embedded JS bundle so Android Studio Run matches the phone release APK.
+project.afterEvaluate {
+    tasks.matching { it.name.contains("createBundle") && it.name.contains("JsAndAssets") }.configureEach {
+        outputs.upToDateWhen { false }
+    }
 }
 
 /**

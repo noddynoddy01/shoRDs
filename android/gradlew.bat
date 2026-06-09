@@ -26,6 +26,9 @@
 @rem Set local scope for the variables with windows NT shell
 if "%OS%"=="Windows_NT" setlocal
 
+@rem Short Gradle home on D:\g only — never OneDrive (Windows MAX_PATH / CMake).
+set "GRADLE_USER_HOME=D:\g"
+
 set DIRNAME=%~dp0
 if "%DIRNAME%"=="" set DIRNAME=.
 @rem This is normally unused
