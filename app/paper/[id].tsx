@@ -19,6 +19,8 @@ import { GlassButton } from "@/components/GlassButton";
 import { Logo } from "@/components/Logo";
 import { Screen } from "@/components/Screen";
 import { ResearchIllustration } from "@/components/ResearchIllustration";
+import * as Speech from "expo-speech";
+import { Video, ResizeMode } from "expo-av";
 import { colors as defaultColors, radius } from "@/constants/theme";
 import { samplePapers } from "@/data/samplePapers";
 import { getPaperById, parsePaperSections, deletePaper } from "@/services/papersStore";
@@ -54,6 +56,12 @@ export default function ResearchDetailsScreen() {
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
 
   const styles = getStyles(colors, fontSizeScale, theme);
+
+  // Resolve paper content based on selected language (safely handle null paper before load)
+  const hasTranslation = paper?.translations && paper.translations[selectedLang];
+  const displayTitle = paper ? (hasTranslation ? paper.translations![selectedLang].title : paper.title) : "";
+  const displaySummary = paper ? (hasTranslation ? paper.translations![selectedLang].summary : paper.summary) : "";
+  const displayExplanation = paper ? (hasTranslation ? paper.translations![selectedLang].fullExplanation : paper.fullExplanation) : "";
 
   // Page Access / Subscription check
   useEffect(() => {
@@ -146,6 +154,33 @@ export default function ResearchDetailsScreen() {
     };
   }, [isPlaying, audioSpeed]);
 
+  // Native speech synthesis trigger
+  useEffect(() => {
+    if (isPlaying) {
+      const speechText = `${displayTitle}. Summary: ${displaySummary}. Insights: ${paper?.insights ? paper.insights.join(". ") : ""}`;
+      const rateScale = audioSpeed === "1.0x" ? 1.0 : audioSpeed === "1.5x" ? 1.4 : 1.8;
+      
+      Speech.speak(speechText, {
+        language: selectedLang,
+        rate: rateScale,
+        onDone: () => {
+          setIsPlaying(false);
+          setAudioProgress(0);
+        },
+        onError: (e) => {
+          console.warn("Speech error:", e);
+          setIsPlaying(false);
+        }
+      });
+    } else {
+      Speech.stop();
+    }
+
+    return () => {
+      Speech.stop();
+    };
+  }, [isPlaying, audioSpeed, selectedLang, displayTitle, displaySummary, paper?.insights]);
+
   if (!paper) {
     return (
       <Screen>
@@ -166,12 +201,6 @@ export default function ResearchDetailsScreen() {
       setTranslating(false);
     }, 900); // Sleek mock translate delay
   };
-
-  // Resolve paper content based on selected language
-  const hasTranslation = paper.translations && paper.translations[selectedLang];
-  const displayTitle = hasTranslation ? paper.translations![selectedLang].title : paper.title;
-  const displaySummary = hasTranslation ? paper.translations![selectedLang].summary : paper.summary;
-  const displayExplanation = hasTranslation ? paper.translations![selectedLang].fullExplanation : paper.fullExplanation;
 
   // Parse sections
   const sections = parsePaperSections(displayExplanation, displayTitle, displaySummary, paper.domain);
@@ -531,43 +560,49 @@ export default function ResearchDetailsScreen() {
               </Pressable>
             </View>
 
-            {/* Video Simulated screen */}
+            {/* Video Native/Simulated screen */}
             <View style={styles.videoScreen}>
-              {/* Cover background (academic diagram mock) */}
-              <LinearGradient
-                colors={["#0F172A", "#1E293B"]}
-                style={StyleSheet.absoluteFill}
-              />
-              <Ionicons
-                name="stats-chart"
-                size={80}
-                color="rgba(6, 182, 212, 0.15)"
-                style={styles.videoDiagramMock}
-              />
-
-              {/* Pulsing play overlay */}
-              <Pressable
-                onPress={() => setIsVideoPlaying(!isVideoPlaying)}
-                style={styles.videoPlayOverlayBtn}
-              >
-                {isVideoPlaying ? (
-                  <View style={styles.pulseContainer}>
-                    <ActivityIndicator size="large" color={colors.accentSoft} />
-                    <Text style={styles.streamingText}>STREAMING AI LESSON...</Text>
-                  </View>
-                ) : (
-                  <Ionicons name="play-circle" size={64} color={colors.accentSoft} />
-                )}
-              </Pressable>
-
-              {/* Media Control overlay bar */}
-              <View style={styles.videoControls}>
-                <Text style={styles.videoTimeText}>{isVideoPlaying ? "0:12" : "0:00"}</Text>
-                <View style={styles.videoTrackBar}>
-                  <View style={[styles.videoTrackProgress, { width: isVideoPlaying ? "8%" : "0%" }]} />
-                </View>
-                <Text style={styles.videoTimeText}>4:30</Text>
-              </View>
+              {isVideoPlaying ? (
+                <Video
+                  source={{ 
+                    uri: paper.videoUrl && !paper.videoUrl.includes("shords.app") 
+                      ? paper.videoUrl 
+                      : "https://www.w3schools.com/html/mov_bbb.mp4" 
+                  }}
+                  rate={1.0}
+                  volume={1.0}
+                  isMuted={false}
+                  resizeMode={ResizeMode.CONTAIN}
+                  shouldPlay={true}
+                  isLooping
+                  useNativeControls
+                  style={styles.videoPlayerNative}
+                  onError={(e) => {
+                    console.warn("Video play error:", e);
+                    Alert.alert("Playback Error", "Could not stream AI video lesson.");
+                    setIsVideoPlaying(false);
+                  }}
+                />
+              ) : (
+                <>
+                  <LinearGradient
+                    colors={["#0F172A", "#1E293B"]}
+                    style={StyleSheet.absoluteFill}
+                  />
+                  <Ionicons
+                    name="stats-chart"
+                    size={80}
+                    color="rgba(6, 182, 212, 0.15)"
+                    style={styles.videoDiagramMock}
+                  />
+                  <Pressable
+                    onPress={() => setIsVideoPlaying(true)}
+                    style={styles.videoPlayOverlayBtn}
+                  >
+                    <Ionicons name="play-circle" size={64} color={colors.accentSoft} />
+                  </Pressable>
+                </>
+              )}
             </View>
 
             {/* AI Chapters / Explainer notes */}
@@ -986,6 +1021,10 @@ function getStyles(colors: typeof defaultColors, scale: number, theme: string) {
       justifyContent: "center",
       alignItems: "center",
       position: "relative"
+    },
+    videoPlayerNative: {
+      width: "100%",
+      height: 220
     },
     videoDiagramMock: {
       position: "absolute",
