@@ -122,25 +122,6 @@ export default function ProfileScreen() {
           )}
         </View>
 
-        {/* Preferences Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>App Preferences</Text>
-          <Text style={styles.label}>Language Access</Text>
-          <View style={styles.chips}>
-            {["English", "Hindi", "Spanish"].map((lang) => (
-              <Chip
-                key={lang}
-                label={lang}
-                selected={userProfile.language === lang || (!userProfile.language && lang === "English")}
-                onPress={async () => {
-                  const updated = { ...userProfile, language: lang };
-                  setUserProfile(updated);
-                  await AsyncStorage.setItem("shords.currentUser", JSON.stringify(updated));
-                }}
-              />
-            ))}
-          </View>
-        </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Interests</Text>

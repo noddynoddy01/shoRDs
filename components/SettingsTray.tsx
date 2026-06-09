@@ -14,6 +14,7 @@ import { useTheme, ThemeType, themes, FontScaleType, fontScaleNames } from "../c
 import { colors as defaultColors, radius } from "../constants/theme";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
+import { Chip } from "./Chip";
 
 type SettingsTrayProps = {
   visible: boolean;
@@ -22,7 +23,9 @@ type SettingsTrayProps = {
     name: string;
     email: string;
     role?: string;
+    language?: string;
   } | null;
+  onProfileUpdate?: () => void;
   onLogout?: () => void;
 };
 
@@ -41,7 +44,7 @@ const sizeOptions: { key: FontScaleType; label: string }[] = [
   { key: "xlarge", label: "A++" }
 ];
 
-export function SettingsTray({ visible, onClose, currentUserProfile, onLogout }: SettingsTrayProps) {
+export function SettingsTray({ visible, onClose, currentUserProfile, onProfileUpdate, onLogout }: SettingsTrayProps) {
   const { theme, colors, setTheme, fontScaleType, setFontScale, fontSizeScale } = useTheme();
 
   const styles = getStyles(colors, fontSizeScale);
@@ -131,6 +134,27 @@ export function SettingsTray({ visible, onClose, currentUserProfile, onLogout }:
                     </Pressable>
                   );
                 })}
+              </View>
+            </View>
+
+            {/* Language Selector */}
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>App Language</Text>
+              <View style={styles.chips}>
+                {["English", "Hindi", "Spanish"].map((lang) => (
+                  <Chip
+                    key={lang}
+                    label={lang}
+                    selected={currentUserProfile?.language === lang || (!currentUserProfile?.language && lang === "English")}
+                    onPress={async () => {
+                      if (currentUserProfile) {
+                        const updated = { ...currentUserProfile, language: lang };
+                        await AsyncStorage.setItem("shords.currentUser", JSON.stringify(updated));
+                        if (onProfileUpdate) onProfileUpdate();
+                      }
+                    }}
+                  />
+                ))}
               </View>
             </View>
 
@@ -242,6 +266,11 @@ function getStyles(colors: typeof defaultColors, scale: number) {
       fontWeight: "700",
       textTransform: "uppercase",
       letterSpacing: 1
+    },
+    chips: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8
     },
     userCard: {
       flexDirection: "row",

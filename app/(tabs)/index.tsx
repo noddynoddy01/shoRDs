@@ -103,6 +103,7 @@ export default function HomeScreen() {
         visible={settingsVisible}
         onClose={() => setSettingsVisible(false)}
         currentUserProfile={userProfile}
+        onProfileUpdate={fetchSessionAndPapers}
         onLogout={fetchSessionAndPapers}
       />
     </Screen>
