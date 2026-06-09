@@ -102,10 +102,15 @@ export async function summarizePaperWithGemini(pdfUri: string, apiKey: string, m
 }
 
 // 2. Self-Hosted Custom AI Server Parser client
-export async function summarizePaperWithSelfHosted(pdfUri: string, serverUrl: string): Promise<any> {
+export async function summarizePaperWithSelfHosted(
+  pdfUri: string, 
+  serverUrl: string,
+  onStatusUpdate?: (status: string) => void
+): Promise<any> {
   try {
     const base64Pdf = await uriToBase64(pdfUri);
-    const endpoint = `${serverUrl.replace(/\/$/, "")}/summarize`;
+    const baseUrl = serverUrl.replace(/\/$/, "");
+    const endpoint = `${baseUrl}/summarize`;
 
     const response = await fetch(endpoint, {
       method: "POST",
@@ -122,7 +127,42 @@ export async function summarizePaperWithSelfHosted(pdfUri: string, serverUrl: st
       throw new Error(`Self-hosted server error: ${response.statusText}`);
     }
 
-    return await response.json();
+    const data = await response.json();
+
+    // Check if it's an asynchronous task (Celery mode)
+    if (data.task_id && data.status) {
+      const taskId = data.task_id;
+      let status = data.status;
+      const statusUrl = `${baseUrl}/summarize/status/${taskId}`;
+      
+      if (onStatusUpdate) onStatusUpdate(status);
+
+      // Poll every 2 seconds, up to 100 seconds (50 attempts) for heavy VL model inferences
+      const maxAttempts = 50;
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        await new Promise((r) => setTimeout(r, 2000));
+        
+        const statusResponse = await fetch(statusUrl);
+        if (!statusResponse.ok) {
+          throw new Error(`Failed to check task status: ${statusResponse.statusText}`);
+        }
+        
+        const statusData = await statusResponse.json();
+        status = statusData.status;
+        
+        if (onStatusUpdate) onStatusUpdate(status);
+
+        if (status === "SUCCESS") {
+          return statusData.result;
+        } else if (status === "FAILURE") {
+          throw new Error(statusData.error || "Background task failed during scientific deconstruction.");
+        }
+      }
+      throw new Error("Timeout: The AI server is taking too long to process your research paper.");
+    }
+
+    // Direct result fallback (backward compatibility)
+    return data;
   } catch (err) {
     console.error("Self-hosted paper summarization failed:", err);
     throw err;

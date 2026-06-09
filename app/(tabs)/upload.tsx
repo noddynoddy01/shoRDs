@@ -44,6 +44,7 @@ export default function UploadScreen() {
   // Full-Screen Loading Skeleton states
   const [loadingAI, setLoadingAI] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
+  const [loadingStatusText, setLoadingStatusText] = useState("");
 
   const { contentBottomPadding } = useFeedMetrics();
   const styles = getStyles(colors, fontSizeScale);
@@ -105,6 +106,7 @@ export default function UploadScreen() {
   async function triggerAIPipeline(uri: string, fallbackTitle: string) {
     setLoadingAI(true);
     setLoadingStep(0);
+    setLoadingStatusText("");
     
     // Animate loader steps
     const stepInterval = setInterval(() => {
@@ -126,7 +128,15 @@ export default function UploadScreen() {
         if (!serverUrl) {
           throw new Error("Server URL is missing. Please add it in AI Settings.");
         }
-        aiResult = await summarizePaperWithSelfHosted(uri, serverUrl);
+        aiResult = await summarizePaperWithSelfHosted(uri, serverUrl, (status) => {
+          if (status === "PENDING") {
+            setLoadingStatusText("Task queued. Waiting for Celery worker...");
+          } else if (status === "STARTED") {
+            setLoadingStatusText("Worker active. Deconstructing paper with Qwen2-VL...");
+          } else {
+            setLoadingStatusText(`AI status: ${status}...`);
+          }
+        });
       }
 
       if (aiResult) {
@@ -482,7 +492,7 @@ export default function UploadScreen() {
             <ActivityIndicator size="large" color={colors.accentSoft} />
             <Text style={styles.loaderTitle}>Deconstructing Research Paper</Text>
             <View style={styles.statusBox}>
-              <Text style={styles.loaderStatus}>{loadingTexts[loadingStep]}</Text>
+              <Text style={styles.loaderStatus}>{loadingStatusText || loadingTexts[loadingStep]}</Text>
             </View>
             <Text style={styles.loaderWarning}>Analyzing graphs, math equations, and translating summary frameworks.</Text>
           </View>

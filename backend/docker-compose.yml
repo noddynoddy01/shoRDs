@@ -1,0 +1,48 @@
+version: "3.8"
+
+services:
+  # Redis database used as broker and result backend for Celery
+  redis:
+    image: redis:7-alpine
+    container_name: shords_redis
+    ports:
+      - "6379:6379"
+    restart: always
+
+  # FastAPI main application container
+  api:
+    build: .
+    container_name: shords_api
+    command: uvicorn shords_server:app --host 0.0.0.0 --port 8000
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - LOAD_MODEL=false  # Do not load heavy model on API thread (saves RAM/VRAM)
+    restart: always
+
+  # Celery background task worker container
+  worker:
+    build: .
+    container_name: shords_worker
+    command: celery -A celery_worker.celery_app worker --loglevel=info
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - LOAD_MODEL=true
+    # Enable GPU acceleration inside the Celery worker container
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: always
