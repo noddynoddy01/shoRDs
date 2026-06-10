@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>shoRDs — Research. Simplified.</title>
+  <meta name="description" content="shoRDs is the premier research paper discovery app. Swipe through AI-curated briefs, listen to audio summaries, and connect with expert mentors — all in one place." />
+  <meta property="og:title" content="shoRDs — Research. Simplified." />
+  <meta property="og:description" content="Discover, understand and share research like never before. Download shoRDs for Android." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ═══════════════════════ NAV ═══════════════════════ -->
+  <nav id="navbar">
+    <div class="nav-inner">
+      <a href="#" class="nav-logo" onclick="showPage('home')">
+        <img src="assets/logo.png" alt="shoRDs Logo" class="nav-logo-img" />
+        <span class="nav-logo-text">sho<span class="accent">RDs</span></span>
+      </a>
+      <div class="nav-links" id="navLinks">
+        <a href="#" class="nav-link active" id="nav-home"     onclick="showPage('home')">Home</a>
+        <a href="#" class="nav-link"        id="nav-features" onclick="showPage('features')">Features</a>
+        <a href="#" class="nav-link"        id="nav-how"      onclick="showPage('how')">How to Use</a>
+        <a href="#" class="nav-link"        id="nav-why"      onclick="showPage('why')">Why shoRDs</a>
+        <a href="#" class="nav-link"        id="nav-download" onclick="showPage('download')">Download</a>
+        <a href="#" class="nav-link"        id="nav-contact"  onclick="showPage('contact')">Contact</a>
+      </div>
+      <button class="cta-nav" onclick="showPage('download')">Get the App ↓</button>
+      <button class="hamburger" id="hamburger" onclick="toggleMenu()">☰</button>
+    </div>
+  </nav>
+
+  <!-- ═══════════════════════ HOME PAGE ═══════════════════════ -->
+  <div id="page-home" class="page active">
+
+    <!-- Hero -->
+    <section class="hero">
+      <div class="hero-bg">
+        <img src="assets/hero-bg.png" alt="" class="hero-bg-img" />
+        <div class="hero-overlay"></div>
+      </div>
+      <div class="container hero-content">
+        <div class="hero-text">
+          <div class="badge-pill">🚀 Now Available on Android</div>
+          <h1 class="hero-title">Research.<br/><span class="gradient-text">Simplified.</span></h1>
+          <p class="hero-subtitle">shoRDs transforms complex academic papers into swipeable, audio-ready research briefs — so you can learn faster, save smarter, and publish better.</p>
+          <div class="hero-actions">
+            <button class="btn-primary" onclick="showPage('download')">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M5 20h14v-2H5v2zm7-18L5.33 9h3.84v4h5.66V9h3.84L12 2z"/></svg>
+              Download APK
+            </button>
+            <button class="btn-ghost" onclick="showPage('how')">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+              See How It Works
+            </button>
+          </div>
+          <div class="hero-stats">
+            <div class="stat"><span class="stat-num">15+</span><span class="stat-label">Research Domains</span></div>
+            <div class="stat-divider"></div>
+            <div class="stat"><span class="stat-num">AI</span><span class="stat-label">Powered Summaries</span></div>
+            <div class="stat-divider"></div>
+            <div class="stat"><span class="stat-num">Free</span><span class="stat-label">To Get Started</span></div>
+          </div>
+        </div>
+        <div class="hero-visual">
+          <div class="phone-glow"></div>
+          <img src="assets/phone-mockup.png" alt="shoRDs App" class="hero-phone" />
+          <div class="float-card float-card-1">
+            <span class="float-icon">📚</span>
+            <div>
+              <div class="float-title">Quantum Error Correction</div>
+              <div class="float-sub">STACK 01 · 4 min read</div>
+            </div>
+          </div>
+          <div class="float-card float-card-2">
+            <span class="float-icon">🔊</span>
+            <div>
+              <div class="float-title">Audio Summary</div>
+              <div class="float-sub">Playing in English</div>
+            </div>
+          </div>
+          <div class="float-card float-card-3">
+            <span class="float-icon">🤖</span>
+            <div>
+              <div class="float-title">AI Bot</div>
+              <div class="float-sub">Ready to help</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Trusted By -->
+    <section class="trusted-section">
+      <div class="container">
+        <p class="trusted-label">Research Domains Covered</p>
+        <div class="domain-pills">
+          <span class="domain-pill">⚛️ Quantum Computing</span>
+          <span class="domain-pill">🤖 AI / ML</span>
+          <span class="domain-pill">🦾 Robotics</span>
+          <span class="domain-pill">🧬 Biotechnology</span>
+          <span class="domain-pill">🔒 Cybersecurity</span>
+          <span class="domain-pill">🚀 Space Tech</span>
+          <span class="domain-pill">🌱 Climate Tech</span>
+          <span class="domain-pill">🧠 Neuroscience</span>
+          <span class="domain-pill">⛓️ Blockchain</span>
+          <span class="domain-pill">🏥 Medical Devices</span>
+          <span class="domain-pill">☢️ Nuclear Fusion</span>
+          <span class="domain-pill">🔬 Nanotechnology</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Feature Highlights -->
+    <section class="highlights-section">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-tag">Why Choose shoRDs</span>
+          <h2 class="section-title">Everything you need to<br/><span class="gradient-text">stay ahead in research</span></h2>
+        </div>
+        <div class="highlights-grid">
+          <div class="highlight-card" onclick="showPage('features')">
+            <div class="highlight-icon">📱</div>
+            <h3>Swipeable Feed</h3>
+            <p>Browse research papers like a social feed. Swipe up to discover the next groundbreaking study in your field.</p>
+            <span class="learn-more">Learn more →</span>
+          </div>
+          <div class="highlight-card" onclick="showPage('features')">
+            <div class="highlight-icon">🔊</div>
+            <h3>Audio Summaries</h3>
+            <p>Every paper comes with an audio brief. Listen while commuting, exercising, or working — never miss a discovery.</p>
+            <span class="learn-more">Learn more →</span>
+          </div>
+          <div class="highlight-card" onclick="showPage('features')">
+            <div class="highlight-icon">📤</div>
+            <h3>Upload Your Research</h3>
+            <p>Share your own papers. Upload a PDF or arXiv link and our AI instantly creates a professional brief.</p>
+            <span class="learn-more">Learn more →</span>
+          </div>
+          <div class="highlight-card" onclick="showPage('features')">
+            <div class="highlight-icon">🤖</div>
+            <h3>AI Mentor Chat</h3>
+            <p>Ask anything about research, the app, or any scientific concept. Your AI Bot knows it all.</p>
+            <span class="learn-more">Learn more →</span>
+          </div>
+          <div class="highlight-card" onclick="showPage('features')">
+            <div class="highlight-icon">🌍</div>
+            <h3>Multi-Language</h3>
+            <p>Read and listen to papers in English, Hindi, or Spanish. Research has no language barrier on shoRDs.</p>
+            <span class="learn-more">Learn more →</span>
+          </div>
+          <div class="highlight-card" onclick="showPage('features')">
+            <div class="highlight-icon">💎</div>
+            <h3>Free to Start</h3>
+            <p>Access 5 papers free. Upgrade to Premium for unlimited access, all mentors, and translations.</p>
+            <span class="learn-more">Learn more →</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- App Showcase -->
+    <section class="showcase-section">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-tag">App Preview</span>
+          <h2 class="section-title">One app. <span class="gradient-text">Infinite research.</span></h2>
+          <p class="section-sub">See how shoRDs brings research to life across every screen</p>
+        </div>
+        <img src="assets/features.png" alt="shoRDs App Screens" class="showcase-img" />
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="cta-section">
+      <div class="container">
+        <div class="cta-card">
+          <div class="cta-glow"></div>
+          <h2>Ready to revolutionise how<br/>you consume research?</h2>
+          <p>Join researchers, students, and academics already using shoRDs to stay ahead.</p>
+          <div class="cta-actions">
+            <button class="btn-primary large" onclick="showPage('download')">Download Free APK</button>
+            <button class="btn-ghost" onclick="showPage('contact')">Contact the Team</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ═══════════════════════ FEATURES PAGE ═══════════════════════ -->
+  <div id="page-features" class="page">
+    <section class="page-hero">
+      <div class="container">
+        <span class="section-tag">Full Feature List</span>
+        <h1 class="page-hero-title">Everything <span class="gradient-text">shoRDs</span> can do</h1>
+        <p class="page-hero-sub">A complete research companion built for the modern academic</p>
+      </div>
+    </section>
+
+    <section class="features-deep">
+      <div class="container">
+
+        <div class="feature-row">
+          <div class="feature-row-text">
+            <div class="feature-number">01</div>
+            <h2>Swipeable Research Feed</h2>
+            <p>The home screen is a vertically scrollable feed of research briefs — one paper per screen, just like your favourite social apps. Each card shows the paper title, author, institution, domain, a two-line summary, and key highlights. Swipe up for the next paper. Tap to read the full brief.</p>
+            <ul class="feature-list">
+              <li>✦ One paper per screen — no distractions</li>
+              <li>✦ Stack counter shows your progress</li>
+              <li>✦ Save, Share, Mute and Read from the side rail</li>
+              <li>✦ Dynamic vector illustrations for data-heavy papers</li>
+            </ul>
+          </div>
+          <div class="feature-row-visual">
+            <div class="mock-screen">
+              <div class="mock-header">
+                <span class="mock-logo">shoRDs</span>
+                <span class="mock-counter">1 / 12 briefs</span>
+              </div>
+              <div class="mock-card">
+                <div class="mock-stack">STACK 01</div>
+                <div class="mock-org">NATURE · QUANTUM COMPUTING · 2024</div>
+                <div class="mock-title">"Topological Qubit Error Suppression via Surface Code Lattice Surgery"</div>
+                <div class="mock-summary">This paper presents a novel approach to quantum error correction using surface codes, achieving a 10× reduction in logical error rates...</div>
+                <div class="mock-tags"><span class="mock-tag">#quantum</span><span class="mock-tag">#qubits</span><span class="mock-tag selected">Quantum Computing</span></div>
+              </div>
+              <div class="mock-rail">
+                <span>🔖</span><span>📤</span><span>🔊</span><span>📖</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="feature-row reverse">
+          <div class="feature-row-text">
+            <div class="feature-number">02</div>
+            <h2>Upload Your Research Paper</h2>
+            <p>Have your own paper or found one on arXiv? Upload it to shoRDs in seconds. Our AI parser extracts the title, abstract, authors, domain, key insights, tags, and even creates visual data charts automatically.</p>
+            <ul class="feature-list">
+              <li>✦ Paste any arXiv or DOI URL</li>
+              <li>✦ Upload a PDF directly from your device</li>
+              <li>✦ AI auto-generates title, summary, tags & domain</li>
+              <li>✦ Paper appears in the live feed instantly</li>
+              <li>✦ Set reading time, organization and insights</li>
+            </ul>
+          </div>
+          <div class="feature-row-visual">
+            <div class="mock-screen upload-screen">
+              <div class="mock-header"><span class="mock-logo">Upload Paper</span></div>
+              <div class="upload-box">
+                <div class="upload-icon">📄</div>
+                <div class="upload-text">Paste arXiv / DOI link</div>
+                <div class="upload-input">https://arxiv.org/abs/2401.xxxxx</div>
+                <div class="upload-divider">— or —</div>
+                <div class="upload-btn">📤 Choose PDF from Device</div>
+              </div>
+              <div class="ai-processing">
+                <div class="ai-dot"></div>
+                <span>AI extracting metadata...</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="feature-row">
+          <div class="feature-row-text">
+            <div class="feature-number">03</div>
+            <h2>AI Bot — Your Research Assistant</h2>
+            <p>The built-in AI Bot understands everything about the shoRDs app AND research in general. Ask it how to upload a paper, get an explanation of quantum computing, find out what Premium includes, or request help with your hypothesis. It always responds helpfully.</p>
+            <ul class="feature-list">
+              <li>✦ Knows all app features & navigation</li>
+              <li>✦ Covers 15+ research domains</li>
+              <li>✦ Explains paper concepts & methodology</li>
+              <li>✦ Always guides you to the next step</li>
+              <li>✦ Connect via Gemini API for smarter replies</li>
+            </ul>
+          </div>
+          <div class="feature-row-visual">
+            <div class="mock-screen chat-screen">
+              <div class="mock-header"><span class="mock-logo">🤖 AI Bot</span><span style="color:#10B981;font-size:11px">● online</span></div>
+              <div class="chat-bubble other">"How do I upload a paper to shoRDs?" 💬</div>
+              <div class="chat-bubble me">To upload a paper, tap the ✦ Upload tab at the bottom. You can paste an arXiv/DOI link or upload a PDF. Our AI auto-extracts everything! Would you like tips on formatting? 📤</div>
+              <div class="chat-bubble other">"What is Premium?" 💬</div>
+              <div class="chat-bubble me">Premium unlocks unlimited papers, all mentor chats, multi-language translations and priority support. 💎 Want to know pricing?</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="feature-row reverse">
+          <div class="feature-row-text">
+            <div class="feature-number">04</div>
+            <h2>Explore & Discover by Domain</h2>
+            <p>The Explore tab lets you browse papers by research field. With 16 domains from AI/ML to Nuclear Fusion, you'll always find content relevant to your work. Filter by saved papers or discover trending briefs in a new domain.</p>
+            <ul class="feature-list">
+              <li>✦ 16 research domains available</li>
+              <li>✦ Filter to view only saved papers</li>
+              <li>✦ Search by title, author, or keyword</li>
+              <li>✦ Smart domain chips on each brief</li>
+            </ul>
+          </div>
+          <div class="feature-row-visual">
+            <div class="mock-screen">
+              <div class="mock-header"><span class="mock-logo">Explore</span></div>
+              <div class="domain-grid-mock">
+                <div class="domain-item-mock">⚛️<br/>Quantum</div>
+                <div class="domain-item-mock">🤖<br/>AI / ML</div>
+                <div class="domain-item-mock">🦾<br/>Robotics</div>
+                <div class="domain-item-mock">🧬<br/>Biotech</div>
+                <div class="domain-item-mock">🔒<br/>Security</div>
+                <div class="domain-item-mock">🚀<br/>Space</div>
+                <div class="domain-item-mock">🌱<br/>Climate</div>
+                <div class="domain-item-mock">🧠<br/>Neuro</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="feature-row">
+          <div class="feature-row-text">
+            <div class="feature-number">05</div>
+            <h2>Themes & Personalisation</h2>
+            <p>shoRDs starts in Light mode and lets you switch to stunning themes including Dark, Nord (cool blue), Sepia (warm paper feel), and Emerald (deep green). The font size is also adjustable for comfortable reading at any distance.</p>
+            <ul class="feature-list">
+              <li>✦ 5 beautiful themes: Light, Dark, Nord, Sepia, Emerald</li>
+              <li>✦ Dark mode banner notification for easy switching</li>
+              <li>✦ Adjustable font scale: Small, Medium, Large, XL</li>
+              <li>✦ Language preference for audio & translations</li>
+            </ul>
+          </div>
+          <div class="feature-row-visual">
+            <div class="themes-grid">
+              <div class="theme-swatch light-theme">☀️ Light</div>
+              <div class="theme-swatch dark-theme">🌙 Dark</div>
+              <div class="theme-swatch nord-theme">❄️ Nord</div>
+              <div class="theme-swatch sepia-theme">📜 Sepia</div>
+              <div class="theme-swatch emerald-theme">🌿 Emerald</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+  </div>
+
+  <!-- ═══════════════════════ HOW TO USE PAGE ═══════════════════════ -->
+  <div id="page-how" class="page">
+    <section class="page-hero">
+      <div class="container">
+        <span class="section-tag">Getting Started</span>
+        <h1 class="page-hero-title">How to use <span class="gradient-text">shoRDs</span></h1>
+        <p class="page-hero-sub">Up and running in under 2 minutes</p>
+      </div>
+    </section>
+
+    <section class="steps-section">
+      <div class="container">
+
+        <div class="steps-intro">
+          <h2>For <span class="gradient-text">Readers</span></h2>
+          <p>Discover and consume research papers like never before</p>
+        </div>
+
+        <div class="steps-grid">
+          <div class="step-card">
+            <div class="step-num">1</div>
+            <div class="step-icon">📱</div>
+            <h3>Download & Install</h3>
+            <p>Download the APK from this website. Enable "Install from unknown sources" in your Android settings if prompted. Install in one tap.</p>
+          </div>
+          <div class="step-arrow">→</div>
+          <div class="step-card">
+            <div class="step-num">2</div>
+            <div class="step-icon">🔐</div>
+            <h3>Create Your Account</h3>
+            <p>Register with your name, email, and a password. Select your research interests and preferred language. You're in!</p>
+          </div>
+          <div class="step-arrow">→</div>
+          <div class="step-card">
+            <div class="step-num">3</div>
+            <div class="step-icon">📖</div>
+            <h3>Swipe & Discover</h3>
+            <p>The Home feed shows research briefs. Swipe up to move to the next paper. Audio starts automatically. Tap any card to read the full brief.</p>
+          </div>
+          <div class="step-arrow">→</div>
+          <div class="step-card">
+            <div class="step-num">4</div>
+            <div class="step-icon">🔖</div>
+            <h3>Save & Explore</h3>
+            <p>Tap the Save button to bookmark papers. Visit the Explore tab to browse by domain or search by keyword. Your library grows with you.</p>
+          </div>
+        </div>
+
+        <div class="steps-divider"></div>
+
+        <div class="steps-intro">
+          <h2>How to <span class="gradient-text">Upload a Paper</span></h2>
+          <p>Share your research with the world in 3 simple steps</p>
+        </div>
+
+        <div class="upload-steps">
+          <div class="upload-step">
+            <div class="upload-step-num">Step 1</div>
+            <div class="upload-step-content">
+              <h3>🗂️ Open the Upload Tab</h3>
+              <p>Tap the <strong>✦ Upload</strong> button in the bottom navigation bar. This opens the paper submission screen.</p>
+            </div>
+          </div>
+          <div class="upload-step">
+            <div class="upload-step-num">Step 2</div>
+            <div class="upload-step-content">
+              <h3>🔗 Provide the Paper Source</h3>
+              <p>You have two options:</p>
+              <ul>
+                <li><strong>Paste a URL</strong> — arXiv link (e.g., arxiv.org/abs/...) or any DOI link</li>
+                <li><strong>Upload a PDF</strong> — pick a file directly from your phone storage</li>
+              </ul>
+              <p>Our AI parser reads the paper and extracts all metadata automatically.</p>
+            </div>
+          </div>
+          <div class="upload-step">
+            <div class="upload-step-num">Step 3</div>
+            <div class="upload-step-content">
+              <h3>✅ Review & Publish</h3>
+              <p>The AI fills in the title, summary, domain, tags, reading time, and key insights. Review them, make any edits, then tap <strong>Publish Brief</strong>. Your paper appears in the live feed instantly for everyone to discover.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="steps-divider"></div>
+
+        <div class="steps-intro">
+          <h2>Using the <span class="gradient-text">AI Bot</span></h2>
+        </div>
+        <div class="ai-steps-grid">
+          <div class="ai-step">
+            <span class="ai-step-icon">💬</span>
+            <p>Tap the <strong>floating chat button</strong> on any screen</p>
+          </div>
+          <div class="ai-step">
+            <span class="ai-step-icon">❓</span>
+            <p>Ask about <strong>any app feature</strong> or research topic</p>
+          </div>
+          <div class="ai-step">
+            <span class="ai-step-icon">🤖</span>
+            <p>Get an <strong>instant, helpful answer</strong> with a follow-up question</p>
+          </div>
+          <div class="ai-step">
+            <span class="ai-step-icon">🔗</span>
+            <p>Use <strong>Gemini API</strong> in Settings for even smarter responses</p>
+          </div>
+        </div>
+
+        <div class="tips-box">
+          <h3>💡 Pro Tips</h3>
+          <ul>
+            <li>Enable audio for hands-free research while cooking or commuting</li>
+            <li>Switch to Dark Mode using the 🌙 banner on the Home feed for night reading</li>
+            <li>Use the Search 🔍 icon to quickly find papers by author or keyword</li>
+            <li>Connect a Gemini API key in Settings → AI Source for the smartest AI responses</li>
+            <li>Share papers directly to WhatsApp or Email via the Share button on each card</li>
+          </ul>
+        </div>
+
+      </div>
+    </section>
+  </div>
+
+  <!-- ═══════════════════════ WHY shoRDs PAGE ═══════════════════════ -->
+  <div id="page-why" class="page">
+    <section class="page-hero">
+      <div class="container">
+        <span class="section-tag">The Case for shoRDs</span>
+        <h1 class="page-hero-title">Why <span class="gradient-text">shoRDs</span>?</h1>
+        <p class="page-hero-sub">Research is hard enough. Discovering it shouldn't be.</p>
+      </div>
+    </section>
+
+    <section class="why-section">
+      <div class="container">
+
+        <div class="problem-block">
+          <h2>The Problem with Research Today</h2>
+          <div class="problem-grid">
+            <div class="problem-card">
+              <span class="problem-icon">😤</span>
+              <h3>Papers are behind paywalls</h3>
+              <p>Most journals cost $30–$50 per paper. Students and independent researchers are left out.</p>
+            </div>
+            <div class="problem-card">
+              <span class="problem-icon">🤯</span>
+              <h3>Abstracts are too dense</h3>
+              <p>Academic writing is intentionally technical. Understanding a paper takes hours of background reading.</p>
+            </div>
+            <div class="problem-card">
+              <span class="problem-icon">📉</span>
+              <h3>Research is hard to discover</h3>
+              <p>Google Scholar shows hundreds of results with no context on which papers matter or why.</p>
+            </div>
+            <div class="problem-card">
+              <span class="problem-icon">🗣️</span>
+              <h3>No easy way to share</h3>
+              <p>Sharing a paper usually means sharing a dense PDF link that nobody clicks.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="solution-block">
+          <h2>shoRDs <span class="gradient-text">Solves All of This</span></h2>
+          <div class="solution-compare">
+            <div class="compare-col bad">
+              <h3>❌ Without shoRDs</h3>
+              <ul>
+                <li>Spend 45 min reading one paper</li>
+                <li>Miss important papers in your field</li>
+                <li>Pay for journal access or get blocked</li>
+                <li>No audio — must read with full attention</li>
+                <li>Share a boring PDF link</li>
+                <li>Can't find papers in your language</li>
+              </ul>
+            </div>
+            <div class="compare-col good">
+              <h3>✅ With shoRDs</h3>
+              <ul>
+                <li>Get the essence in 4 minutes</li>
+                <li>Curated feed keeps you always updated</li>
+                <li>Free access to briefs of top papers</li>
+                <li>Listen while multitasking</li>
+                <li>Share beautifully formatted summaries</li>
+                <li>Read in English, Hindi or Spanish</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="testimonials">
+          <h2>Built for <span class="gradient-text">Real Researchers</span></h2>
+          <div class="testimonial-grid">
+            <div class="testimonial-card">
+              <div class="testimonial-quote">"shoRDs is how I keep up with 3 different domains without spending my whole week reading. The audio mode is a game changer."</div>
+              <div class="testimonial-author">— Final Year B.Tech Student, IIIT Surat</div>
+            </div>
+            <div class="testimonial-card">
+              <div class="testimonial-quote">"I uploaded my thesis draft and shoRDs created a professional brief in seconds. My lab mates actually read it — that's never happened before!"</div>
+              <div class="testimonial-author">— PhD Candidate, Mechanical Engineering</div>
+            </div>
+            <div class="testimonial-card">
+              <div class="testimonial-quote">"The AI Bot explained quantum entanglement to me in plain language and told me exactly how to find related papers on the app. 10/10."</div>
+              <div class="testimonial-author">— Undergraduate Researcher, Computer Science</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="benefits-cta">
+          <h2>Start for free. Grow with Premium.</h2>
+          <div class="pricing-cards">
+            <div class="pricing-card">
+              <div class="pricing-tier">Free</div>
+              <div class="pricing-price">₹0</div>
+              <ul class="pricing-features">
+                <li>✅ 5 research paper briefs</li>
+                <li>✅ Audio summaries</li>
+                <li>✅ AI Bot chat</li>
+                <li>✅ Save & Share papers</li>
+                <li>✅ Upload your own papers</li>
+                <li>❌ Unlimited feed access</li>
+                <li>❌ All mentor connections</li>
+                <li>❌ Multi-language translations</li>
+              </ul>
+              <button class="btn-ghost" onclick="showPage('download')">Download Free</button>
+            </div>
+            <div class="pricing-card featured">
+              <div class="pricing-badge">Most Popular</div>
+              <div class="pricing-tier">Premium</div>
+              <div class="pricing-price">₹299<span>/month</span></div>
+              <ul class="pricing-features">
+                <li>✅ Unlimited research briefs</li>
+                <li>✅ Audio in 3 languages</li>
+                <li>✅ AI Bot + Gemini integration</li>
+                <li>✅ Save & Share papers</li>
+                <li>✅ Unlimited uploads</li>
+                <li>✅ Full feed access</li>
+                <li>✅ All mentor connections</li>
+                <li>✅ Hindi & Spanish translations</li>
+              </ul>
+              <button class="btn-primary" onclick="showPage('download')">Get Premium</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+  </div>
+
+  <!-- ═══════════════════════ DOWNLOAD PAGE ═══════════════════════ -->
+  <div id="page-download" class="page">
+    <section class="page-hero">
+      <div class="container">
+        <span class="section-tag">Download shoRDs</span>
+        <h1 class="page-hero-title">Get shoRDs on <span class="gradient-text">Android</span></h1>
+        <p class="page-hero-sub">Free to download. Installs in seconds.</p>
+      </div>
+    </section>
+
+    <section class="download-section">
+      <div class="container">
+        <div class="download-card">
+          <div class="download-left">
+            <div class="apk-badge">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="#06B6D4"><path d="M17.6 11.48 19.44 8a.46.46 0 1 0-.8-.46l-1.87 3.56a11.1 11.1 0 0 0-4.77-1.08 11.1 11.1 0 0 0-4.77 1.08L5.36 7.54a.46.46 0 1 0-.8.46l1.84 3.48A10.78 10.78 0 0 0 1 20h22a10.78 10.78 0 0 0-5.4-8.52zM7 17.25a1.25 1.25 0 1 1 1.25-1.25A1.25 1.25 0 0 1 7 17.25zm10 0a1.25 1.25 0 1 1 1.25-1.25A1.25 1.25 0 0 1 17 17.25z"/></svg>
+              <div>
+                <div class="apk-name">shoRDs Android App</div>
+                <div class="apk-meta">v1.0 · Release Build · ~79 MB</div>
+              </div>
+            </div>
+            <h2>shoRDs Release APK</h2>
+            <p>The latest stable release of shoRDs for Android. Fully optimized, ProGuard minified, and ready to install.</p>
+            <div class="apk-info-grid">
+              <div class="apk-info-item">
+                <span class="apk-info-label">Version</span>
+                <span class="apk-info-val">1.0 (Release)</span>
+              </div>
+              <div class="apk-info-item">
+                <span class="apk-info-label">Platform</span>
+                <span class="apk-info-val">Android 5.0+</span>
+              </div>
+              <div class="apk-info-item">
+                <span class="apk-info-label">Size</span>
+                <span class="apk-info-val">~79 MB</span>
+              </div>
+              <div class="apk-info-item">
+                <span class="apk-info-label">Build</span>
+                <span class="apk-info-val">ProGuard Release</span>
+              </div>
+            </div>
+            <a href="shoRDs-release-phone-new.apk" class="btn-primary large download-btn" download>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M5 20h14v-2H5v2zm7-18L5.33 9h3.84v4h5.66V9h3.84L12 2z"/></svg>
+              Download APK Now
+            </a>
+            <p class="download-note">⚠️ On first install, Android may ask you to enable "Install from Unknown Sources" — this is normal for APKs outside the Play Store.</p>
+          </div>
+          <div class="download-right">
+            <img src="assets/phone-mockup.png" alt="shoRDs App" class="download-phone" />
+          </div>
+        </div>
+
+        <div class="install-guide">
+          <h2>How to Install</h2>
+          <div class="install-steps">
+            <div class="install-step">
+              <div class="install-num">1</div>
+              <div class="install-text">
+                <strong>Download the APK</strong>
+                <p>Tap the Download button above on your Android device to save the APK file.</p>
+              </div>
+            </div>
+            <div class="install-step">
+              <div class="install-num">2</div>
+              <div class="install-text">
+                <strong>Allow Installation</strong>
+                <p>Go to Settings → Security → Enable "Install from Unknown Sources" (or allow your browser to install apps).</p>
+              </div>
+            </div>
+            <div class="install-step">
+              <div class="install-num">3</div>
+              <div class="install-text">
+                <strong>Open the APK</strong>
+                <p>Find the downloaded APK in your Downloads folder and tap it to begin installation.</p>
+              </div>
+            </div>
+            <div class="install-step">
+              <div class="install-num">4</div>
+              <div class="install-text">
+                <strong>Launch & Register</strong>
+                <p>Open shoRDs, create your free account, and start discovering research immediately!</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="system-reqs">
+          <h2>System Requirements</h2>
+          <div class="req-grid">
+            <div class="req-item">📱 Android 5.0 (Lollipop) or higher</div>
+            <div class="req-item">💾 150 MB free storage</div>
+            <div class="req-item">🌐 Internet connection for feed & AI</div>
+            <div class="req-item">🔊 Speaker/headphones for audio briefs</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ═══════════════════════ CONTACT PAGE ═══════════════════════ -->
+  <div id="page-contact" class="page">
+    <section class="page-hero">
+      <div class="container">
+        <span class="section-tag">Get in Touch</span>
+        <h1 class="page-hero-title">Contact <span class="gradient-text">shoRDs</span></h1>
+        <p class="page-hero-sub">We're here for uploads, onboarding, feedback and everything in between</p>
+      </div>
+    </section>
+
+    <section class="contact-section">
+      <div class="container">
+        <div class="contact-grid">
+          <div class="contact-info">
+            <h2>Let's talk research</h2>
+            <p>Whether you want to report a bug, suggest a feature, upload research papers in bulk, or onboard as a mentor — our team is ready to help.</p>
+
+            <div class="contact-cards">
+              <div class="contact-card">
+                <span class="contact-icon">📧</span>
+                <div>
+                  <strong>Email Us</strong>
+                  <p>shords.app@gmail.com</p>
+                </div>
+              </div>
+              <div class="contact-card">
+                <span class="contact-icon">🐙</span>
+                <div>
+                  <strong>GitHub</strong>
+                  <p><a href="https://github.com/noddynoddy01/shoRDs" target="_blank">github.com/noddynoddy01/shoRDs</a></p>
+                </div>
+              </div>
+              <div class="contact-card">
+                <span class="contact-icon">👨‍🏫</span>
+                <div>
+                  <strong>Become a Mentor</strong>
+                  <p>Join our network of academic researchers</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="faq-section">
+              <h3>Frequently Asked Questions</h3>
+              <div class="faq-item" onclick="toggleFaq(this)">
+                <div class="faq-q">Is shoRDs free? <span class="faq-arrow">▾</span></div>
+                <div class="faq-a">Yes! shoRDs is free to download and gives you access to 5 research paper briefs. Upgrade to Premium for unlimited access, mentor chats, and multi-language support.</div>
+              </div>
+              <div class="faq-item" onclick="toggleFaq(this)">
+                <div class="faq-q">Can I upload my own research paper? <span class="faq-arrow">▾</span></div>
+                <div class="faq-a">Absolutely. Use the Upload tab to paste an arXiv/DOI link or upload a PDF. Our AI automatically extracts the metadata and creates a professional brief that others can discover.</div>
+              </div>
+              <div class="faq-item" onclick="toggleFaq(this)">
+                <div class="faq-q">Is it available on iOS? <span class="faq-arrow">▾</span></div>
+                <div class="faq-a">Currently shoRDs is only available on Android as an APK. An iOS version and Play Store listing are planned for the near future.</div>
+              </div>
+              <div class="faq-item" onclick="toggleFaq(this)">
+                <div class="faq-q">How does the AI Bot work? <span class="faq-arrow">▾</span></div>
+                <div class="faq-a">The AI Bot uses a built-in response engine that covers all app features and 15+ research domains. For smarter replies, connect your Gemini API key in Settings → AI Source → Gemini.</div>
+              </div>
+              <div class="faq-item" onclick="toggleFaq(this)">
+                <div class="faq-q">Can I become a mentor on shoRDs? <span class="faq-arrow">▾</span></div>
+                <div class="faq-a">Yes! Contact us using the form with your academic background and research focus. We'll onboard you to the mentor network where students can connect with you directly.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="contact-form-wrap">
+            <form class="contact-form" id="contactForm" onsubmit="submitForm(event)">
+              <h3>Send us a message</h3>
+              <div class="form-group">
+                <label>Your Name</label>
+                <input type="text" id="contactName" placeholder="Abhinav Prakash" required />
+              </div>
+              <div class="form-group">
+                <label>Email Address</label>
+                <input type="email" id="contactEmail" placeholder="you@university.edu" required />
+              </div>
+              <div class="form-group">
+                <label>Subject</label>
+                <select id="contactSubject">
+                  <option value="feedback">General Feedback</option>
+                  <option value="bug">Report a Bug</option>
+                  <option value="mentor">Become a Mentor</option>
+                  <option value="upload">Research Upload Support</option>
+                  <option value="premium">Premium / Subscription</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Message</label>
+                <textarea id="contactMessage" rows="5" placeholder="Describe your query, feedback or request in detail..." required></textarea>
+              </div>
+              <button type="submit" class="btn-primary large" style="width:100%">Send Message 📬</button>
+              <div id="formSuccess" class="form-success" style="display:none">
+                ✅ Message sent! We'll get back to you within 24 hours.
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ═══════════════════════ FOOTER ═══════════════════════ -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <div class="footer-logo"><img src="assets/logo.png" alt="shoRDs Logo" /></div>
+          <p>Research. Simplified.<br/>The modern way to discover, understand and share academic research.</p>
+          <a href="https://github.com/noddynoddy01/shoRDs" target="_blank" class="github-link">🐙 View on GitHub</a>
+        </div>
+        <div class="footer-links-col">
+          <h4>App</h4>
+          <a href="#" onclick="showPage('home')">Home</a>
+          <a href="#" onclick="showPage('features')">Features</a>
+          <a href="#" onclick="showPage('how')">How to Use</a>
+          <a href="#" onclick="showPage('download')">Download</a>
+        </div>
+        <div class="footer-links-col">
+          <h4>Company</h4>
+          <a href="#" onclick="showPage('why')">Why shoRDs</a>
+          <a href="#" onclick="showPage('contact')">Contact Us</a>
+          <a href="https://github.com/noddynoddy01/shoRDs" target="_blank">GitHub</a>
+        </div>
+        <div class="footer-links-col">
+          <h4>Research Domains</h4>
+          <a href="#" onclick="showPage('features')">AI / ML</a>
+          <a href="#" onclick="showPage('features')">Quantum Computing</a>
+          <a href="#" onclick="showPage('features')">Robotics</a>
+          <a href="#" onclick="showPage('features')">Biotechnology</a>
+          <a href="#" onclick="showPage('features')">+ 12 more domains</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>© 2026 shoRDs. Built with ❤️ for researchers everywhere.</p>
+        <p>Made with React Native & Expo</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
