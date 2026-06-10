@@ -82,9 +82,8 @@ ul { list-style: none; }
   flex-shrink: 0;
 }
 .nav-logo-img {
-  height: 44px;
+  height: 38px;
   width: auto;
-  max-width: 130px;
   object-fit: contain;
 }
 .nav-logo-text {
@@ -92,7 +91,7 @@ ul { list-style: none; }
   font-weight: 900;
   color: var(--text);
   letter-spacing: -0.5px;
-  display: none;
+  display: block;
 }
 .accent { color: var(--accent); }
 
@@ -1020,11 +1019,20 @@ ul { list-style: none; }
   margin-bottom: 60px;
 }
 .footer-logo { 
-  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 .footer-logo img {
-  height: 52px;
+  height: 44px;
   width: auto;
+}
+.footer-logo-text {
+  font-size: 24px;
+  font-weight: 900;
+  color: var(--text);
+  letter-spacing: -0.5px;
 }
 .footer-brand p { font-size: 14px; color: var(--muted); line-height: 1.7; margin-bottom: 16px; }
 .github-link { font-size: 13px; color: var(--accent); font-weight: 700; }
