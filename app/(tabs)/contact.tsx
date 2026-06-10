@@ -2,6 +2,7 @@ import { ScrollView, StyleSheet } from "react-native";
 import { ContactContent } from "@/components/ContactContent";
 import { Screen } from "@/components/Screen";
 import { useFeedMetrics } from "@/hooks/useFeedMetrics";
+import { FloatingChatButton } from "@/components/FloatingChatButton";
 
 export default function ContactTabScreen() {
   const { contentBottomPadding } = useFeedMetrics();
@@ -14,6 +15,7 @@ export default function ContactTabScreen() {
       >
         <ContactContent />
       </ScrollView>
+      <FloatingChatButton />
     </Screen>
   );
 }

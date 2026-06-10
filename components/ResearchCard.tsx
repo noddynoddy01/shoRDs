@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { Animated, Pressable, Share, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "../context/ThemeContext";
@@ -24,6 +24,20 @@ export function ResearchCard({ paper, compact }: ResearchCardProps) {
   const pulse = useRef(new Animated.Value(1)).current;
   const [saved, setSaved] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
+
+  const parsedTags = useMemo(() => {
+    const list: string[] = [];
+    if (paper.tags) {
+      paper.tags.forEach(t => {
+        if (!t) return;
+        t.split(/[,\n;]+/).forEach(p => {
+          const cleaned = p.replace(/^[•\-\*\s]+/, "").trim().toLowerCase();
+          if (cleaned) list.push(cleaned);
+        });
+      });
+    }
+    return list;
+  }, [paper.tags]);
 
   const styles = getStyles(colors, fontSizeScale, theme);
 
@@ -224,7 +238,7 @@ Download shoRDs for quick, simplified, and technical research updates! 🚀`;
           </View>
 
           <View style={styles.tags}>
-            {paper.tags.slice(0, 2).map((tag) => (
+            {parsedTags.slice(0, 2).map((tag) => (
               <Chip key={tag} label={`#${tag}`} />
             ))}
             <Chip key="domain" label={paper.domain} selected={true} />

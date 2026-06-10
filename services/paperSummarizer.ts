@@ -233,6 +233,17 @@ export function buildPaperFromUpload(input: {
     }
   };
 
+  const rawTags = input.tags || [];
+  const cleanedTags: string[] = [];
+  rawTags.forEach(t => {
+    if (!t) return;
+    t.split(/[,\n;]+/).forEach(p => {
+      const cleaned = p.replace(/^[•\-\*\s]+/, "").trim().toLowerCase();
+      if (cleaned) cleanedTags.push(cleaned);
+    });
+  });
+  const tagsToUse = cleanedTags.length ? cleanedTags : ["upload", "research"];
+
   return {
     id,
     title: input.title,
@@ -243,7 +254,7 @@ export function buildPaperFromUpload(input: {
     authorName: "You",
     authorRole: "shoRDs Contributor",
     originalLink: input.pdfUri || "https://shords.app/upload",
-    tags: input.tags.length ? input.tags : ["upload", "research"],
+    tags: tagsToUse,
     readingTime: "3 min read",
     savedCount: 0,
     createdAt: new Date(),

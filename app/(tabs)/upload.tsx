@@ -15,6 +15,7 @@ import { addUploadedPaper } from "@/services/uploadedPapers";
 import { Domain } from "@/types/models";
 import { useTheme } from "@/context/ThemeContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { FloatingChatButton } from "@/components/FloatingChatButton";
 
 export default function UploadScreen() {
   const { colors, fontSizeScale } = useTheme();
@@ -77,8 +78,8 @@ export default function UploadScreen() {
   const tagList = useMemo(
     () =>
       tags
-        .split(",")
-        .map((tag) => tag.trim())
+        .split(/[,\n;]+/)
+        .map((tag) => tag.replace(/^[•\-\*\s]+/, "").trim())
         .filter(Boolean),
     [tags]
   );
@@ -498,6 +499,7 @@ export default function UploadScreen() {
           </View>
         </View>
       </Modal>
+      <FloatingChatButton />
     </Screen>
   );
 }

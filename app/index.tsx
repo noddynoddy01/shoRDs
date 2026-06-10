@@ -43,17 +43,16 @@ export default function SplashScreen() {
       Animated.timing(storyFade, { toValue: 1, duration: 600, useNativeDriver: true }),
       Animated.timing(progress, { toValue: 1, duration: 2200, useNativeDriver: false })
     ]).start();
-
-    const timeout = setTimeout(async () => {
-      const user = await AsyncStorage.getItem("shords.currentUser");
-      if (user) {
-        router.replace("/(tabs)");
-      } else {
-        router.replace("/auth");
-      }
-    }, 4200);
-    return () => clearTimeout(timeout);
   }, [opacity, progress, storyFade, translateY]);
+
+  const handleEnterApp = async () => {
+    const user = await AsyncStorage.getItem("shords.currentUser");
+    if (user) {
+      router.replace("/(tabs)");
+    } else {
+      router.replace("/auth");
+    }
+  };
 
   return (
     <Screen style={styles.screen}>
@@ -99,7 +98,7 @@ export default function SplashScreen() {
           />
         </View>
 
-        <GlassButton title="Enter shoRDs" icon="arrow-forward" onPress={() => router.replace("/auth")} />
+        <GlassButton title="Enter shoRDs" icon="arrow-forward" onPress={handleEnterApp} />
       </Animated.View>
     </Screen>
   );

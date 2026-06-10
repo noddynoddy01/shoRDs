@@ -22,6 +22,15 @@ export const domains: Domain[] = [
 
 export const mentors: Mentor[] = [
   {
+    id: "abhinav-ai",
+    name: "Abhinav Prakash",
+    title: "Platform Owner & AI Research Lead",
+    focus: "shoRDs Platform Architecture & AI Integrations",
+    affiliation: "shoRDs Research Circle",
+    bio: "Developer and owner of shoRDs. Ask him anything about the platform architecture, paper summaries, or deploying AI models.",
+    availability: "Online 24/7 (AI Assistant)"
+  },
+  {
     id: "rajeev-shorey",
     name: "Dr. Rajeev Shorey",
     title: "Research Mentor",

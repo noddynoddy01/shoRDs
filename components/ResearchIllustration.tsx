@@ -28,11 +28,12 @@ export type IllustrationData = LineChartData | BarChartData | FlowChartData;
 
 type ResearchIllustrationProps = {
   dataString: string;
+  compact?: boolean;
 };
 
-export function ResearchIllustration({ dataString }: ResearchIllustrationProps) {
+export function ResearchIllustration({ dataString, compact }: ResearchIllustrationProps) {
   const { colors, fontSizeScale, theme } = useTheme();
-  const styles = getStyles(colors, fontSizeScale, theme);
+  const styles = getStyles(colors, fontSizeScale, theme, compact);
 
   let data: IllustrationData | null = null;
   try {
@@ -53,11 +54,11 @@ export function ResearchIllustration({ dataString }: ResearchIllustrationProps) 
   const renderContent = () => {
     switch (data.type) {
       case "bar-chart":
-        return renderBarChart(data, colors, styles);
+        return renderBarChart(data, colors, styles, compact);
       case "line-chart":
-        return renderLineChart(data, colors, styles);
+        return renderLineChart(data, colors, styles, compact);
       case "flow-chart":
-        return renderFlowChart(data, colors, styles);
+        return renderFlowChart(data, colors, styles, compact);
       default:
         return null;
     }
@@ -74,9 +75,9 @@ export function ResearchIllustration({ dataString }: ResearchIllustrationProps) 
 }
 
 // 1. Render Bar Chart
-function renderBarChart(data: BarChartData, colors: any, styles: any) {
+function renderBarChart(data: BarChartData, colors: any, styles: any, compact?: boolean) {
   const maxVal = Math.max(...data.values, 1);
-  const containerHeight = 110;
+  const containerHeight = compact ? 60 : 110;
 
   return (
     <View style={styles.barChartContainer}>
@@ -87,7 +88,7 @@ function renderBarChart(data: BarChartData, colors: any, styles: any) {
           
           return (
             <View key={idx} style={styles.barColumn}>
-              <View style={styles.barWrapper}>
+              <View style={[styles.barWrapper, compact && { height: 60 }]}>
                 <Text style={styles.barValue}>{val}</Text>
                 <View style={[styles.barActive, { height: Math.max(barHeight, 8) }]} />
               </View>
@@ -101,9 +102,9 @@ function renderBarChart(data: BarChartData, colors: any, styles: any) {
 }
 
 // 2. Render Line Chart (Dependency-free connector drawing)
-function renderLineChart(data: LineChartData, colors: any, styles: any) {
+function renderLineChart(data: LineChartData, colors: any, styles: any, compact?: boolean) {
   const maxVal = Math.max(...data.values, 1);
-  const containerHeight = 90;
+  const containerHeight = compact ? 50 : 90;
   const numPoints = data.values.length;
   
   // Calculate relative coordinate points (X in %, Y in pixels)
@@ -128,9 +129,6 @@ function renderLineChart(data: LineChartData, colors: any, styles: any) {
           if (idx === numPoints - 1) return null;
           const nextPt = points[idx + 1];
           
-          // Basic diagonal fill or step line (since drawing true diagonal in pure CSS requires angle calculations,
-          // we draw a horizontal-vertical step connector or render clean dots + connection grids which looks very technical!)
-          // To keep it 100% stable without trigonometric runtime weight, we draw a secondary grid projection:
           return (
             <View
               key={`line-${idx}`}
@@ -187,20 +185,20 @@ function renderLineChart(data: LineChartData, colors: any, styles: any) {
 }
 
 // 3. Render Flow Chart
-function renderFlowChart(data: FlowChartData, colors: any, styles: any) {
+function renderFlowChart(data: FlowChartData, colors: any, styles: any, compact?: boolean) {
   return (
     <View style={styles.flowContainer}>
       {data.steps.map((step, idx) => {
         const isLast = idx === data.steps.length - 1;
         return (
           <React.Fragment key={idx}>
-            <View style={styles.flowStepCard}>
+            <View style={[styles.flowStepCard, compact && { paddingVertical: 4, paddingHorizontal: 6 }]}>
               <Text style={styles.flowStepIdx}>{idx + 1}</Text>
               <Text style={styles.flowStepText} numberOfLines={1}>{step}</Text>
             </View>
             {!isLast && (
               <View style={styles.flowArrow}>
-                <Ionicons name="arrow-forward" size={14} color={colors.accentSoft} />
+                <Ionicons name="arrow-forward" size={compact ? 12 : 14} color={colors.accentSoft} />
               </View>
             )}
           </React.Fragment>
@@ -210,26 +208,26 @@ function renderFlowChart(data: FlowChartData, colors: any, styles: any) {
   );
 }
 
-function getStyles(colors: typeof defaultColors, scale: number, theme: string) {
+function getStyles(colors: typeof defaultColors, scale: number, theme: string, compact?: boolean) {
   return StyleSheet.create({
     container: {
       backgroundColor: theme === "light" || theme === "sepia" ? "rgba(6, 182, 212, 0.03)" : "rgba(6, 182, 212, 0.02)",
       borderColor: colors.border,
       borderWidth: 1,
       borderRadius: radius.md,
-      padding: 12,
-      marginVertical: 4,
-      gap: 10
+      padding: compact ? 8 : 12,
+      marginVertical: compact ? 2 : 4,
+      gap: compact ? 6 : 10
     },
     chartTitle: {
-      fontSize: 11 * scale,
+      fontSize: (compact ? 9 : 11) * scale,
       fontWeight: "800",
       color: colors.text,
       letterSpacing: 0.5,
       textTransform: "uppercase"
     },
     chartBody: {
-      height: 140,
+      height: compact ? 85 : 140,
       justifyContent: "center",
       alignItems: "center"
     },

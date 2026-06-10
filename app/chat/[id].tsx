@@ -67,7 +67,13 @@ export default function ChatScreen() {
               const sessions = JSON.parse(raw);
               const session = sessions.find((s: any) => s.id === id);
               if (session) {
-                const partnerName = session.participantNames.find((name: string) => name !== user.name);
+                const rawPartnerName = session.participantNames.find((name: string) => name !== user.name);
+                // Anonymize AI bot — never show personal names for AI sessions
+                const isAiSession =
+                  session.participants?.includes("abhinav-ai") ||
+                  rawPartnerName?.toLowerCase().includes("abhinav") ||
+                  rawPartnerName === "AI Bot";
+                const partnerName = isAiSession ? "AI Bot" : rawPartnerName;
                 if (partnerName) setChatPartnerName(partnerName);
 
                 // Fetch mentor profile matching name to extract research focus

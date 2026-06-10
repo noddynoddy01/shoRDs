@@ -17,6 +17,7 @@ import { UserProfile } from "@/types/models";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { GlassButton } from "@/components/GlassButton";
+import { FloatingChatButton } from "@/components/FloatingChatButton";
 
 export default function ProfileScreen() {
   const { colors, fontSizeScale } = useTheme();
@@ -169,6 +170,7 @@ export default function ProfileScreen() {
           )}
         </View>
       </ScrollView>
+      <FloatingChatButton />
     </Screen>
   );
 }

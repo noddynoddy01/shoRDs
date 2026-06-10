@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { Alert, Animated, Pressable, Share, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "../context/ThemeContext";
@@ -11,16 +11,20 @@ import { Chip } from "./Chip";
 import { GlassButton } from "./GlassButton";
 import { ResearchIllustration } from "./ResearchIllustration";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Speech from "expo-speech";
 import { isSubscribed, hasFreeViewsRemaining } from "@/services/subscriptionService";
 
 type ReelCardProps = {
   paper: Paper;
   height: number;
   index: number;
+  isActive: boolean;
+  isMuted: boolean;
+  onMuteToggle: () => void;
   onDelete?: () => void;
 };
 
-export function ReelCard({ paper, height, index, onDelete }: ReelCardProps) {
+export function ReelCard({ paper, height, index, isActive, isMuted, onMuteToggle, onDelete }: ReelCardProps) {
   const { colors, fontSizeScale, theme } = useTheme();
   const [saved, setSaved] = useState(false);
   const [canDelete, setCanDelete] = useState(false);
@@ -30,6 +34,20 @@ export function ReelCard({ paper, height, index, onDelete }: ReelCardProps) {
 
   const styles = getStyles(colors, fontSizeScale, theme);
 
+  const parsedTags = useMemo(() => {
+    const list: string[] = [];
+    if (paper.tags) {
+      paper.tags.forEach(t => {
+        if (!t) return;
+        t.split(/[,\n;]+/).forEach(p => {
+          const cleaned = p.replace(/^[•\-\*\s]+/, "").trim().toLowerCase();
+          if (cleaned) list.push(cleaned);
+        });
+      });
+    }
+    return list;
+  }, [paper.tags]);
+
   useEffect(() => {
     entrance.setValue(0);
     Animated.timing(entrance, {
@@ -38,6 +56,36 @@ export function ReelCard({ paper, height, index, onDelete }: ReelCardProps) {
       useNativeDriver: true
     }).start();
   }, [entrance, paper.id]);
+
+  useEffect(() => {
+    if (isActive) {
+      Speech.stop();
+      if (!isLocked && !isMuted) {
+        AsyncStorage.getItem("shords.currentUser").then((userVal) => {
+          let selectedLang = "en";
+          if (userVal) {
+            const parsedUser = JSON.parse(userVal);
+            const mappedLang: Record<string, string> = {
+              "English": "en",
+              "Hindi": "hi",
+              "Spanish": "es"
+            };
+            selectedLang = mappedLang[parsedUser.language] || "en";
+          }
+          const hasTranslation = paper.translations && paper.translations[selectedLang];
+          const displayTitle = hasTranslation ? paper.translations![selectedLang].title : paper.title;
+          const displaySummary = hasTranslation ? paper.translations![selectedLang].summary : paper.summary;
+          const speechText = `${displayTitle}. Summary: ${displaySummary}.`;
+
+          Speech.speak(speechText, {
+            language: selectedLang,
+            rate: 0.9, // More user friendly and natural speed
+            onError: (e) => console.warn("Speech error:", e)
+          });
+        });
+      }
+    }
+  }, [isActive, isMuted, paper.id, isLocked]);
 
   useEffect(() => {
     isPaperSaved(paper.id).then(setSaved);
@@ -185,16 +233,16 @@ Download shoRDs for quick, simplified, and technical research updates! 🚀`;
 
           {/* Authentic Heading Cutout */}
           <View style={styles.cutoutBlock}>
-            <Text style={styles.cutoutTitle} numberOfLines={3}>{paper.title}</Text>
+            <Text style={styles.cutoutTitle} numberOfLines={2}>{paper.title}</Text>
           </View>
-
+ 
           <Text style={styles.summary} numberOfLines={2}>{paper.summary}</Text>
-
+ 
           {/* Dynamic Vector Illustration */}
           {paper.illustrations && paper.illustrations.length > 0 && (
-            <ResearchIllustration dataString={paper.illustrations[0]} />
+            <ResearchIllustration dataString={paper.illustrations[0]} compact={true} />
           )}
-
+ 
           {/* Highlights / Bullet Insights */}
           {paper.insights && paper.insights.length > 0 && (
             <View style={styles.insightsContainer}>
@@ -207,30 +255,26 @@ Download shoRDs for quick, simplified, and technical research updates! 🚀`;
               ))}
             </View>
           )}
-
+ 
           {/* Media Indicators */}
           <View style={styles.mediaIndicators}>
-            {paper.audioUrl && (
-              <View style={styles.mediaPill}>
-                <Ionicons name="volume-high" size={12} color={colors.accentSoft} />
-                <Text style={styles.mediaPillText}>AUDIO BRIEF</Text>
-              </View>
-            )}
-            {paper.videoUrl && (
-              <View style={styles.mediaPill}>
-                <Ionicons name="play-circle" size={12} color={colors.accentSoft} />
-                <Text style={styles.mediaPillText}>VIDEO OVERVIEW</Text>
-              </View>
-            )}
+            <View style={styles.mediaPill}>
+              <Ionicons name="volume-high" size={12} color={colors.accentSoft} />
+              <Text style={styles.mediaPillText}>AUDIO BRIEF</Text>
+            </View>
+            <View style={styles.mediaPill}>
+              <Ionicons name="play-circle" size={12} color={colors.accentSoft} />
+              <Text style={styles.mediaPillText}>VIDEO OVERVIEW</Text>
+            </View>
           </View>
-
+ 
           <View style={styles.authorBlock}>
             <Text style={styles.author}>{paper.authorName}</Text>
             <Text style={styles.role}>{paper.authorRole}</Text>
           </View>
-
+ 
           <View style={styles.tags}>
-            {paper.tags.slice(0, 2).map((tag) => (
+            {parsedTags.slice(0, 2).map((tag) => (
               <Chip key={tag} label={`#${tag}`} />
             ))}
             <Chip key="domain" label={paper.domain} selected={true} />
@@ -251,6 +295,14 @@ Download shoRDs for quick, simplified, and technical research updates! 🚀`;
           <Pressable style={styles.railButton} onPress={sharePaper}>
             <Ionicons name="share-social-outline" color={colors.text} size={22} />
             <Text style={styles.railLabel}>Share</Text>
+          </Pressable>
+          <Pressable style={styles.railButton} onPress={onMuteToggle}>
+            <Ionicons
+              name={isMuted ? "volume-mute-outline" : "volume-high-outline"}
+              color={isMuted ? "#EF4444" : colors.accentSoft}
+              size={22}
+            />
+            <Text style={[styles.railLabel, isMuted && { color: "#EF4444" }]}>{isMuted ? "Muted" : "Mute"}</Text>
           </Pressable>
           <Pressable style={styles.railButton} onPress={handleCardPress}>
             <Ionicons name={isLocked ? "lock-closed-outline" : "book-outline"} color={isLocked ? colors.accentSoft : colors.text} size={22} />
@@ -280,7 +332,7 @@ function getStyles(colors: typeof defaultColors, scale: number, theme: string) {
       borderWidth: 1,
       borderColor: colors.border,
       overflow: "hidden",
-      padding: 18,
+      padding: 14,
       justifyContent: "space-between"
     },
     topMeta: {
@@ -304,10 +356,10 @@ function getStyles(colors: typeof defaultColors, scale: number, theme: string) {
     body: {
       flex: 1,
       justifyContent: "center",
-      gap: 8,
+      gap: 4,
       paddingRight: 58,
-      marginTop: 6,
-      marginBottom: 6
+      marginTop: 4,
+      marginBottom: 4
     },
     summary: {
       color: colors.muted,
@@ -357,8 +409,8 @@ function getStyles(colors: typeof defaultColors, scale: number, theme: string) {
     journalHeader: {
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
-      paddingBottom: 6,
-      marginBottom: 4,
+      paddingBottom: 4,
+      marginBottom: 2,
     },
     journalName: {
       fontFamily: "serif",
@@ -394,9 +446,9 @@ function getStyles(colors: typeof defaultColors, scale: number, theme: string) {
       borderColor: theme === "light" || theme === "sepia" ? "#DCD1B4" : "rgba(220, 209, 180, 0.2)",
       borderWidth: 1.5,
       borderStyle: "dashed",
-      padding: 10,
+      padding: 8,
       borderRadius: radius.sm,
-      marginVertical: 4,
+      marginVertical: 2,
     },
     cutoutTitle: {
       fontFamily: "serif",
@@ -406,8 +458,8 @@ function getStyles(colors: typeof defaultColors, scale: number, theme: string) {
       color: theme === "light" || theme === "sepia" ? "#3E2723" : colors.text,
     },
     insightsContainer: {
-      marginVertical: 4,
-      gap: 4,
+      marginVertical: 2,
+      gap: 2,
     },
     insightsLabel: {
       fontSize: 9 * scale,

@@ -21,9 +21,10 @@ import { useTheme } from "@/context/ThemeContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Mentor, UserProfile, ChatSession } from "@/types/models";
 import { getChatSessions } from "@/services/chatService";
+import { FloatingChatButton } from "@/components/FloatingChatButton";
 
 export default function MentorsScreen() {
-  const { colors, fontSizeScale } = useTheme();
+  const { colors, fontSizeScale, theme } = useTheme();
   const [mentorsList, setMentorsList] = useState<Mentor[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -40,7 +41,7 @@ export default function MentorsScreen() {
   const [bio, setBio] = useState("");
   const [availability, setAvailability] = useState("");
 
-  const styles = getStyles(colors, fontSizeScale);
+  const styles = getStyles(colors, fontSizeScale, theme);
 
   const fetchMentors = useCallback(() => {
     getAllMentors().then(setMentorsList);
@@ -88,7 +89,8 @@ export default function MentorsScreen() {
 
     // Create session and go to chat
     const { createChatSession } = await import("@/services/chatService");
-    const session = await createChatSession(currentUser.id, currentUser.name, mentor.id, mentor.name);
+    const displayName = mentor.id === "abhinav-ai" ? "AI Bot" : mentor.name;
+    const session = await createChatSession(currentUser.id, currentUser.name, mentor.id, displayName);
     router.push(`/chat/${session.id}` as never);
   }
 
@@ -183,7 +185,13 @@ export default function MentorsScreen() {
           <View style={styles.chatsList}>
             {chatSessions.length ? (
               chatSessions.map((session) => {
-                const partnerName = session.participantNames.find((n) => n !== currentUser?.name) || "Chat Room";
+                const rawPartner = session.participantNames.find((n) => n !== currentUser?.name) || "Chat Room";
+                // Show "AI Bot" for AI sessions — never expose personal names
+                const isAiSession =
+                  session.participants?.includes("abhinav-ai") ||
+                  rawPartner.toLowerCase().includes("abhinav") ||
+                  rawPartner === "AI Bot";
+                const partnerName = isAiSession ? "AI Bot" : rawPartner;
                 return (
                   <Pressable
                     key={session.id}
@@ -245,11 +253,18 @@ export default function MentorsScreen() {
                       <Ionicons name="time-outline" color={colors.subdued} size={15} />
                       <Text style={styles.availability}>{mentor.availability}</Text>
                     </View>
-                    <GlassButton
-                      title="Connect"
-                      icon="chatbubble-ellipses-outline"
-                      onPress={() => connect(mentor)}
-                    />
+                    {mentor.id === "abhinav-ai" ? (
+                      <GlassButton
+                        title="Connect"
+                        icon="chatbubble-ellipses-outline"
+                        onPress={() => connect(mentor)}
+                      />
+                    ) : (
+                      <View style={styles.disabledConnect}>
+                        <Ionicons name="chatbubble-outline" color={colors.subdued} size={16} />
+                        <Text style={styles.disabledConnectText}>Direct Guidance / AI Chat Offline</Text>
+                      </View>
+                    )}
                   </View>
                 );
               })}
@@ -293,6 +308,7 @@ export default function MentorsScreen() {
           </View>
         </View>
       </Modal>
+      <FloatingChatButton />
     </Screen>
   );
 }
@@ -300,8 +316,25 @@ export default function MentorsScreen() {
 // Global sharing import fix
 import { Share } from "react-native";
 
-function getStyles(colors: typeof defaultColors, scale: number) {
+function getStyles(colors: typeof defaultColors, scale: number, theme: string) {
   return StyleSheet.create({
+    disabledConnect: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      height: 48,
+      borderRadius: radius.md,
+      backgroundColor: theme === "light" || theme === "sepia" ? "rgba(0, 0, 0, 0.03)" : "rgba(255, 255, 255, 0.02)",
+      borderWidth: 1,
+      borderColor: colors.border,
+      opacity: 0.65
+    },
+    disabledConnectText: {
+      color: colors.subdued,
+      fontSize: 12 * scale,
+      fontWeight: "700"
+    },
     content: {
       padding: 18,
       gap: 18

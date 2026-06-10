@@ -13,6 +13,7 @@ import { useFeedMetrics } from "@/hooks/useFeedMetrics";
 import { getAllPapers } from "@/services/papersStore";
 import { Domain, Paper } from "@/types/models";
 import { useTheme } from "@/context/ThemeContext";
+import { FloatingChatButton } from "@/components/FloatingChatButton";
 
 const filters = ["Trending", "Newest", "Most Saved"];
 
@@ -92,6 +93,7 @@ export default function ExploreScreen() {
           ))}
         </View>
       </ScrollView>
+      <FloatingChatButton />
     </Screen>
   );
 }

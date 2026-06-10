@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import {
   Alert,
   Linking,
@@ -20,7 +20,6 @@ import { Logo } from "@/components/Logo";
 import { Screen } from "@/components/Screen";
 import { ResearchIllustration } from "@/components/ResearchIllustration";
 import * as Speech from "expo-speech";
-import { Video, ResizeMode } from "expo-av";
 import { colors as defaultColors, radius } from "@/constants/theme";
 import { samplePapers } from "@/data/samplePapers";
 import { getPaperById, parsePaperSections, deletePaper } from "@/services/papersStore";
@@ -47,12 +46,14 @@ export default function ResearchDetailsScreen() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioSpeed, setAudioSpeed] = useState<"1.0x" | "1.5x" | "2.0x">("1.0x");
   const [audioProgress, setAudioProgress] = useState(0); // seconds
-  const audioDuration = 190; // 3 min 10 sec
   const audioIntervalRef = useRef<any>(null);
 
   // Video Explainer Modal state
   const [videoModalVisible, setVideoModalVisible] = useState(false);
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  const [videoProgress, setVideoProgress] = useState(0); // 0 to 60 seconds
+  const videoIntervalRef = useRef<any>(null);
+  const videoDuration = 60; // 60s total
 
   const styles = getStyles(colors, fontSizeScale, theme);
 
@@ -61,6 +62,64 @@ export default function ResearchDetailsScreen() {
   const displayTitle = paper ? (hasTranslation ? paper.translations![selectedLang].title : paper.title) : "";
   const displaySummary = paper ? (hasTranslation ? paper.translations![selectedLang].summary : paper.summary) : "";
   const displayExplanation = paper ? (hasTranslation ? paper.translations![selectedLang].fullExplanation : paper.fullExplanation) : "";
+
+  // Parse sections (needed for methodology/results/future scope text)
+  const sections = parsePaperSections(displayExplanation, displayTitle, displaySummary, paper?.domain || "General");
+
+  const parsedTags = useMemo(() => {
+    if (!paper?.tags) return [];
+    const list: string[] = [];
+    paper.tags.forEach(t => {
+      if (!t) return;
+      t.split(/[,\n;]+/).forEach(p => {
+        const cleaned = p.replace(/^[•\-\*\s]+/, "").trim().toLowerCase();
+        if (cleaned) list.push(cleaned);
+      });
+    });
+    return list;
+  }, [paper?.tags]);
+
+  // Dynamic Audio brief speech representation
+  const speechText = paper
+    ? `${displayTitle}. Summary: ${displaySummary}. Insights: ${paper.insights ? paper.insights.join(". ") : ""}`
+    : "";
+  const wordCount = speechText ? speechText.split(/\s+/).filter(Boolean).length : 0;
+  const audioDuration = wordCount > 0 ? Math.max(10, Math.ceil(wordCount / 2.3)) : 120;
+
+  // Video Presentation Slides mapping (explains the actual stack content!)
+  const slides = [
+    {
+      chapter: "CHAPTER 1",
+      title: "Abstract & Research Context",
+      body: displaySummary || "Loading context details...",
+      icon: "bookmark-outline",
+      accent: "#06B6D4"
+    },
+    {
+      chapter: "CHAPTER 2",
+      title: "Technical Methodology",
+      body: sections.methodology ? (sections.methodology.substring(0, 180) + "...") : "Analyzing methodology specifications...",
+      icon: "hardware-chip-outline",
+      accent: "#8B5CF6"
+    },
+    {
+      chapter: "CHAPTER 3",
+      title: "Core Findings & Results",
+      body: sections.results ? (sections.results.substring(0, 180) + "...") : "Aggregating research results...",
+      icon: "analytics-outline",
+      accent: "#10B981"
+    },
+    {
+      chapter: "CHAPTER 4",
+      title: "Future Scope & Horizons",
+      body: sections.futureScope ? (sections.futureScope.substring(0, 180) + "...") : "Projecting future implementation horizons...",
+      icon: "planet-outline",
+      accent: "#F59E0B"
+    }
+  ];
+
+  const activeSlideIndex = Math.min(3, Math.floor((videoProgress / videoDuration) * 4));
+  const activeSlide = slides[activeSlideIndex];
 
   // Page Access / Subscription check
   useEffect(() => {
@@ -168,9 +227,8 @@ export default function ResearchDetailsScreen() {
 
   // Native speech synthesis trigger
   useEffect(() => {
-    if (isPlaying) {
-      const speechText = `${displayTitle}. Summary: ${displaySummary}. Insights: ${paper?.insights ? paper.insights.join(". ") : ""}`;
-      const rateScale = audioSpeed === "1.0x" ? 1.0 : audioSpeed === "1.5x" ? 1.4 : 1.8;
+    if (isPlaying && speechText) {
+      const rateScale = audioSpeed === "1.0x" ? 0.9 : audioSpeed === "1.5x" ? 1.3 : 1.7;
       
       Speech.speak(speechText, {
         language: selectedLang,
@@ -191,7 +249,51 @@ export default function ResearchDetailsScreen() {
     return () => {
       Speech.stop();
     };
-  }, [isPlaying, audioSpeed, selectedLang, displayTitle, displaySummary, paper?.insights]);
+  }, [isPlaying, audioSpeed, selectedLang, speechText]);
+
+  // Video presentation timer
+  useEffect(() => {
+    if (isVideoPlaying) {
+      videoIntervalRef.current = setInterval(() => {
+        setVideoProgress((prev) => {
+          if (prev >= videoDuration) {
+            setIsVideoPlaying(false);
+            if (videoIntervalRef.current) clearInterval(videoIntervalRef.current);
+            return 0;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+    } else {
+      if (videoIntervalRef.current) {
+        clearInterval(videoIntervalRef.current);
+      }
+    }
+    return () => {
+      if (videoIntervalRef.current) clearInterval(videoIntervalRef.current);
+    };
+  }, [isVideoPlaying]);
+
+  // Video presentation narration sync
+  useEffect(() => {
+    if (isVideoPlaying && paper && activeSlide) {
+      // Pause timeline audio readout if active
+      setIsPlaying(false);
+      Speech.stop();
+      
+      const slideText = `${activeSlide.title}. ${activeSlide.body}`;
+      Speech.speak(slideText, {
+        language: selectedLang,
+        rate: 0.95,
+        onError: (e) => console.warn("Video presentation narration error:", e)
+      });
+    } else {
+      Speech.stop();
+    }
+    return () => {
+      Speech.stop();
+    };
+  }, [activeSlideIndex, isVideoPlaying, selectedLang]);
 
   if (!paper) {
     return (
@@ -206,8 +308,6 @@ export default function ResearchDetailsScreen() {
 
 
 
-  // Parse sections
-  const sections = parsePaperSections(displayExplanation, displayTitle, displaySummary, paper.domain);
 
   const tabContent = {
     context: {
@@ -430,14 +530,12 @@ export default function ResearchDetailsScreen() {
         </View>
 
         {/* Video Overview Explainer Button */}
-        {paper.videoUrl && (
-          <GlassButton
-            title="Watch AI Video Explainer"
-            icon="play-circle-outline"
-            onPress={() => setVideoModalVisible(true)}
-            style={styles.videoBtn}
-          />
-        )}
+        <GlassButton
+          title="Watch AI Video Explainer"
+          icon="play-circle-outline"
+          onPress={() => setVideoModalVisible(true)}
+          style={styles.videoBtn}
+        />
 
         {/* Segmented Technical Tabs Selector */}
         <View style={styles.tabBar}>
@@ -499,7 +597,7 @@ export default function ResearchDetailsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Research Tags</Text>
           <View style={styles.tags}>
-            {paper.tags.map((tag) => (
+            {parsedTags.map((tag) => (
               <Chip key={tag} label={`#${tag}`} />
             ))}
           </View>
@@ -514,92 +612,126 @@ export default function ResearchDetailsScreen() {
         />
       </ScrollView>
 
-      {/* Video Explainer Modal */}
+      {/* Video Explainer Modal (Custom Animated Slide Lecture) */}
       <Modal
         visible={videoModalVisible}
         transparent={true}
         animationType="slide"
-        onRequestClose={() => setVideoModalVisible(false)}
+        onRequestClose={() => {
+          setVideoModalVisible(false);
+          setIsVideoPlaying(false);
+          setVideoProgress(0);
+        }}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.videoPlayerSheet}>
             <View style={styles.videoHeader}>
-              <Text style={styles.videoModalTitle} numberOfLines={1}>{displayTitle}</Text>
+              <Text style={styles.videoModalTitle} numberOfLines={1}>AI Presentation: {displayTitle}</Text>
               <Pressable
                 style={styles.closeVideoBtn}
                 onPress={() => {
                   setVideoModalVisible(false);
                   setIsVideoPlaying(false);
+                  setVideoProgress(0);
                 }}
               >
                 <Ionicons name="close" size={22} color="#FFFFFF" />
               </Pressable>
             </View>
 
-            {/* Video Native/Simulated screen */}
+            {/* Simulated Animated Video Screen */}
             <View style={styles.videoScreen}>
-              {isVideoPlaying ? (
-                <Video
-                  source={{ 
-                    uri: paper.videoUrl && !paper.videoUrl.includes("shords.app") 
-                      ? paper.videoUrl 
-                      : "https://www.w3schools.com/html/mov_bbb.mp4" 
-                  }}
-                  rate={1.0}
-                  volume={1.0}
-                  isMuted={false}
-                  resizeMode={ResizeMode.CONTAIN}
-                  shouldPlay={true}
-                  isLooping
-                  useNativeControls
-                  style={styles.videoPlayerNative}
-                  onError={(e) => {
-                    console.warn("Video play error:", e);
-                    Alert.alert("Playback Error", "Could not stream AI video lesson.");
-                    setIsVideoPlaying(false);
-                  }}
-                />
+              <LinearGradient
+                colors={["#0B0F19", "#1E1B4B"]}
+                style={StyleSheet.absoluteFill}
+              />
+              
+              {/* Graphic animation backdrop based on active slide */}
+              <View style={StyleSheet.absoluteFill}>
+                {activeSlideIndex === 0 && (
+                  <View style={styles.animContainer}>
+                    <Ionicons name="school-outline" size={100} color="rgba(6, 182, 212, 0.07)" style={styles.videoDiagramMock} />
+                  </View>
+                )}
+                {activeSlideIndex === 1 && (
+                  <View style={styles.animContainer}>
+                    <Ionicons name="hardware-chip-outline" size={100} color="rgba(139, 92, 246, 0.07)" style={styles.videoDiagramMock} />
+                  </View>
+                )}
+                {activeSlideIndex === 2 && (
+                  <View style={styles.animContainer}>
+                    <View style={styles.barChartMock}>
+                      <View style={[styles.bar, { height: 40, backgroundColor: "rgba(16, 185, 129, 0.15)" }]} />
+                      <View style={[styles.bar, { height: 90, backgroundColor: "rgba(16, 185, 129, 0.3)" }]} />
+                      <View style={[styles.bar, { height: 60, backgroundColor: "rgba(16, 185, 129, 0.15)" }]} />
+                    </View>
+                  </View>
+                )}
+                {activeSlideIndex === 3 && (
+                  <View style={styles.animContainer}>
+                    <Ionicons name="planet-outline" size={100} color="rgba(245, 158, 11, 0.07)" style={styles.videoDiagramMock} />
+                  </View>
+                )}
+              </View>
+
+              {/* Slide Text Content Overlay */}
+              {isVideoPlaying || videoProgress > 0 ? (
+                <View style={styles.slideOverlay}>
+                  <View style={[styles.slideBadge, { borderColor: activeSlide.accent }]}>
+                    <Text style={[styles.slideBadgeText, { color: activeSlide.accent }]}>{activeSlide.chapter}</Text>
+                  </View>
+                  <Text style={styles.slideTitle} numberOfLines={1}>{activeSlide.title}</Text>
+                  <Text style={styles.slideBody} numberOfLines={4}>{activeSlide.body}</Text>
+                </View>
               ) : (
-                <>
-                  <LinearGradient
-                    colors={["#0F172A", "#1E293B"]}
-                    style={StyleSheet.absoluteFill}
-                  />
-                  <Ionicons
-                    name="stats-chart"
-                    size={80}
-                    color="rgba(6, 182, 212, 0.15)"
-                    style={styles.videoDiagramMock}
-                  />
+                <View style={styles.animContainer}>
                   <Pressable
                     onPress={() => setIsVideoPlaying(true)}
                     style={styles.videoPlayOverlayBtn}
                   >
                     <Ionicons name="play-circle" size={64} color={colors.accentSoft} />
+                    <Text style={styles.streamingText}>GENERATE EXPLAINER</Text>
                   </Pressable>
-                </>
+                </View>
               )}
+
+              {/* Progress bar overlay */}
+              <View style={styles.videoControls}>
+                <Pressable onPress={() => setIsVideoPlaying(!isVideoPlaying)} style={styles.videoPlayBtnSmall}>
+                  <Ionicons name={isVideoPlaying ? "pause" : "play"} size={12} color="#FFFFFF" />
+                </Pressable>
+                <View style={styles.videoTrackBar}>
+                  <View style={[styles.videoTrackProgress, { width: `${(videoProgress / videoDuration) * 100}%` }]} />
+                </View>
+                <Text style={styles.videoTimeText}>{formatTime(videoProgress)} / {formatTime(videoDuration)}</Text>
+              </View>
             </View>
 
             {/* AI Chapters / Explainer notes */}
             <ScrollView contentContainerStyle={styles.videoChapters} showsVerticalScrollIndicator={false}>
               <Text style={styles.chaptersTitle}>AI-Generated Video Chapters</Text>
-              <View style={styles.chapterRow}>
-                <Text style={styles.chapterTime}>0:00</Text>
-                <Text style={styles.chapterText}>Paper Abstract & Core Hypothesis</Text>
-              </View>
-              <View style={styles.chapterRow}>
-                <Text style={styles.chapterTime}>1:15</Text>
-                <Text style={styles.chapterText}>Experimental Architecture & Dataset Analysis</Text>
-              </View>
-              <View style={styles.chapterRow}>
-                <Text style={styles.chapterTime}>2:40</Text>
-                <Text style={styles.chapterText}>Key Math Formula Walkthrough & Results</Text>
-              </View>
-              <View style={styles.chapterRow}>
-                <Text style={styles.chapterTime}>3:50</Text>
-                <Text style={styles.chapterText}>Limitations & Future Application Directions</Text>
-              </View>
+              {slides.map((slide, idx) => {
+                const isActiveChapter = idx === activeSlideIndex && (isVideoPlaying || videoProgress > 0);
+                const chapterTime = `0:${String(idx * 15).padStart(2, "0")}`;
+                return (
+                  <Pressable 
+                    key={idx} 
+                    style={[styles.chapterRow, isActiveChapter && styles.chapterRowActive]}
+                    onPress={() => {
+                      setVideoProgress(idx * 15);
+                      setIsVideoPlaying(true);
+                    }}
+                  >
+                    <Text style={[styles.chapterTime, isActiveChapter && { color: slide.accent }]}>{chapterTime}</Text>
+                    <Text style={[styles.chapterText, isActiveChapter && { color: "#FFFFFF", fontWeight: "700" }]}>
+                      {slide.title}
+                    </Text>
+                    {isActiveChapter && (
+                      <Ionicons name="volume-high" size={16} color={slide.accent} />
+                    )}
+                  </Pressable>
+                );
+              })}
             </ScrollView>
           </View>
         </View>
@@ -996,29 +1128,24 @@ function getStyles(colors: typeof defaultColors, scale: number, theme: string) {
       height: 220,
       justifyContent: "center",
       alignItems: "center",
-      position: "relative"
-    },
-    videoPlayerNative: {
-      width: "100%",
-      height: 220
+      position: "relative",
+      overflow: "hidden"
     },
     videoDiagramMock: {
       position: "absolute",
-      opacity: 0.25
+      opacity: 0.18
     },
     videoPlayOverlayBtn: {
       zIndex: 5,
-      alignItems: "center"
-    },
-    pulseContainer: {
       alignItems: "center",
-      gap: 8
+      gap: 6
     },
     streamingText: {
       color: "#67E8F9",
       fontWeight: "800",
-      fontSize: 11 * scale,
-      letterSpacing: 1
+      fontSize: 10 * scale,
+      letterSpacing: 1.5,
+      marginTop: 4
     },
     videoControls: {
       position: "absolute",
@@ -1028,13 +1155,13 @@ function getStyles(colors: typeof defaultColors, scale: number, theme: string) {
       flexDirection: "row",
       alignItems: "center",
       padding: 10,
-      gap: 8,
-      backgroundColor: "rgba(15, 23, 42, 0.72)"
+      gap: 10,
+      backgroundColor: "rgba(15, 23, 42, 0.82)"
     },
     videoTimeText: {
       color: "#FFFFFF",
       fontSize: 10 * scale,
-      fontWeight: "600"
+      fontWeight: "700"
     },
     videoTrackBar: {
       flex: 1,
@@ -1061,9 +1188,76 @@ function getStyles(colors: typeof defaultColors, scale: number, theme: string) {
     chapterRow: {
       flexDirection: "row",
       gap: 12,
-      paddingBottom: 8,
+      paddingVertical: 10,
+      paddingHorizontal: 8,
       borderBottomWidth: 1,
-      borderBottomColor: "#1E293B"
+      borderBottomColor: "#1E293B",
+      alignItems: "center",
+      borderRadius: radius.sm
+    },
+    animContainer: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      width: "100%",
+      height: "100%"
+    },
+    slideOverlay: {
+      position: "absolute",
+      top: 16,
+      left: 16,
+      right: 16,
+      bottom: 44,
+      justifyContent: "center",
+      gap: 6
+    },
+    slideBadge: {
+      alignSelf: "flex-start",
+      borderWidth: 1.5,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: radius.sm,
+      backgroundColor: "rgba(0,0,0,0.6)"
+    },
+    slideBadgeText: {
+      fontSize: 9 * scale,
+      fontWeight: "800",
+      letterSpacing: 1
+    },
+    slideTitle: {
+      color: "#FFFFFF",
+      fontSize: 15 * scale,
+      fontWeight: "800"
+    },
+    slideBody: {
+      color: "#94A3B8",
+      fontSize: 12 * scale,
+      lineHeight: 18 * scale
+    },
+    videoPlayBtnSmall: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: "rgba(255,255,255,0.15)",
+      alignItems: "center",
+      justifyContent: "center"
+    },
+    barChartMock: {
+      flexDirection: "row",
+      alignItems: "flex-end",
+      gap: 12,
+      height: 100,
+      marginBottom: 20
+    },
+    bar: {
+      width: 14,
+      borderRadius: 4
+    },
+    chapterRowActive: {
+      backgroundColor: "rgba(255, 255, 255, 0.05)",
+      borderLeftWidth: 3,
+      borderLeftColor: "#06B6D4",
+      paddingLeft: 9
     },
     chapterTime: {
       color: "#06B6D4",
