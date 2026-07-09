@@ -104,7 +104,7 @@ type ThemeContextType = {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<ThemeType>("light");
+  const [theme, setThemeState] = useState<ThemeType>("dark");
   const [fontScaleType, setFontScaleState] = useState<FontScaleType>("medium");
 
   useEffect(() => {
@@ -112,7 +112,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       if (val && val in themes) {
         setThemeState(val as ThemeType);
       } else {
-        setThemeState("light");
+        setThemeState("dark");
       }
     });
     AsyncStorage.getItem("shords.fontScale").then((val) => {

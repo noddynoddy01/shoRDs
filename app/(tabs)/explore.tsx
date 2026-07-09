@@ -1,4 +1,4 @@
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, router } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { Chip } from "@/components/Chip";
@@ -77,7 +77,12 @@ export default function ExploreScreen() {
               domain={domain}
               count={papers.filter((paper) => paper.domain === domain).length}
               selected={selectedDomain === domain}
-              onPress={() => setSelectedDomain(selectedDomain === domain ? "All" : domain)}
+              onPress={() => {
+                router.push({
+                  pathname: "/(tabs)",
+                  params: { filterDomain: domain }
+                });
+              }}
             />
           ))}
         </View>

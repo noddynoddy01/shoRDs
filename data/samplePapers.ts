@@ -263,7 +263,7 @@ export const samplePapers: Paper[] = [
     summary:
       "Flexible perovskite solar cells are being studied for indoor and outdoor use, including lightweight devices and curved surfaces.",
     fullExplanation:
-      "🔬 [Context & Background]\nTraditional solar installations are rigid and heavy, limiting deployment on curved walls, vehicles, or wearable textiles. Flexible solar cells address this constraint.\n\n⚙️ [Technical Methodology]\nThis paper details roll-to-roll printing of perovskite cells on flexible polyethylene... [Truncated for brevity]",
+      "🔬 [Context & Background]\nTraditional solar installations are rigid and heavy, limiting deployment on curved walls, vehicles, or wearable textiles. Flexible solar cells address this constraint.\n\n⚙️ [Technical Methodology]\nThis paper details roll-to-roll printing of perovskite cells on flexible polyethylene terephthalate (PET) substrates. It utilizes low-temperature carbon paste electrodes to avoid damaging the underlying organic-inorganic layers.\n\n📊 [Key Results & Findings]\nThe manufactured flexible cells achieved a power conversion efficiency (PCE) of 18.2% and maintained 90% of their initial performance after 1,000 bending cycles at a 10mm radius.\n\n🔮 [Future Scope & Horizons]\nFuture work targets scaling active surface areas using slot-die coating processes and improving moisture barrier encapsulation to increase device operating lifespans.",
     authorId: "paper-team-7",
     authorName: "Flexible Solar Review Authors",
     authorRole: "Materials and Energy Researchers",
@@ -275,6 +275,66 @@ export const samplePapers: Paper[] = [
     organization: "Springer Materials",
     pubYear: 2024,
     doi: "10.1007/s40243-024-00257-8"
+  },
+  {
+    id: "biotech-gene-editing",
+    title: "CRISPR-Cas12a Gene Editing Precision Breakthrough",
+    domain: "Biotechnology",
+    summary:
+      "Researchers engineered a high-fidelity Cas12a variant that virtually eliminates off-target DNA cleavage, bringing gene therapies closer to safe human trials.",
+    fullExplanation:
+      "🔬 [Context & Background]\nCRISPR gene editing technologies hold massive potential for curing genetic diseases. However, off-target editing (unintentional cleavage at similar genomic sequences) remains a key safety concern that blocks clinical translation.\n\n⚙️ [Technical Methodology]\nWe engineered a high-fidelity variant of Cas12a (named hyper-Cas12a) through rational design. We introduced amino acid mutations at the protein-DNA interface to weaken non-specific electrostatic interactions, thereby raising the mismatch discrimination threshold.\n\n📊 [Key Results & Findings]\nIn human cell lines, hyper-Cas12a achieved a 99.8% reduction in off-target editing compared to wild-type Cas12a. It maintained comparable on-target editing efficiency (above 85%) at multiple therapeutic loci.\n\n🔮 [Future Scope & Horizons]\nNext steps involve testing the engineered endonuclease in vivo in animal models and scaling up vector packaging configurations for delivering gene therapy payloads to liver and muscle tissues.",
+    authorId: "paper-team-8",
+    authorName: "Genetics Lab Team",
+    authorRole: "Molecular Engineering Group",
+    originalLink: "https://arxiv.org/abs/2402.xxxxx",
+    tags: ["crispr", "gene-editing", "precision"],
+    readingTime: "5 min read",
+    savedCount: 1980,
+    createdAt: new Date("2025-05-12"),
+    organization: "Nature Biotechnology",
+    pubYear: 2025,
+    doi: "10.1038/nbt.2025.xxxx"
+  },
+  {
+    id: "space-propulsion-plasma",
+    title: "Next-Gen Plasma Thruster for Deep-Space Exploration",
+    domain: "Space Tech",
+    summary:
+      "Engineers validated an advanced plasma thruster operating at 100kW, demonstrating a 3x increase in fuel efficiency compared to conventional chemical rockets.",
+    fullExplanation:
+      "🔬 [Context & Background]\nDeep-space missions to Mars and beyond require high-efficiency propulsion systems. Conventional chemical thrusters are fuel-heavy, limiting payload capacities and increasing transit times.\n\n⚙️ [Technical Methodology]\nThis paper details the design and testing of a 100kW Magnetoplasmadynamic (MPD) thruster. It utilizes magnetic nozzles to guide and accelerate high-temperature Argon plasma, generating high thrust density without physical electrode degradation.\n\n📊 [Key Results & Findings]\nThe MPD thruster achieved a specific impulse (Isp) of 4,500 seconds, representing a threefold increase in fuel efficiency. The engine ran continuously for 200 hours in a high-vacuum simulation chamber without structural degradation.\n\n🔮 [Future Scope & Horizons]\nFuture research will focus on integrating high-temperature superconducting magnets to increase thrust output and testing the system with lightweight nuclear power reactor grids.",
+    authorId: "paper-team-9",
+    authorName: "Space Tech Research Lab",
+    authorRole: "Propulsion Engineering Team",
+    originalLink: "https://arxiv.org/abs/2403.xxxxx",
+    tags: ["plasma-thruster", "deep-space", "propulsion"],
+    readingTime: "4 min read",
+    savedCount: 2240,
+    createdAt: new Date("2025-06-15"),
+    organization: "AIAA Journal",
+    pubYear: 2025,
+    doi: "10.2514/1.xxxx"
+  },
+  {
+    id: "cybersecurity-zero-trust",
+    title: "Quantum-Resistant Cryptography in Zero-Trust Edge Systems",
+    domain: "Cybersecurity",
+    summary:
+      "A new post-quantum cryptographic protocol secures internet-of-things devices against future quantum computer decryption attacks without increasing hardware latency.",
+    fullExplanation:
+      "🔬 [Context & Background]\nFuture quantum computers will be capable of breaking current asymmetric cryptography (like RSA/ECC). Edge devices with limited compute resources need immediate security upgrades to prevent future decryption attacks.\n\n⚙️ [Technical Methodology]\nWe propose a zero-trust post-quantum protocol utilizing lattice-based cryptography (based on Module-LWE). The protocol is co-designed with low-power hardware acceleration units to run efficiently on embedded microcontrollers.\n\n📊 [Key Results & Findings]\nThe protocol registers a 12x reduction in encryption latency compared to baseline Kyber implementations on resource-constrained microchips, while preserving security bounds equivalent to AES-256.\n\n🔮 [Future Scope & Horizons]\nWe plan to deploy this protocol across smart grid smart meters and investigate lightweight key distribution frameworks for satellite networks.",
+    authorId: "paper-team-10",
+    authorName: "Cyber Security Alliance",
+    authorRole: "Cryptography Research Lead",
+    originalLink: "https://arxiv.org/abs/2404.xxxxx",
+    tags: ["post-quantum", "cryptography", "edge-security"],
+    readingTime: "4 min read",
+    savedCount: 1890,
+    createdAt: new Date("2025-07-20"),
+    organization: "IEEE Security & Privacy",
+    pubYear: 2025,
+    doi: "10.1109/MSP.2025.xxxx"
   }
 ];
 

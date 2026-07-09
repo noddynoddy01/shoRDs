@@ -48,7 +48,7 @@ export type Mentor = {
 export type Paper = {
   id: string;
   title: string;
-  domain: Domain;
+  domain: string;
   summary: string;
   fullExplanation: string;
   authorId: string;

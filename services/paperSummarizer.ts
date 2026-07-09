@@ -170,7 +170,7 @@ export async function summarizePaperWithSelfHosted(
 }
 
 // 3. Fallback Heuristic summarizer (offline / demo mode)
-export function generateStackCards(title: string, summary: string, domain: Domain) {
+export function generateStackCards(title: string, summary: string, domain: string) {
   const topic = title.trim() || "this research paper";
   const gist =
     summary.trim() ||
@@ -187,7 +187,7 @@ export function generateStackCards(title: string, summary: string, domain: Domai
 // 4. Integrator: Converts AI output or user inputs into a solid shoRDs Paper object
 export function buildPaperFromUpload(input: {
   title: string;
-  domain: Domain;
+  domain: string;
   summary: string;
   tags: string[];
   stackCards: string[];

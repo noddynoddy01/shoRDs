@@ -22,7 +22,9 @@ export default function UploadScreen() {
   
   // Form Fields
   const [title, setTitle] = useState("");
-  const [domain, setDomain] = useState<Domain>("AI / ML");
+  const [domain, setDomain] = useState<string>("AI / ML");
+  const [customDomainText, setCustomDomainText] = useState("");
+  const [isCustomDomain, setIsCustomDomain] = useState(false);
   const [summary, setSummary] = useState("");
   const [tags, setTags] = useState("");
   const [pdfName, setPdfName] = useState("");
@@ -237,9 +239,11 @@ export default function UploadScreen() {
       return;
     }
 
+    const targetDomain = isCustomDomain ? (customDomainText.trim() || "General") : domain;
+
     const paper = buildPaperFromUpload({
       title,
-      domain,
+      domain: targetDomain,
       summary,
       tags: tagList,
       stackCards: generated,
@@ -416,10 +420,35 @@ export default function UploadScreen() {
             <Text style={styles.label}>Academic Category</Text>
             <View style={styles.chips}>
               {domains.map((item) => (
-                <Chip key={item} label={item} selected={domain === item} onPress={() => setDomain(item)} />
+                <Chip
+                  key={item}
+                  label={item}
+                  selected={!isCustomDomain && domain === item}
+                  onPress={() => {
+                    setIsCustomDomain(false);
+                    setDomain(item);
+                  }}
+                />
               ))}
+              <Chip
+                label="Other / Custom..."
+                selected={isCustomDomain}
+                onPress={() => {
+                  setIsCustomDomain(true);
+                }}
+              />
             </View>
           </View>
+
+          {isCustomDomain && (
+            <TextInput
+              value={customDomainText}
+              onChangeText={setCustomDomainText}
+              placeholder="Enter Custom Category / Domain Name"
+              placeholderTextColor={colors.subdued}
+              style={styles.input}
+            />
+          )}
 
           <TextInput
             value={summary}

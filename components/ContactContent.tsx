@@ -10,7 +10,7 @@ import { colors as defaultColors, radius } from "../constants/theme";
 export const contactDetails = {
   name: "ABHINAV PRAKASH",
   institute: "IIIT SURAT",
-  phone: "8757674333",
+  email: "abhinavprakash0401@gmail.com",
   country: "INDIA"
 };
 
@@ -33,14 +33,14 @@ export function ContactContent({ showBack, onBack }: ContactContentProps) {
 
   const styles = getStyles(colors, fontSizeScale);
 
-  async function callContact() {
-    await Linking.openURL(`tel:${contactDetails.phone}`);
+  async function emailContact() {
+    await Linking.openURL(`mailto:${contactDetails.email}`);
   }
 
   async function shareContact() {
     await Share.share({
       title: "shoRDs Contact",
-      message: `${contactDetails.name}\n${contactDetails.institute}\n${contactDetails.phone}\n${contactDetails.country}`
+      message: `${contactDetails.name}\n${contactDetails.institute}\n${contactDetails.email}\n${contactDetails.country}`
     });
   }
 
@@ -89,8 +89,8 @@ export function ContactContent({ showBack, onBack }: ContactContentProps) {
           <Text style={styles.detail}>{contactDetails.institute}</Text>
         </View>
         <View style={styles.detailRow}>
-          <Ionicons name="call-outline" color={colors.accentSoft} size={18} />
-          <Text style={styles.detail}>{contactDetails.phone}</Text>
+          <Ionicons name="mail-outline" color={colors.accentSoft} size={18} />
+          <Text style={styles.detail}>{contactDetails.email}</Text>
         </View>
         <View style={styles.detailRow}>
           <Ionicons name="location-outline" color={colors.accentSoft} size={18} />
@@ -99,7 +99,7 @@ export function ContactContent({ showBack, onBack }: ContactContentProps) {
       </View>
 
       <View style={styles.actions}>
-        <GlassButton title="Call Now" icon="call-outline" onPress={callContact} />
+        <GlassButton title="Email Us" icon="mail-outline" onPress={emailContact} />
         <GlassButton title="Share Contact" icon="share-social-outline" variant="quiet" onPress={shareContact} />
       </View>
     </Animated.View>

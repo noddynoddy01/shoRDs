@@ -1,9 +1,8 @@
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, router } from "expo-router";
 import { useCallback, useState, useRef, useEffect } from "react";
 import { Animated, FlatList, Pressable, StyleSheet, Switch, Text, View, ViewToken } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
 import { Logo } from "@/components/Logo";
 import { ReelCard } from "@/components/ReelCard";
 import { Screen } from "@/components/Screen";
@@ -19,6 +18,7 @@ import * as Speech from "expo-speech";
 
 export default function HomeScreen() {
   const { colors, fontSizeScale, theme, setTheme } = useTheme();
+  const { filterDomain } = useLocalSearchParams<{ filterDomain?: string }>();
   const [papers, setPapers] = useState<Paper[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [settingsVisible, setSettingsVisible] = useState(false);
@@ -31,7 +31,13 @@ export default function HomeScreen() {
   const styles = getStyles(colors, fontSizeScale);
 
   const fetchSessionAndPapers = useCallback(() => {
-    getAllPapers().then(setPapers);
+    getAllPapers().then((all) => {
+      if (filterDomain) {
+        setPapers(all.filter((p) => p.domain === filterDomain));
+      } else {
+        setPapers(all);
+      }
+    });
     AsyncStorage.getItem("shords.currentUser").then((val) => {
       if (val) {
         setUserProfile(JSON.parse(val));
@@ -42,7 +48,7 @@ export default function HomeScreen() {
     AsyncStorage.getItem("shords.audioMuted").then((val) => {
       setIsMuted(val === "true");
     });
-  }, []);
+  }, [filterDomain]);
 
   // Animate banner in when light theme is active
   useEffect(() => {
@@ -105,6 +111,29 @@ export default function HomeScreen() {
           </Pressable>
         </View>
       </View>
+
+      {filterDomain ? (
+        <View style={styles.filterBanner}>
+          <LinearGradient
+            colors={["rgba(6,182,212,0.15)", "rgba(124,58,237,0.06)"]}
+            style={StyleSheet.absoluteFill}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+          />
+          <Ionicons name="funnel-outline" color={colors.accentSoft} size={14} />
+          <Text style={styles.filterText}>
+            Category: <Text style={{ fontWeight: "800", color: colors.accentSoft }}>{filterDomain}</Text>
+          </Text>
+          <Pressable
+            style={styles.clearFilterBtn}
+            onPress={() => {
+              router.setParams({ filterDomain: undefined });
+            }}
+          >
+            <Ionicons name="close-circle" color={colors.muted} size={18} />
+          </Pressable>
+        </View>
+      ) : null}
 
       <FlatList
         data={papers}
@@ -286,6 +315,24 @@ function getStyles(colors: typeof defaultColors, scale: number) {
       color: "rgba(255,255,255,0.7)",
       fontSize: 12,
       fontWeight: "800"
+    },
+    filterBanner: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+      borderBottomWidth: 1,
+      borderColor: colors.border,
+      overflow: "hidden"
+    },
+    filterText: {
+      color: colors.text,
+      fontSize: 12 * scale,
+      flex: 1
+    },
+    clearFilterBtn: {
+      padding: 4
     }
   });
 }
