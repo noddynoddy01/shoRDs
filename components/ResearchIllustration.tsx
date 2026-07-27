@@ -1,6 +1,7 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "../context/ThemeContext";
 import { colors as defaultColors, radius } from "../constants/theme";
 
@@ -39,7 +40,6 @@ export function ResearchIllustration({ dataString, compact }: ResearchIllustrati
   try {
     data = JSON.parse(dataString) as IllustrationData;
   } catch (err) {
-    // If it's not JSON, parse as simple title fallback
     if (dataString && dataString.trim()) {
       data = {
         type: "flow-chart",
@@ -90,7 +90,12 @@ function renderBarChart(data: BarChartData, colors: any, styles: any, compact?: 
             <View key={idx} style={styles.barColumn}>
               <View style={[styles.barWrapper, compact && { height: 60 }]}>
                 <Text style={styles.barValue}>{val}</Text>
-                <View style={[styles.barActive, { height: Math.max(barHeight, 8) }]} />
+                <View style={[styles.barActiveContainer, { height: Math.max(barHeight, 8) }]}>
+                  <LinearGradient
+                    colors={[colors.accent, colors.primary]}
+                    style={StyleSheet.absoluteFill}
+                  />
+                </View>
               </View>
               <Text style={styles.barLabel} numberOfLines={1}>{label}</Text>
             </View>
@@ -101,22 +106,20 @@ function renderBarChart(data: BarChartData, colors: any, styles: any, compact?: 
   );
 }
 
-// 2. Render Line Chart (Dependency-free connector drawing)
+// 2. Render Line Chart (Dependency-free connector drawing with gradient shading)
 function renderLineChart(data: LineChartData, colors: any, styles: any, compact?: boolean) {
   const maxVal = Math.max(...data.values, 1);
   const containerHeight = compact ? 50 : 90;
   const numPoints = data.values.length;
   
-  // Calculate relative coordinate points (X in %, Y in pixels)
   const points = data.values.map((val, idx) => {
-    const xPct = numPoints > 1 ? (idx / (numPoints - 1)) * 85 + 5 : 50; // percentage
-    const yVal = (val / maxVal) * containerHeight; // Y from bottom
+    const xPct = numPoints > 1 ? (idx / (numPoints - 1)) * 85 + 5 : 50;
+    const yVal = (val / maxVal) * containerHeight;
     return { xPct, yVal, rawVal: val };
   });
 
   return (
     <View style={styles.lineChartContainer}>
-      {/* Grid lines */}
       <View style={styles.gridLinesContainer}>
         <View style={styles.gridLine} />
         <View style={styles.gridLine} />
@@ -124,6 +127,32 @@ function renderLineChart(data: LineChartData, colors: any, styles: any, compact?
       </View>
 
       <View style={[styles.lineChartPlot, { height: containerHeight }]}>
+        {/* Render gradient polygons under each line segment */}
+        {points.map((pt, idx) => {
+          if (idx === numPoints - 1) return null;
+          const nextPt = points[idx + 1];
+          const segmentHeight = (pt.yVal + nextPt.yVal) / 2;
+          
+          return (
+            <View
+              key={`area-${idx}`}
+              style={{
+                position: "absolute",
+                left: `${pt.xPct}%`,
+                width: `${nextPt.xPct - pt.xPct}%`,
+                bottom: 0,
+                height: segmentHeight,
+                opacity: 0.45
+              }}
+            >
+              <LinearGradient
+                colors={[colors.accentSoft + "24", "transparent"]}
+                style={StyleSheet.absoluteFill}
+              />
+            </View>
+          );
+        })}
+
         {/* Render lines connecting the dots */}
         {points.map((pt, idx) => {
           if (idx === numPoints - 1) return null;
@@ -143,7 +172,7 @@ function renderLineChart(data: LineChartData, colors: any, styles: any, compact?
                   borderBottomWidth: nextPt.yVal >= pt.yVal ? 1.5 : 0,
                   borderTopWidth: nextPt.yVal < pt.yVal ? 1.5 : 0,
                   borderColor: colors.accentSoft,
-                  opacity: 0.6
+                  opacity: 0.7
                 }
               ]}
             />
@@ -159,13 +188,12 @@ function renderLineChart(data: LineChartData, colors: any, styles: any, compact?
               { left: `${pt.xPct}%`, bottom: pt.yVal - 5 }
             ]}
           >
-            <View style={styles.chartDotInner} />
+            <View style={[styles.chartDotInner, { backgroundColor: colors.accentSoft }]} />
             <Text style={styles.dotValue}>{pt.rawVal}</Text>
           </View>
         ))}
       </View>
 
-      {/* X Axis Labels */}
       <View style={styles.xAxisRow}>
         {data.labels.map((label, idx) => {
           const xPct = numPoints > 1 ? (idx / (numPoints - 1)) * 85 + 5 : 50;
@@ -193,7 +221,17 @@ function renderFlowChart(data: FlowChartData, colors: any, styles: any, compact?
         return (
           <React.Fragment key={idx}>
             <View style={[styles.flowStepCard, compact && { paddingVertical: 4, paddingHorizontal: 6 }]}>
-              <Text style={styles.flowStepIdx}>{idx + 1}</Text>
+              <LinearGradient
+                colors={["rgba(6, 182, 212, 0.08)", "rgba(124, 58, 237, 0.04)"]}
+                style={StyleSheet.absoluteFill}
+              />
+              <View style={styles.flowStepIdxContainer}>
+                <LinearGradient
+                  colors={[colors.accent, colors.primary]}
+                  style={StyleSheet.absoluteFill}
+                />
+                <Text style={styles.flowStepIdx}>{idx + 1}</Text>
+              </View>
               <Text style={styles.flowStepText} numberOfLines={1}>{step}</Text>
             </View>
             {!isLast && (
@@ -259,14 +297,15 @@ function getStyles(colors: typeof defaultColors, scale: number, theme: string, c
       color: colors.accentSoft,
       marginBottom: 3
     },
-    barActive: {
+    barActiveContainer: {
       width: 14,
-      backgroundColor: colors.accentSoft,
-      borderTopLeftRadius: 4,
-      borderTopRightRadius: 4,
-      shadowColor: colors.accentSoft,
-      shadowOpacity: 0.12,
-      shadowRadius: 3
+      borderRadius: 4,
+      overflow: "hidden",
+      shadowColor: colors.accent,
+      shadowOpacity: 0.3,
+      shadowRadius: 4,
+      shadowOffset: { width: 0, height: -2 },
+      elevation: 3
     },
     barLabel: {
       fontSize: 9 * scale,
@@ -303,20 +342,24 @@ function getStyles(colors: typeof defaultColors, scale: number, theme: string, c
     },
     chartDot: {
       position: "absolute",
-      width: 10,
-      height: 10,
-      borderRadius: 5,
-      backgroundColor: colors.accentSoft,
-      borderColor: colors.card,
-      borderWidth: 1.5,
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+      backgroundColor: colors.surface || colors.card,
+      borderColor: colors.accentSoft,
+      borderWidth: 2,
       zIndex: 10,
-      alignItems: "center"
+      alignItems: "center",
+      justifyContent: "center",
+      shadowColor: colors.accentSoft,
+      shadowOpacity: 0.4,
+      shadowRadius: 3,
+      elevation: 4
     },
     chartDotInner: {
       width: 4,
       height: 4,
       borderRadius: 2,
-      backgroundColor: colors.card
     },
     dotValue: {
       position: "absolute",
@@ -358,25 +401,29 @@ function getStyles(colors: typeof defaultColors, scale: number, theme: string, c
     flowStepCard: {
       flexDirection: "row",
       alignItems: "center",
-      backgroundColor: colors.cardElevated,
       borderColor: colors.border,
       borderWidth: 1,
       borderRadius: radius.md,
       paddingHorizontal: 8,
       paddingVertical: 8,
       gap: 6,
-      maxWidth: "28%"
+      maxWidth: "28%",
+      overflow: "hidden",
+      position: "relative"
     },
-    flowStepIdx: {
+    flowStepIdxContainer: {
       width: 16,
       height: 16,
       borderRadius: 8,
-      backgroundColor: colors.accentSoft,
+      alignItems: "center",
+      justifyContent: "center",
+      overflow: "hidden"
+    },
+    flowStepIdx: {
       color: "#FFFFFF",
       fontSize: 9 * scale,
       fontWeight: "800",
-      textAlign: "center",
-      lineHeight: 16
+      textAlign: "center"
     },
     flowStepText: {
       fontSize: 10 * scale,

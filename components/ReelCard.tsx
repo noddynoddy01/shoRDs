@@ -13,6 +13,7 @@ import { ResearchIllustration } from "./ResearchIllustration";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Speech from "expo-speech";
 import { isSubscribed, hasFreeViewsRemaining } from "@/services/subscriptionService";
+import { VideoExplainerModal } from "./VideoExplainerModal";
 
 type ReelCardProps = {
   paper: Paper;
@@ -29,10 +30,26 @@ export function ReelCard({ paper, height, index, isActive, isMuted, onMuteToggle
   const [saved, setSaved] = useState(false);
   const [canDelete, setCanDelete] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
+  const [isVideoVisible, setIsVideoVisible] = useState(false);
+  const [userLang, setUserLang] = useState<"en" | "hi" | "es">("en");
   const pulse = useRef(new Animated.Value(1)).current;
   const entrance = useRef(new Animated.Value(0)).current;
 
   const styles = getStyles(colors, fontSizeScale, theme);
+
+  useEffect(() => {
+    AsyncStorage.getItem("shords.currentUser").then((userVal) => {
+      if (userVal) {
+        const parsed = JSON.parse(userVal);
+        const mappedLang: Record<string, "en" | "hi" | "es"> = {
+          "English": "en",
+          "Hindi": "hi",
+          "Spanish": "es"
+        };
+        setUserLang(mappedLang[parsed.language] || "en");
+      }
+    });
+  }, [paper.id]);
 
   const parsedTags = useMemo(() => {
     const list: string[] = [];
@@ -296,6 +313,10 @@ Download shoRDs for quick, simplified, and technical research updates! 🚀`;
             <Ionicons name="share-social-outline" color={colors.text} size={22} />
             <Text style={styles.railLabel}>Share</Text>
           </Pressable>
+          <Pressable style={styles.railButton} onPress={() => setIsVideoVisible(true)}>
+            <Ionicons name="play-circle-outline" color={colors.accentSoft} size={22} />
+            <Text style={[styles.railLabel, { color: colors.accentSoft }]}>Video</Text>
+          </Pressable>
           <Pressable style={styles.railButton} onPress={onMuteToggle}>
             <Ionicons
               name={isMuted ? "volume-mute-outline" : "volume-high-outline"}
@@ -315,6 +336,12 @@ Download shoRDs for quick, simplified, and technical research updates! 🚀`;
             </Pressable>
           )}
         </View>
+        <VideoExplainerModal
+          visible={isVideoVisible}
+          onClose={() => setIsVideoVisible(false)}
+          paper={paper}
+          selectedLang={userLang}
+        />
       </View>
     </Animated.View>
   );

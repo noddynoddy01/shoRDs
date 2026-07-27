@@ -1,6 +1,6 @@
 import { useFocusEffect, useLocalSearchParams, router } from "expo-router";
-import { useCallback, useState, useRef, useEffect } from "react";
-import { Animated, FlatList, Pressable, StyleSheet, Switch, Text, View, ViewToken } from "react-native";
+import { useCallback, useState, useRef, useEffect, useMemo } from "react";
+import { Animated, FlatList, Pressable, ScrollView, StyleSheet, Switch, Text, View, ViewToken } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { Logo } from "@/components/Logo";
@@ -15,11 +15,13 @@ import { SettingsTray } from "@/components/SettingsTray";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { FloatingChatButton } from "@/components/FloatingChatButton";
 import * as Speech from "expo-speech";
+import { domainSubtopics } from "@/data/samplePapers";
 
 export default function HomeScreen() {
   const { colors, fontSizeScale, theme, setTheme } = useTheme();
-  const { filterDomain } = useLocalSearchParams<{ filterDomain?: string }>();
+  const { filterDomain, selectedSubdomain: initialSubdomain } = useLocalSearchParams<{ filterDomain?: string; selectedSubdomain?: string }>();
   const [papers, setPapers] = useState<Paper[]>([]);
+  const [selectedSubdomain, setSelectedSubdomain] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [userProfile, setUserProfile] = useState<{ name: string; email: string; role?: string } | null>(null);
@@ -29,6 +31,17 @@ export default function HomeScreen() {
 
   const { reelHeight } = useFeedMetrics();
   const styles = getStyles(colors, fontSizeScale);
+
+  useEffect(() => {
+    setSelectedSubdomain(initialSubdomain || null);
+  }, [filterDomain, initialSubdomain]);
+
+  const subtopicsList = filterDomain ? (domainSubtopics[filterDomain] || []) : [];
+
+  const filteredPapers = useMemo(() => {
+    if (!selectedSubdomain) return papers;
+    return papers.filter((p) => p.subdomain === selectedSubdomain);
+  }, [papers, selectedSubdomain]);
 
   const fetchSessionAndPapers = useCallback(() => {
     getAllPapers().then((all) => {
@@ -98,7 +111,7 @@ export default function HomeScreen() {
               style={StyleSheet.absoluteFill}
             />
             <Text style={styles.subtitle}>
-              {papers.length ? `${activeIndex + 1} / ${papers.length} briefs` : "Loading briefs"}
+              {filteredPapers.length ? `${activeIndex + 1} / ${filteredPapers.length} briefs` : "Loading briefs"}
             </Text>
           </View>
           
@@ -135,8 +148,57 @@ export default function HomeScreen() {
         </View>
       ) : null}
 
+      {filterDomain && subtopicsList.length > 0 && (
+        <View style={styles.subtopicsContainer}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.subtopicsScroll}
+          >
+            <Pressable
+              style={[
+                styles.subtopicChip,
+                !selectedSubdomain && styles.subtopicChipActive
+              ]}
+              onPress={() => setSelectedSubdomain(null)}
+            >
+              <Text
+                style={[
+                  styles.subtopicChipText,
+                  !selectedSubdomain && styles.subtopicChipTextActive
+                ]}
+              >
+                All Subtopics
+              </Text>
+            </Pressable>
+            {subtopicsList.map((sub) => {
+              const isChipActive = selectedSubdomain === sub;
+              return (
+                <Pressable
+                  key={sub}
+                  style={[
+                    styles.subtopicChip,
+                    isChipActive && styles.subtopicChipActive
+                  ]}
+                  onPress={() => setSelectedSubdomain(sub)}
+                >
+                  <Text
+                    style={[
+                      styles.subtopicChipText,
+                      isChipActive && styles.subtopicChipTextActive
+                    ]}
+                  >
+                    {sub}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
+
       <FlatList
-        data={papers}
+        data={filteredPapers}
         keyExtractor={(item) => item.id}
         renderItem={({ item, index }) => (
           <ReelCard
@@ -333,6 +395,36 @@ function getStyles(colors: typeof defaultColors, scale: number) {
     },
     clearFilterBtn: {
       padding: 4
+    },
+    subtopicsContainer: {
+      paddingBottom: 8,
+      paddingHorizontal: 14,
+      backgroundColor: "transparent"
+    },
+    subtopicsScroll: {
+      gap: 8,
+      paddingVertical: 4
+    },
+    subtopicChip: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 14,
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border
+    },
+    subtopicChipActive: {
+      backgroundColor: "rgba(6, 182, 212, 0.15)",
+      borderColor: colors.accentSoft
+    },
+    subtopicChipText: {
+      color: colors.subdued,
+      fontSize: 11 * scale,
+      fontWeight: "700"
+    },
+    subtopicChipTextActive: {
+      color: colors.accentSoft,
+      fontWeight: "800"
     }
   });
 }

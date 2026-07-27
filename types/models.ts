@@ -75,6 +75,7 @@ export type Paper = {
       fullExplanation: string;
     }
   >;
+  subdomain?: string;
 };
 
 export type Message = {

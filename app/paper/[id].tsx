@@ -27,6 +27,7 @@ import { isPaperSaved, toggleSavedPaper } from "@/services/savedPapers";
 import { Paper } from "@/types/models";
 import { useTheme } from "@/context/ThemeContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { VideoExplainerModal } from "@/components/VideoExplainerModal";
 
 type TabType = "context" | "methods" | "results" | "future";
 type LangType = "en" | "hi" | "es";
@@ -50,10 +51,6 @@ export default function ResearchDetailsScreen() {
 
   // Video Explainer Modal state
   const [videoModalVisible, setVideoModalVisible] = useState(false);
-  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
-  const [videoProgress, setVideoProgress] = useState(0); // 0 to 60 seconds
-  const videoIntervalRef = useRef<any>(null);
-  const videoDuration = 60; // 60s total
 
   const styles = getStyles(colors, fontSizeScale, theme);
 
@@ -85,41 +82,6 @@ export default function ResearchDetailsScreen() {
     : "";
   const wordCount = speechText ? speechText.split(/\s+/).filter(Boolean).length : 0;
   const audioDuration = wordCount > 0 ? Math.max(10, Math.ceil(wordCount / 2.3)) : 120;
-
-  // Video Presentation Slides mapping (explains the actual stack content!)
-  const slides = [
-    {
-      chapter: "CHAPTER 1",
-      title: "Abstract & Research Context",
-      body: displaySummary || "Loading context details...",
-      icon: "bookmark-outline",
-      accent: "#06B6D4"
-    },
-    {
-      chapter: "CHAPTER 2",
-      title: "Technical Methodology",
-      body: sections.methodology ? (sections.methodology.substring(0, 180) + "...") : "Analyzing methodology specifications...",
-      icon: "hardware-chip-outline",
-      accent: "#8B5CF6"
-    },
-    {
-      chapter: "CHAPTER 3",
-      title: "Core Findings & Results",
-      body: sections.results ? (sections.results.substring(0, 180) + "...") : "Aggregating research results...",
-      icon: "analytics-outline",
-      accent: "#10B981"
-    },
-    {
-      chapter: "CHAPTER 4",
-      title: "Future Scope & Horizons",
-      body: sections.futureScope ? (sections.futureScope.substring(0, 180) + "...") : "Projecting future implementation horizons...",
-      icon: "planet-outline",
-      accent: "#F59E0B"
-    }
-  ];
-
-  const activeSlideIndex = Math.min(3, Math.floor((videoProgress / videoDuration) * 4));
-  const activeSlide = slides[activeSlideIndex];
 
   // Page Access / Subscription check
   useEffect(() => {
@@ -250,50 +212,6 @@ export default function ResearchDetailsScreen() {
       Speech.stop();
     };
   }, [isPlaying, audioSpeed, selectedLang, speechText]);
-
-  // Video presentation timer
-  useEffect(() => {
-    if (isVideoPlaying) {
-      videoIntervalRef.current = setInterval(() => {
-        setVideoProgress((prev) => {
-          if (prev >= videoDuration) {
-            setIsVideoPlaying(false);
-            if (videoIntervalRef.current) clearInterval(videoIntervalRef.current);
-            return 0;
-          }
-          return prev + 1;
-        });
-      }, 1000);
-    } else {
-      if (videoIntervalRef.current) {
-        clearInterval(videoIntervalRef.current);
-      }
-    }
-    return () => {
-      if (videoIntervalRef.current) clearInterval(videoIntervalRef.current);
-    };
-  }, [isVideoPlaying]);
-
-  // Video presentation narration sync
-  useEffect(() => {
-    if (isVideoPlaying && paper && activeSlide) {
-      // Pause timeline audio readout if active
-      setIsPlaying(false);
-      Speech.stop();
-      
-      const slideText = `${activeSlide.title}. ${activeSlide.body}`;
-      Speech.speak(slideText, {
-        language: selectedLang,
-        rate: 0.95,
-        onError: (e) => console.warn("Video presentation narration error:", e)
-      });
-    } else {
-      Speech.stop();
-    }
-    return () => {
-      Speech.stop();
-    };
-  }, [activeSlideIndex, isVideoPlaying, selectedLang]);
 
   if (!paper) {
     return (
@@ -612,130 +530,13 @@ export default function ResearchDetailsScreen() {
         />
       </ScrollView>
 
-      {/* Video Explainer Modal (Custom Animated Slide Lecture) */}
-      <Modal
+      {/* Video Explainer Modal (Shared Component) */}
+      <VideoExplainerModal
         visible={videoModalVisible}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => {
-          setVideoModalVisible(false);
-          setIsVideoPlaying(false);
-          setVideoProgress(0);
-        }}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.videoPlayerSheet}>
-            <View style={styles.videoHeader}>
-              <Text style={styles.videoModalTitle} numberOfLines={1}>AI Presentation: {displayTitle}</Text>
-              <Pressable
-                style={styles.closeVideoBtn}
-                onPress={() => {
-                  setVideoModalVisible(false);
-                  setIsVideoPlaying(false);
-                  setVideoProgress(0);
-                }}
-              >
-                <Ionicons name="close" size={22} color="#FFFFFF" />
-              </Pressable>
-            </View>
-
-            {/* Simulated Animated Video Screen */}
-            <View style={styles.videoScreen}>
-              <LinearGradient
-                colors={["#0B0F19", "#1E1B4B"]}
-                style={StyleSheet.absoluteFill}
-              />
-              
-              {/* Graphic animation backdrop based on active slide */}
-              <View style={StyleSheet.absoluteFill}>
-                {activeSlideIndex === 0 && (
-                  <View style={styles.animContainer}>
-                    <Ionicons name="school-outline" size={100} color="rgba(6, 182, 212, 0.07)" style={styles.videoDiagramMock} />
-                  </View>
-                )}
-                {activeSlideIndex === 1 && (
-                  <View style={styles.animContainer}>
-                    <Ionicons name="hardware-chip-outline" size={100} color="rgba(139, 92, 246, 0.07)" style={styles.videoDiagramMock} />
-                  </View>
-                )}
-                {activeSlideIndex === 2 && (
-                  <View style={styles.animContainer}>
-                    <View style={styles.barChartMock}>
-                      <View style={[styles.bar, { height: 40, backgroundColor: "rgba(16, 185, 129, 0.15)" }]} />
-                      <View style={[styles.bar, { height: 90, backgroundColor: "rgba(16, 185, 129, 0.3)" }]} />
-                      <View style={[styles.bar, { height: 60, backgroundColor: "rgba(16, 185, 129, 0.15)" }]} />
-                    </View>
-                  </View>
-                )}
-                {activeSlideIndex === 3 && (
-                  <View style={styles.animContainer}>
-                    <Ionicons name="planet-outline" size={100} color="rgba(245, 158, 11, 0.07)" style={styles.videoDiagramMock} />
-                  </View>
-                )}
-              </View>
-
-              {/* Slide Text Content Overlay */}
-              {isVideoPlaying || videoProgress > 0 ? (
-                <View style={styles.slideOverlay}>
-                  <View style={[styles.slideBadge, { borderColor: activeSlide.accent }]}>
-                    <Text style={[styles.slideBadgeText, { color: activeSlide.accent }]}>{activeSlide.chapter}</Text>
-                  </View>
-                  <Text style={styles.slideTitle} numberOfLines={1}>{activeSlide.title}</Text>
-                  <Text style={styles.slideBody} numberOfLines={4}>{activeSlide.body}</Text>
-                </View>
-              ) : (
-                <View style={styles.animContainer}>
-                  <Pressable
-                    onPress={() => setIsVideoPlaying(true)}
-                    style={styles.videoPlayOverlayBtn}
-                  >
-                    <Ionicons name="play-circle" size={64} color={colors.accentSoft} />
-                    <Text style={styles.streamingText}>GENERATE EXPLAINER</Text>
-                  </Pressable>
-                </View>
-              )}
-
-              {/* Progress bar overlay */}
-              <View style={styles.videoControls}>
-                <Pressable onPress={() => setIsVideoPlaying(!isVideoPlaying)} style={styles.videoPlayBtnSmall}>
-                  <Ionicons name={isVideoPlaying ? "pause" : "play"} size={12} color="#FFFFFF" />
-                </Pressable>
-                <View style={styles.videoTrackBar}>
-                  <View style={[styles.videoTrackProgress, { width: `${(videoProgress / videoDuration) * 100}%` }]} />
-                </View>
-                <Text style={styles.videoTimeText}>{formatTime(videoProgress)} / {formatTime(videoDuration)}</Text>
-              </View>
-            </View>
-
-            {/* AI Chapters / Explainer notes */}
-            <ScrollView contentContainerStyle={styles.videoChapters} showsVerticalScrollIndicator={false}>
-              <Text style={styles.chaptersTitle}>AI-Generated Video Chapters</Text>
-              {slides.map((slide, idx) => {
-                const isActiveChapter = idx === activeSlideIndex && (isVideoPlaying || videoProgress > 0);
-                const chapterTime = `0:${String(idx * 15).padStart(2, "0")}`;
-                return (
-                  <Pressable 
-                    key={idx} 
-                    style={[styles.chapterRow, isActiveChapter && styles.chapterRowActive]}
-                    onPress={() => {
-                      setVideoProgress(idx * 15);
-                      setIsVideoPlaying(true);
-                    }}
-                  >
-                    <Text style={[styles.chapterTime, isActiveChapter && { color: slide.accent }]}>{chapterTime}</Text>
-                    <Text style={[styles.chapterText, isActiveChapter && { color: "#FFFFFF", fontWeight: "700" }]}>
-                      {slide.title}
-                    </Text>
-                    {isActiveChapter && (
-                      <Ionicons name="volume-high" size={16} color={slide.accent} />
-                    )}
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setVideoModalVisible(false)}
+        paper={paper}
+        selectedLang={selectedLang}
+      />
     </Screen>
   );
 }
