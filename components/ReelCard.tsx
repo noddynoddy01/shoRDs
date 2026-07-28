@@ -89,14 +89,23 @@ export function ReelCard({ paper, height, index, isActive, isMuted, onMuteToggle
             };
             selectedLang = mappedLang[parsedUser.language] || "en";
           }
-          const hasTranslation = paper.translations && paper.translations[selectedLang];
+           const hasTranslation = paper.translations && paper.translations[selectedLang];
           const displayTitle = hasTranslation ? paper.translations![selectedLang].title : paper.title;
           const displaySummary = hasTranslation ? paper.translations![selectedLang].summary : paper.summary;
-          const speechText = `${displayTitle}. Summary: ${displaySummary}.`;
+          
+          let speechText = "";
+          if (selectedLang === "hi") {
+            speechText = `${displayTitle}। ... संक्षेप में कहें तो, ... ${displaySummary}।`;
+          } else if (selectedLang === "es") {
+            speechText = `${displayTitle}. ... En resumen: ... ${displaySummary}.`;
+          } else {
+            speechText = `${displayTitle}. ... In summary: ... ${displaySummary}.`;
+          }
 
           Speech.speak(speechText, {
             language: selectedLang,
-            rate: 0.9, // More user friendly and natural speed
+            rate: 0.85, // More humanly, relaxed pacing
+            pitch: 1.0,
             onError: (e) => console.warn("Speech error:", e)
           });
         });

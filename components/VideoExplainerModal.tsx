@@ -51,10 +51,10 @@ export function VideoExplainerModal({ visible, onClose, paper, selectedLang = "e
       title: selectedLang === "hi" ? "संदर्भ और पृष्ठभूमि" : selectedLang === "es" ? "Contexto y Antecedentes" : "Research Context & Background",
       body: sections.context,
       voice: selectedLang === "hi"
-        ? `नमस्ते! आज हम '${displayTitle}' नाम के शोध पत्र को समझेंगे। संक्षेप में कहें तो, ${displaySummary}। इस काम का मुख्य उद्देश्य इस क्षेत्र में आने वाली प्रमुख सीमाओं को दूर करना है।`
+        ? `नमस्ते! ... आज हम '${displayTitle}' नाम के शोध पत्र को समझेंगे। ... संक्षेप में कहें तो, ... ${displaySummary}। ... इस काम का मुख्य उद्देश्य इस क्षेत्र में आने वाली प्रमुख सीमाओं को दूर करना है।`
         : selectedLang === "es"
-        ? `¡Hola! Exploremos el contexto de: '${displayTitle}'. En resumen: ${displaySummary}. Este estudio aborda desafíos clave en este campo de investigación.`
-        : `Hello there! Welcome to this shoRDs video brief. Let's take a look at the background of: '${displayTitle}'. In short: ${displaySummary}. This study focuses on resolving critical bottlenecks in this area.`,
+        ? `¡Hola! ... Exploremos el contexto de: '${displayTitle}'. ... En resumen: ... ${displaySummary}. ... Este estudio aborda desafíos clave en este campo de investigación.`
+        : `Hello there! ... Welcome to this shoRDs video brief. ... Let's take a look at the background of: '${displayTitle}'. ... In short: ... ${displaySummary}. ... This study focuses on resolving critical bottlenecks in this area.`,
       icon: "book-outline",
       accent: "#06B6D4"
     },
@@ -63,10 +63,10 @@ export function VideoExplainerModal({ visible, onClose, paper, selectedLang = "e
       title: selectedLang === "hi" ? "तकनीकी कार्यप्रणाली" : selectedLang === "es" ? "Metodología Técnica" : "Technical Methodology",
       body: sections.methodology,
       voice: selectedLang === "hi"
-        ? `इसकी कार्यप्रणाली को समझने के लिए, शोधकर्ताओं ने एक नया तकनीकी ढांचा तैयार किया है। संक्षेप में कहें तो, ${sections.methodology}`
+        ? `इसकी कार्यप्रणाली को समझने के लिए, ... शोधकर्ताओं ने एक नया तकनीकी ढांचा तैयार किया है। ... संक्षेप में कहें तो, ... ${sections.methodology}`
         : selectedLang === "es"
-        ? `En cuanto a la metodología técnica, los investigadores implementaron un diseño detallado. Básicamente, ${sections.methodology}`
-        : `To explain the technical methodology: the researchers designed a custom framework. To put it simply: ${sections.methodology}`,
+        ? `En cuanto a la metodología técnica, ... los investigadores implementaron un diseño detallado. ... Básicamente, ... ${sections.methodology}`
+        : `To explain the technical methodology: ... the researchers designed a custom framework. ... To put it simply: ... ${sections.methodology}`,
       icon: "hardware-chip-outline",
       accent: "#8B5CF6"
     },
@@ -75,10 +75,10 @@ export function VideoExplainerModal({ visible, onClose, paper, selectedLang = "e
       title: selectedLang === "hi" ? "मुख्य परिणाम और निष्कर्ष" : selectedLang === "es" ? "Resultados Clave" : "Key Findings & Results",
       body: sections.results,
       voice: selectedLang === "hi"
-        ? `अब, मुख्य परिणामों पर नज़र डालते हैं। प्रयोगों और मूल्यांकनों से यह साबित हुआ है कि: ${sections.results}`
+        ? `अब, ... मुख्य परिणामों पर नज़र डालते हैं। ... प्रयोगों और मूल्यांकनों से यह साबित हुआ है कि: ... ${sections.results}`
         : selectedLang === "es"
-        ? `Revisemos ahora los resultados clave. La evaluación experimental demostró que: ${sections.results}`
-        : `Now, let's review the key results and findings. The experimental evaluation demonstrated that: ${sections.results}`,
+        ? `Revisemos ahora los resultados clave. ... La evaluación experimental demostró que: ... ${sections.results}`
+        : `Now, ... let's review the key results and findings. ... The experimental evaluation demonstrated that: ... ${sections.results}`,
       icon: "analytics-outline",
       accent: "#10B981"
     },
@@ -87,10 +87,10 @@ export function VideoExplainerModal({ visible, onClose, paper, selectedLang = "e
       title: selectedLang === "hi" ? "भविष्य की संभावना" : selectedLang === "es" ? "Alcance Futuro" : "Future Scope & Horizons",
       body: sections.futureScope,
       voice: selectedLang === "hi"
-        ? `अंत में, भविष्य की संभावनाओं की बात करें तो, यह शोध आने वाले समय में नए रास्ते खोलता है। इसके अगले कदम हैं: ${sections.futureScope}`
+        ? `अंत में, ... भविष्य की संभावनाओं की बात करें तो, ... यह शोध आने वाले समय में नए रास्ते खोलता है। ... इसके अगले कदम हैं: ... ${sections.futureScope}`
         : selectedLang === "es"
-        ? `Finalmente, sobre el alcance futuro y horizontes: este trabajo establece una base sólida. Los próximos pasos contemplan: ${sections.futureScope}`
-        : `Finally, looking at the future scope and horizons: this work establishes a strong baseline. The next steps include: ${sections.futureScope}`,
+        ? `Finalmente, ... sobre el alcance futuro y horizontes: ... este trabajo establece una base sólida. ... Los próximos pasos contemplan: ... ${sections.futureScope}`
+        : `Finally, ... looking at the future scope and horizons: ... this work establishes a strong baseline. ... The next steps include: ... ${sections.futureScope}`,
       icon: "planet-outline",
       accent: "#F59E0B"
     }
@@ -144,7 +144,7 @@ export function VideoExplainerModal({ visible, onClose, paper, selectedLang = "e
       const locale = selectedLang === "en" ? "en-US" : selectedLang;
       Speech.speak(activeSlide.voice, {
         language: locale,
-        rate: 0.92,
+        rate: 0.85, // Slower and more natural pacing
         pitch: 1.0,
         onError: (e) => console.warn("TTS Presentation error:", e)
       });
