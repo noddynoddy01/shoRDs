@@ -1,0 +1,44 @@
+{
+  "fixtures": [
+    {
+      "id": "golden-1",
+      "title": "Deep Learning for Mobile Channel Estimation",
+      "authors": ["Alice Smith", "Bob Jones"],
+      "full_text_status": "FULL_TEXT_PDF",
+      "domain": "AI/ML",
+      "text": "1. Introduction\nExisting wireless models often assume stable channel conditions, which breaks down in highly mobile environments. We propose a neural channel estimator.\n2. Methods\nWe construct a 5-layer convolutional neural network trained on synthetic ray-tracing channels.\n3. Results\nTable 1: Accuracy metrics. Our model achieved 94.2% accuracy under high Doppler shifts.\n4. Limitations\nComputational complexity limits real-time FPGA deployment on edge devices."
+    },
+    {
+      "id": "golden-2",
+      "title": "Quantum Memory Registers for Distributed Computing",
+      "authors": ["Carol White"],
+      "full_text_status": "FULL_TEXT_HTML",
+      "domain": "Quantum",
+      "text": "Introduction\nQuantum registers suffer from rapid decoherence.\nMethods\nWe use fault-tolerant surface codes to stabilize qubit states.\nResults\nDecoherence time increased by 3.5x compared to baseline transmon qubits.\nLimitations\nRequires cryogenic cooling below 15mK."
+    },
+    {
+      "id": "golden-3",
+      "title": "Transformer Architectures in Medical Imaging",
+      "authors": ["David Brown"],
+      "full_text_status": "ABSTRACT_ONLY",
+      "domain": "Computer Vision",
+      "text": "Abstract: We evaluate vision transformers for tumor segmentation in 3D MRI scans, achieving high Dice scores."
+    },
+    {
+      "id": "golden-4",
+      "title": "Unpublished Manuscript Metadata Record",
+      "authors": ["Eve Davis"],
+      "full_text_status": "METADATA_ONLY",
+      "domain": "Physics",
+      "text": ""
+    },
+    {
+      "id": "golden-5",
+      "title": "Robotic Navigation in Unstructured Terrain",
+      "authors": ["Frank Miller"],
+      "full_text_status": "FULL_TEXT_PDF",
+      "domain": "Robotics",
+      "text": "1. Introduction\nLegged robots struggle on loose gravel.\n2. Methods\nWe apply reinforcement learning with domain randomization.\n3. Results\nTable 1: Traverse speed. Robot crossed gravel at 1.8 m/s.\n4. Limitations\nHigh battery consumption."
+    }
+  ]
+}
