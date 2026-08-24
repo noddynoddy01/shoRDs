@@ -87,9 +87,32 @@ export type Message = {
 
 export type ChatSession = {
   id: string;
-  participants: string[]; // [user1, user2]
+  participants: string[];
   participantNames: string[];
   lastMessageText: string;
   lastMessageTimestamp: number;
   unreadCount: number;
+};
+
+export type CitationFormat = "bibtex" | "ris" | "apa" | "ieee" | "mla";
+
+export type PaperDebate = {
+  paperATitle: string;
+  paperBTitle: string;
+  topics: {
+    topicName: string;
+    thesisA: string;
+    thesisB: string;
+    verdict: string;
+  }[];
+};
+
+export type ResearchRoadmap = {
+  paperTitle: string;
+  phases: {
+    phaseNumber: number;
+    title: string;
+    description: string;
+    estimatedTime: string;
+  }[];
 };

@@ -1,0 +1,21 @@
+{
+  "name": "shoRDs — Desktop Research Operating System",
+  "short_name": "shoRDs Web",
+  "description": "Premier desktop research platform for academic paper discovery, AI analysis, and literature synthesis.",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#060913",
+  "theme_color": "#06B6D4",
+  "icons": [
+    {
+      "src": "assets/logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "assets/logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

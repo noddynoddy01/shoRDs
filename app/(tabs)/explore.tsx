@@ -1,320 +1,305 @@
-import { useFocusEffect, router } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
-import { ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
-import { Chip } from "@/components/Chip";
+import { useState, useEffect } from "react";
+import {
+  FlatList,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  ActivityIndicator
+} from "react-native";
+import { router } from "expo-router";
+import { Screen } from "@/components/Screen";
 import { PageHeader } from "@/components/PageHeader";
 import { ResearchCard } from "@/components/ResearchCard";
-import { Screen } from "@/components/Screen";
-import { SearchBar } from "@/components/SearchBar";
-import { colors as defaultColors, radius } from "@/constants/theme";
-import { domains, domainSubtopics } from "@/data/samplePapers";
-import { useFeedMetrics } from "@/hooks/useFeedMetrics";
-import { getAllPapers } from "@/services/papersStore";
-import { Domain, Paper } from "@/types/models";
+import { colors as defaultColors, radius, spacing } from "@/constants/theme";
 import { useTheme } from "@/context/ThemeContext";
-import { FloatingChatButton } from "@/components/FloatingChatButton";
-import { LinearGradient } from "expo-linear-gradient";
+import { RESEARCH_DOMAINS, FEED_CATEGORIES, FeedCategory } from "@/constants/domains";
+import { executeLiveFederatedSearch, FederatedPaper } from "@/services/federatedSearch";
+import { cacheDynamicPaper } from "@/services/papersStore";
 import { Ionicons } from "@expo/vector-icons";
-
-const filters = ["Trending", "Newest", "Most Saved"];
-
-const iconByDomain: Record<Domain, keyof typeof Ionicons.glyphMap> = {
-  "AI / ML": "sparkles-outline",
-  Robotics: "hardware-chip-outline",
-  Electronics: "flash-outline",
-  Biotechnology: "leaf-outline",
-  "Quantum Computing": "cube-outline",
-  "Space Tech": "planet-outline",
-  Cybersecurity: "shield-checkmark-outline",
-  "Renewable Energy": "sunny-outline",
-  Nanotechnology: "aperture-outline",
-  Genetics: "git-network-outline",
-  "Material Science": "layers-outline",
-  "Climate Tech": "globe-outline",
-  "Blockchain & Web3": "link-outline",
-  Neuroscience: "bulb-outline",
-  "Nuclear Fusion": "nuclear-outline",
-  "Medical Devices": "medkit-outline",
-  "IoT & Edge Computing": "share-outline"
-};
-
-const colorsByDomain: Record<Domain, string> = {
-  "AI / ML": "#06B6D4",
-  Robotics: "#6366F1",
-  Electronics: "#F59E0B",
-  Biotechnology: "#10B981",
-  "Quantum Computing": "#D946EF",
-  "Space Tech": "#F43F5E",
-  Cybersecurity: "#059669",
-  "Renewable Energy": "#D97706",
-  Nanotechnology: "#0D9488",
-  Genetics: "#C084FC",
-  "Material Science": "#64748B",
-  "Climate Tech": "#38BDF8",
-  "Blockchain & Web3": "#EA580C",
-  Neuroscience: "#EC4899",
-  "Nuclear Fusion": "#84CC16",
-  "Medical Devices": "#E11D48",
-  "IoT & Edge Computing": "#4F46E5"
-};
 
 export default function ExploreScreen() {
   const { colors, fontSizeScale } = useTheme();
-  const [query, setQuery] = useState("");
-  const [selectedDomain, setSelectedDomain] = useState<Domain | "All">("All");
-  const [expandedDomain, setExpandedDomain] = useState<Domain | null>(null);
-  const [filter, setFilter] = useState("Trending");
-  const [papers, setPapers] = useState<Paper[]>([]);
-  const { contentBottomPadding } = useFeedMetrics();
+  
+  const [selectedDomain, setSelectedDomain] = useState<string>("ai");
+  const [selectedFeed, setSelectedFeed] = useState<FeedCategory>("popular");
+  
+  const [papers, setPapers] = useState<FederatedPaper[]>([]);
+  const [page, setPage] = useState<number>(1);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
+  const [hasMore, setHasMore] = useState<boolean>(true);
+
+  const activeDomainObj = RESEARCH_DOMAINS.find(d => d.id === selectedDomain) || RESEARCH_DOMAINS[0];
+
+  const loadDomainFeed = async (domainId: string, feed: FeedCategory, pageNum: number, append: boolean = false) => {
+    if (pageNum === 1) setIsLoading(true);
+    else setIsLoadingMore(true);
+
+    const domainName = RESEARCH_DOMAINS.find(d => d.id === domainId)?.name || "Research";
+    let sortOption: "relevance" | "recency" | "citations" = "relevance";
+    let oaOnly = false;
+
+    if (feed === "latest") sortOption = "recency";
+    else if (feed === "most_cited" || feed === "popular") sortOption = "citations";
+    else if (feed === "open_access") oaOnly = true;
+
+    const queryTerm = `${domainName} ${feed === "review_papers" ? "review" : feed === "survey_papers" ? "survey" : ""}`.trim();
+
+    try {
+      const res = await executeLiveFederatedSearch(queryTerm, pageNum, {
+        sortBy: sortOption,
+        openAccessOnly: oaOnly
+      });
+
+      const newItems = res.papers;
+      newItems.forEach(p => cacheDynamicPaper(p as any));
+
+      if (append) {
+        setPapers(prev => [...prev, ...newItems]);
+      } else {
+        setPapers(newItems);
+      }
+
+      if (newItems.length === 0) setHasMore(false);
+      else setHasMore(true);
+    } catch (err) {
+      console.warn("Domain feed error:", err);
+    } finally {
+      setIsLoading(false);
+      setIsLoadingMore(false);
+    }
+  };
+
+  useEffect(() => {
+    setPage(1);
+    loadDomainFeed(selectedDomain, selectedFeed, 1, false);
+  }, [selectedDomain, selectedFeed]);
+
+  const handleEndReached = () => {
+    if (!isLoadingMore && hasMore) {
+      const nextPage = page + 1;
+      setPage(nextPage);
+      loadDomainFeed(selectedDomain, selectedFeed, nextPage, true);
+    }
+  };
 
   const styles = getStyles(colors, fontSizeScale);
 
-  useFocusEffect(
-    useCallback(() => {
-      getAllPapers().then(setPapers);
-    }, [])
-  );
-
-  const results = useMemo(() => {
-    const normalized = query.toLowerCase();
-    return papers
-      .filter((paper) => selectedDomain === "All" || paper.domain === selectedDomain)
-      .filter((paper) =>
-        [paper.title, paper.summary, paper.domain, paper.tags.join(" ")]
-          .join(" ")
-          .toLowerCase()
-          .includes(normalized)
-      )
-      .sort((a, b) => {
-        if (filter === "Newest") return b.createdAt.getTime() - a.createdAt.getTime();
-        if (filter === "Most Saved") return b.savedCount - a.savedCount;
-        return b.savedCount - a.savedCount;
-      });
-  }, [filter, papers, query, selectedDomain]);
-
   return (
-    <Screen>
-      <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: contentBottomPadding }]}
-        showsVerticalScrollIndicator={false}
-      >
-        <PageHeader
-          kicker="Explore"
-          title="Discover research by domain"
-          subtitle="Browse simplified papers from Nature, arXiv, IEEE, NIH, NASA, and NIST."
-        />
+    <Screen style={styles.container}>
+      <PageHeader
+        title="Explore Research Domains"
+        subtitle="30+ Dedicated Domain Feeds • Live Internet Aggregation"
+      />
 
-        <SearchBar value={query} onChangeText={setQuery} placeholder="Search papers, tags, domains..." />
-
-        <View style={styles.filters}>
-          {filters.map((item) => (
-            <Chip key={item} label={item} selected={filter === item} onPress={() => setFilter(item)} />
-          ))}
-        </View>
-
-        {/* Accordion Domain Rows */}
-        <View style={styles.domainList}>
-          {domains.map((domain) => {
-            const isExpanded = expandedDomain === domain;
-            const domainCount = papers.filter((paper) => paper.domain === domain).length;
-            const subtopics = domainSubtopics[domain] || [];
-            const domainColor = colorsByDomain[domain] || colors.accentSoft;
-
+      {/* 30+ Domain Selector Carousel */}
+      <View style={styles.carouselContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.domainScroll}
+        >
+          {RESEARCH_DOMAINS.map(d => {
+            const isSelected = d.id === selectedDomain;
             return (
-              <View key={domain} style={[styles.accordionItem, isExpanded && styles.accordionItemActive]}>
-                <Pressable
-                  style={styles.accordionHeader}
-                  onPress={() => {
-                    setExpandedDomain(isExpanded ? null : domain);
-                    setSelectedDomain(isExpanded ? "All" : domain);
-                  }}
-                >
-                  <View style={styles.accordionLeft}>
-                    <View style={[styles.iconWrap, { backgroundColor: isExpanded ? `${domainColor}20` : "rgba(255, 255, 255, 0.04)", borderColor: isExpanded ? domainColor : "transparent", borderWidth: 1 }]}>
-                      <Ionicons name={iconByDomain[domain] || "book-outline"} color={isExpanded ? domainColor : colors.text} size={20} />
-                    </View>
-                    <View>
-                      <Text style={[styles.domainName, isExpanded && { color: domainColor }]}>{domain}</Text>
-                      <Text style={styles.domainCount}>{domainCount} discoveries</Text>
-                    </View>
-                  </View>
-                  <Ionicons name={isExpanded ? "chevron-down" : "chevron-forward"} color={isExpanded ? domainColor : colors.subdued} size={18} />
-                </Pressable>
-
-                {isExpanded && subtopics.length > 0 && (
-                  <View style={styles.accordionContent}>
-                    <LinearGradient
-                      colors={["rgba(255,255,255,0.01)", "rgba(255,255,255,0.02)"]}
-                      style={StyleSheet.absoluteFill}
-                    />
-                    <View style={styles.subtopicsContainer}>
-                      <Pressable
-                        style={[styles.subtopicChip, { borderLeftWidth: 3, borderLeftColor: domainColor }]}
-                        onPress={() => {
-                          router.push({
-                            pathname: "/(tabs)",
-                            params: { filterDomain: domain }
-                          });
-                        }}
-                      >
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.subtopicChipText}>All Stacks</Text>
-                          <Text style={styles.subtopicChipCount}>{domainCount} briefs</Text>
-                        </View>
-                        <Ionicons name="arrow-forward" size={12} color={domainColor} />
-                      </Pressable>
-
-                      {subtopics.map((sub) => {
-                        const count = papers.filter((p) => p.domain === domain && p.subdomain === sub).length;
-                        return (
-                          <Pressable
-                            key={sub}
-                            style={[styles.subtopicChip, { borderLeftWidth: 3, borderLeftColor: domainColor }]}
-                            onPress={() => {
-                              router.push({
-                                pathname: "/(tabs)",
-                                params: { filterDomain: domain, selectedSubdomain: sub }
-                              });
-                            }}
-                          >
-                            <View style={{ flex: 1 }}>
-                              <Text style={styles.subtopicChipText} numberOfLines={1}>{sub}</Text>
-                              <Text style={styles.subtopicChipCount}>{count} briefs</Text>
-                            </View>
-                            <Ionicons name="arrow-forward" size={12} color={domainColor} />
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  </View>
-                )}
-              </View>
+              <Pressable
+                key={d.id}
+                style={[styles.domainChip, isSelected && styles.domainChipActive]}
+                onPress={() => setSelectedDomain(d.id)}
+              >
+                <Ionicons
+                  name={d.icon as any}
+                  size={16}
+                  color={isSelected ? colors.text : colors.muted}
+                  style={{ marginRight: 6 }}
+                />
+                <Text style={[styles.domainChipText, isSelected && styles.domainChipTextActive]}>
+                  {d.name}
+                </Text>
+              </Pressable>
             );
           })}
-        </View>
+        </ScrollView>
+      </View>
 
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Recommended</Text>
-          <Text style={styles.count}>{results.length} papers</Text>
-        </View>
+      {/* Feed Sub-Categories Bar */}
+      <View style={styles.feedCategoryContainer}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.feedScroll}>
+          {FEED_CATEGORIES.map(cat => {
+            const isSelected = cat.id === selectedFeed;
+            return (
+              <Pressable
+                key={cat.id}
+                style={[styles.feedTab, isSelected && styles.feedTabActive]}
+                onPress={() => setSelectedFeed(cat.id)}
+              >
+                <Text style={[styles.feedTabText, isSelected && styles.feedTabTextActive]}>
+                  {cat.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
 
-        <View style={styles.results}>
-          {results.map((paper) => (
-            <ResearchCard key={paper.id} paper={paper} compact />
-          ))}
+      {/* Domain Header Info */}
+      <View style={styles.domainBanner}>
+        <Text style={styles.domainBannerTitle}>{activeDomainObj.name}</Text>
+        <Text style={styles.domainBannerDesc}>{activeDomainObj.description}</Text>
+      </View>
+
+      {/* Infinite Paper Feed List */}
+      {isLoading ? (
+        <View style={styles.loaderContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Fetching live feed for {activeDomainObj.name}...</Text>
         </View>
-      </ScrollView>
-      <FloatingChatButton />
+      ) : (
+        <FlatList
+          data={papers}
+          keyExtractor={item => item.id}
+          renderItem={({ item }) => (
+            <Pressable onPress={() => router.push(`/paper/${encodeURIComponent(item.id)}`)}>
+              <ResearchCard paper={item as any} />
+            </Pressable>
+          )}
+          contentContainerStyle={styles.listContent}
+          onEndReached={handleEndReached}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            isLoadingMore ? (
+              <View style={styles.footerLoader}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={styles.footerText}>Loading next 20 papers...</Text>
+              </View>
+            ) : null
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>No papers found for this feed. Try changing filters.</Text>
+            </View>
+          }
+        />
+      )}
     </Screen>
   );
 }
 
-function getStyles(colors: typeof defaultColors, scale: number) {
+function getStyles(colors: any, scale: number) {
   return StyleSheet.create({
-    content: {
-      padding: 18,
-      gap: 18
+    container: {
+      flex: 1,
+      backgroundColor: colors.background
     },
-    filters: {
+    carouselContainer: {
+      paddingVertical: spacing.xs,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border
+    },
+    domainScroll: {
+      paddingHorizontal: spacing.md,
+      gap: spacing.xs
+    },
+    domainChip: {
       flexDirection: "row",
-      flexWrap: "wrap",
-      gap: 8
-    },
-    domainList: {
-      gap: 10,
-      width: "100%"
-    },
-    accordionItem: {
-      borderRadius: radius.md,
+      alignItems: "center",
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.xs + 2,
+      borderRadius: radius.pill,
+      backgroundColor: colors.surface,
       borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.card,
-      overflow: "hidden"
+      borderColor: colors.border
     },
-    accordionItemActive: {
-      borderColor: "rgba(255, 255, 255, 0.12)"
+    domainChipActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary
     },
-    accordionHeader: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      padding: 14
+    domainChipText: {
+      fontSize: 13 * scale,
+      color: colors.muted,
+      fontWeight: "500"
     },
-    accordionLeft: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 12
-    },
-    iconWrap: {
-      width: 40,
-      height: 40,
-      borderRadius: 12,
-      alignItems: "center",
-      justifyContent: "center"
-    },
-    domainName: {
-      color: colors.text,
-      fontSize: 14 * scale,
-      fontWeight: "800"
-    },
-    domainCount: {
-      color: colors.subdued,
-      fontSize: 11 * scale,
-      fontWeight: "600",
-      marginTop: 2
-    },
-    accordionContent: {
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-      position: "relative"
-    },
-    subtopicsContainer: {
-      padding: 12,
-      flexDirection: "row",
-      flexWrap: "wrap",
-      justifyContent: "space-between",
-      rowGap: 8
-    },
-    subtopicChip: {
-      width: "48%",
-      flexDirection: "row",
-      alignItems: "center",
-      backgroundColor: colors.cardElevated,
-      borderColor: colors.border,
-      borderWidth: 1,
-      borderRadius: radius.sm,
-      paddingHorizontal: 10,
-      paddingVertical: 8,
-      gap: 6
-    },
-    subtopicChipText: {
-      color: colors.text,
-      fontSize: 11 * scale,
+    domainChipTextActive: {
+      color: "#FFFFFF",
       fontWeight: "700"
     },
-    subtopicChipCount: {
-      color: colors.subdued,
-      fontSize: 9 * scale,
-      fontWeight: "600",
-      marginTop: 2
+    feedCategoryContainer: {
+      paddingVertical: spacing.xs,
+      backgroundColor: colors.surface
     },
-    sectionHeader: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center"
+    feedScroll: {
+      paddingHorizontal: spacing.md,
+      gap: spacing.sm
     },
-    sectionTitle: {
-      color: colors.text,
-      fontSize: 18 * scale,
-      fontWeight: "800"
+    feedTab: {
+      paddingHorizontal: spacing.sm + 4,
+      paddingVertical: spacing.xs,
+      borderRadius: radius.sm
     },
-    count: {
-      color: colors.subdued,
+    feedTabActive: {
+      borderBottomWidth: 2,
+      borderBottomColor: colors.primary
+    },
+    feedTabText: {
       fontSize: 12 * scale,
+      color: colors.muted,
       fontWeight: "600"
     },
-    results: {
-      gap: 14
+    feedTabTextActive: {
+      color: colors.primary,
+      fontWeight: "700"
+    },
+    domainBanner: {
+      padding: spacing.md,
+      backgroundColor: colors.surface,
+      marginHorizontal: spacing.md,
+      marginTop: spacing.sm,
+      borderRadius: radius.md,
+      borderLeftWidth: 4,
+      borderLeftColor: colors.primary
+    },
+    domainBannerTitle: {
+      fontSize: 16 * scale,
+      fontWeight: "700",
+      color: colors.text
+    },
+    domainBannerDesc: {
+      fontSize: 12 * scale,
+      color: colors.muted,
+      marginTop: 2
+    },
+    listContent: {
+      padding: spacing.md,
+      paddingBottom: 100
+    },
+    loaderContainer: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center"
+    },
+    loadingText: {
+      marginTop: spacing.sm,
+      color: colors.muted,
+      fontSize: 13 * scale
+    },
+    footerLoader: {
+      paddingVertical: spacing.md,
+      alignItems: "center"
+    },
+    footerText: {
+      fontSize: 12 * scale,
+      color: colors.muted,
+      marginTop: 4
+    },
+    emptyContainer: {
+      padding: spacing.xl,
+      alignItems: "center"
+    },
+    emptyText: {
+      color: colors.muted,
+      fontSize: 14 * scale
     }
   });
 }

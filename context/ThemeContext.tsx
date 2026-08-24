@@ -5,7 +5,7 @@ import { colors as defaultColors } from "../constants/theme";
 export const themes = {
   dark: {
     ...defaultColors,
-    cardGradient: ["rgba(6,182,212,0.14)", "rgba(124,58,237,0.08)", "rgba(21,27,47,0.95)"]
+    cardGradient: ["rgba(255,255,255,0.02)", "rgba(255,255,255,0.01)", "rgba(15,20,35,0.98)"]
   },
   light: {
     background: "#F8FAFC",
@@ -13,17 +13,17 @@ export const themes = {
     card: "#FFFFFF",
     cardElevated: "#E2E8F0",
     ink: "#0F172A",
-    primary: "#7C3AED",
-    accent: "#0891B2",
-    accentSoft: "#06B6D4",
+    primary: "#3B82F6",
+    accent: "#0284C7",
+    accentSoft: "#0EA5E9",
     success: "#10B981",
-    warning: "#D97706",
+    warning: "#F59E0B",
     text: "#0F172A",
     muted: "#475569",
     subdued: "#64748B",
-    border: "rgba(15, 23, 42, 0.12)",
-    overlay: "rgba(15, 23, 42, 0.45)",
-    cardGradient: ["rgba(6,182,212,0.08)", "rgba(124,58,237,0.04)", "rgba(255,255,255,0.96)"]
+    border: "rgba(15, 23, 42, 0.08)",
+    overlay: "rgba(15, 23, 42, 0.4)",
+    cardGradient: ["rgba(255,255,255,0.99)", "rgba(248,250,252,0.98)"]
   },
   nord: {
     background: "#2E3440",

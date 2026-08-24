@@ -70,20 +70,18 @@ export function ResearchCard({ paper, compact }: ResearchCardProps) {
   }, [paper.id]);
 
   async function sharePaper() {
-    const shareMessage = `📚 Discover Research on shoRDs!
- 
-🔍 Title: ${paper.title}
-🔬 Domain: ${paper.domain}
-✍️ Author: ${paper.authorName} (${paper.authorRole})
-⏱️ Reading Time: ${paper.readingTime}
- 
-📖 Brief Summary:
-"${paper.summary}"
- 
-💡 Read the full interactive technical brief on shoRDs!
-🔗 Link: ${paper.originalLink}
- 
-Download shoRDs for quick, simplified, and technical research updates! 🚀`;
+    const shareMessage = `Discover Research on shoRDs!
+Title: ${paper.title}
+Domain: ${paper.domain}
+Author: ${paper.authorName} (${paper.authorRole})
+
+Brief Summary:
+${paper.summary.slice(0, 160)}...
+
+Read the full interactive technical brief on shoRDs!
+Link: ${paper.originalLink}
+
+Download shoRDs for quick, simplified, and technical research updates!`;
 
     await Share.share({
       title: paper.title,

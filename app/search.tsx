@@ -1,389 +1,467 @@
-import React, { useCallback, useState } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import { useState, useEffect, useRef } from "react";
 import {
+  Alert,
   FlatList,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  View
+  View,
+  ActivityIndicator
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { router, useFocusEffect } from "expo-router";
 import { Screen } from "@/components/Screen";
-import { ResearchCard } from "@/components/ResearchCard";
+import { colors as defaultColors, radius, spacing } from "@/constants/theme";
+import { executeLiveFederatedSearch, FederatedPaper, SearchFilters } from "@/services/federatedSearch";
+import { generateIndependentStacksBatch, DeepStackSynthesis } from "@/services/stackGenerator";
+import { cacheDynamicPaper } from "@/services/papersStore";
 import { useTheme } from "@/context/ThemeContext";
-import { colors as defaultColors, radius } from "@/constants/theme";
-import { getAllPapers } from "@/services/papersStore";
-import { getAllMentors } from "@/services/mentorsStore";
-import { Paper, Mentor } from "@/types/models";
-import { GlassButton } from "@/components/GlassButton";
+import { ComparePapersModal } from "@/components/ComparePapersModal";
 
-type SearchCategory = "all" | "papers" | "mentors";
+const PUBLICATION_SOURCES = [
+  { id: "all", label: "All Sources" },
+  { id: "openalex", label: "OpenAlex" },
+  { id: "arxiv", label: "arXiv" },
+  { id: "crossref", label: "Crossref" },
+  { id: "europepmc", label: "Europe PMC" },
+  { id: "core", label: "CORE" },
+  { id: "doaj", label: "DOAJ" },
+  { id: "pubmed", label: "PubMed" }
+];
 
-export default function UniversalSearchScreen() {
+export default function FederatedSearchScreen() {
   const { colors, fontSizeScale } = useTheme();
   const [query, setQuery] = useState("");
-  const [activeCategory, setActiveCategory] = useState<SearchCategory>("all");
-  
-  const [papers, setPapers] = useState<Paper[]>([]);
-  const [mentors, setMentors] = useState<Mentor[]>([]);
+  const [selectedSource, setSelectedSource] = useState("all");
+  const [sortBy, setSortBy] = useState<SearchFilters["sortBy"]>("relevance");
+  const [openAccessOnly, setOpenAccessOnly] = useState(false);
 
-  useFocusEffect(
-    useCallback(() => {
-      getAllPapers().then(setPapers);
-      getAllMentors().then(setMentors);
-    }, [])
-  );
+  const [results, setResults] = useState<FederatedPaper[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  // Multi-Selection Checkbox state
+  const [selectedPaperIds, setSelectedPaperIds] = useState<string[]>([]);
+  const [generatedStacks, setGeneratedStacks] = useState<DeepStackSynthesis[]>([]);
+  const [isGeneratingStack, setIsGeneratingStack] = useState(false);
+  const [compareModalVisible, setCompareModalVisible] = useState(false);
+
+  const searchTimerRef = useRef<any>(null);
+
+  // Debounced Search Execution (300ms)
+  useEffect(() => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+
+    if (!query.trim()) {
+      setResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+    searchTimerRef.current = setTimeout(() => {
+      triggerSearch(query, 1);
+    }, 300);
+
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    };
+  }, [query, sortBy, openAccessOnly, selectedSource]);
+
+  const triggerSearch = async (searchTerm: string, pageNum: number) => {
+    try {
+      const sourcesFilter = selectedSource === "all" ? [] : [selectedSource];
+      const res = await executeLiveFederatedSearch(searchTerm, pageNum, {
+        sortBy,
+        openAccessOnly,
+        sources: sourcesFilter
+      });
+
+      const newPapers = res.papers;
+      newPapers.forEach(p => cacheDynamicPaper(p as any));
+      setResults(newPapers);
+    } catch (err) {
+      console.warn("Federated search error:", err);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const togglePaperSelection = (id: string) => {
+    setSelectedPaperIds(prev =>
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleGenerateIndependentStacks = async () => {
+    if (selectedPaperIds.length === 0) return;
+
+    const selectedPapers = results.filter(p => selectedPaperIds.includes(p.id));
+    setIsGeneratingStack(true);
+
+    try {
+      // ISSUE 8: Generates independent stacks (Stack A, Stack B, Stack C)
+      const stacks = await generateIndependentStacksBatch(selectedPapers as any);
+      setGeneratedStacks(stacks);
+      
+      // Open primary stack details
+      router.push(`/paper/${encodeURIComponent(selectedPapers[0].id)}`);
+    } catch (err) {
+      Alert.alert("Stack Generation Error", "Failed to generate independent stacks.");
+    } finally {
+      setIsGeneratingStack(false);
+    }
+  };
 
   const styles = getStyles(colors, fontSizeScale);
-
-  // Search calculations
-  const normalizedQuery = query.toLowerCase().trim();
-  
-  const filteredPapers = normalizedQuery
-    ? papers.filter((p) =>
-        [p.title, p.summary, p.domain, p.tags.join(" "), p.authorName]
-          .join(" ")
-          .toLowerCase()
-          .includes(normalizedQuery)
-      )
-    : [];
-
-  const filteredMentors = normalizedQuery
-    ? mentors.filter((m) =>
-        [m.name, m.focus, m.bio, m.affiliation]
-          .join(" ")
-          .toLowerCase()
-          .includes(normalizedQuery)
-      )
-    : [];
-
-  const totalResults = filteredPapers.length + filteredMentors.length;
+  const selectedPapersList = results.filter(p => selectedPaperIds.includes(p.id));
 
   return (
-    <Screen>
+    <Screen style={styles.container}>
+      {/* Search Bar Header */}
       <View style={styles.header}>
-        <Pressable style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={22} color={colors.text} />
+        <Pressable onPress={() => router.back()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
         </Pressable>
-        <View style={styles.searchBar}>
-          <Ionicons name="search" size={18} color={colors.subdued} />
+        <View style={styles.searchInputWrapper}>
+          <Ionicons name="search" size={20} color={colors.muted} style={{ marginRight: 8 }} />
           <TextInput
+            style={styles.searchInput}
+            placeholder="Search OpenAlex, arXiv, Crossref, Europe PMC..."
+            placeholderTextColor={colors.muted}
             value={query}
             onChangeText={setQuery}
-            placeholder="Search papers, authors, mentors, domains..."
-            placeholderTextColor={colors.subdued}
-            style={styles.input}
             autoFocus
-            clearButtonMode="while-editing"
           />
           {query.length > 0 && (
             <Pressable onPress={() => setQuery("")}>
-              <Ionicons name="close-circle" size={16} color={colors.subdued} />
+              <Ionicons name="close-circle" size={18} color={colors.muted} />
             </Pressable>
           )}
         </View>
       </View>
 
-      {query.length > 0 ? (
-        <View style={{ flex: 1 }}>
-          {/* Categories Selector */}
-          <View style={styles.tabs}>
-            <Pressable
-              onPress={() => setActiveCategory("all")}
-              style={[styles.tab, activeCategory === "all" && styles.tabActive]}
-            >
-              <Text style={[styles.tabText, activeCategory === "all" && styles.tabTextActive]}>
-                All ({totalResults})
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => setActiveCategory("papers")}
-              style={[styles.tab, activeCategory === "papers" && styles.tabActive]}
-            >
-              <Text style={[styles.tabText, activeCategory === "papers" && styles.tabTextActive]}>
-                Papers ({filteredPapers.length})
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => setActiveCategory("mentors")}
-              style={[styles.tab, activeCategory === "mentors" && styles.tabActive]}
-            >
-              <Text style={[styles.tabText, activeCategory === "mentors" && styles.tabTextActive]}>
-                Mentors ({filteredMentors.length})
-              </Text>
-            </Pressable>
-          </View>
-
-          <ScrollView contentContainerStyle={styles.resultsScroll} showsVerticalScrollIndicator={false}>
-            {/* Papers Section */}
-            {(activeCategory === "all" || activeCategory === "papers") && filteredPapers.length > 0 && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>📄 Research Briefs</Text>
-                <View style={styles.list}>
-                  {filteredPapers.map((paper) => (
-                    <ResearchCard key={paper.id} paper={paper} compact />
-                  ))}
-                </View>
-              </View>
-            )}
-
-            {/* Mentors Section */}
-            {(activeCategory === "all" || activeCategory === "mentors") && filteredMentors.length > 0 && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>🎓 Mentors & Scholars</Text>
-                <View style={styles.list}>
-                  {filteredMentors.map((mentor) => (
-                    <View key={mentor.id} style={styles.mentorCard}>
-                      <View style={styles.mentorAvatar}>
-                        <Ionicons name="person" size={20} color={colors.accentSoft} />
-                      </View>
-                      <View style={styles.mentorInfo}>
-                        <Text style={styles.mentorName}>{mentor.name}</Text>
-                        <Text style={styles.mentorTitle}>{mentor.title} · {mentor.affiliation}</Text>
-                        <Text style={styles.mentorFocus}>{mentor.focus}</Text>
-                      </View>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            )}
-
-            {totalResults === 0 && (
-              <View style={styles.empty}>
-                <Ionicons name="search-outline" size={48} color={colors.subdued} />
-                <Text style={styles.emptyTitle}>No results found</Text>
-                <Text style={styles.emptySubtitle}>
-                  We couldn't find matches for "{query}". Try checking the spelling or using broader keywords.
+      {/* ISSUE 4: Publication Filter Bar */}
+      <View style={styles.pubFilterBar}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pubScroll}>
+          {PUBLICATION_SOURCES.map(src => {
+            const isSelected = selectedSource === src.id;
+            return (
+              <Pressable
+                key={src.id}
+                style={[styles.pubChip, isSelected && styles.pubChipActive]}
+                onPress={() => setSelectedSource(src.id)}
+              >
+                <Text style={[styles.pubChipText, isSelected && styles.pubChipTextActive]}>
+                  {src.label}
                 </Text>
-              </View>
-            )}
-          </ScrollView>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {/* Additional Options Bar */}
+      <View style={styles.optionsBar}>
+        <Pressable
+          style={[styles.filterChip, openAccessOnly && styles.filterChipActive]}
+          onPress={() => setOpenAccessOnly(!openAccessOnly)}
+        >
+          <Ionicons name="lock-open-outline" size={14} color={openAccessOnly ? "#FFF" : colors.muted} />
+          <Text style={[styles.filterChipText, openAccessOnly && styles.filterChipTextActive]}>
+            Open Access
+          </Text>
+        </Pressable>
+
+        <Pressable
+          style={styles.filterChip}
+          onPress={() => setSortBy(sortBy === "relevance" ? "recency" : "relevance")}
+        >
+          <Ionicons name="swap-vertical" size={14} color={colors.muted} />
+          <Text style={styles.filterChipText}>
+            Sort: {sortBy === "relevance" ? "Relevance" : "Newest"}
+          </Text>
+        </Pressable>
+      </View>
+
+      {/* Results List */}
+      {isSearching ? (
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Searching live internet research providers...</Text>
+        </View>
+      ) : results.length === 0 ? (
+        <View style={styles.centerContainer}>
+          <Ionicons name="search-outline" size={48} color={colors.muted} />
+          <Text style={styles.emptyText}>
+            {query.length > 0 ? `No live papers found for "${query}"` : "Type a research query to perform live federated search"}
+          </Text>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.guideScroll} showsVerticalScrollIndicator={false}>
-          <View style={styles.guide}>
-            <Ionicons name="search-outline" size={48} color={colors.accentSoft} />
-            <Text style={styles.guideTitle}>Universal shoRDs Search</Text>
-            <Text style={styles.guideSubtitle}>
-              Search for scientific papers, researchers, academic mentors, tags, or domains across the entire platform.
-            </Text>
-
-            <View style={styles.quickTagsSection}>
-              <Text style={styles.quickTitle}>Popular Domains</Text>
-              <View style={styles.quickGrid}>
-                {["AI / ML", "Quantum Computing", "Robotics", "Renewable Energy", "Climate Tech"].map((tag) => (
-                  <Pressable
-                    key={tag}
-                    style={styles.quickTag}
-                    onPress={() => setQuery(tag)}
-                  >
-                    <Text style={styles.quickTagText}>{tag}</Text>
+        <FlatList
+          data={results}
+          keyExtractor={item => item.id}
+          contentContainerStyle={styles.listContainer}
+          renderItem={({ item }) => {
+            const isSelected = selectedPaperIds.includes(item.id);
+            return (
+              <Pressable
+                style={[styles.card, isSelected && styles.cardSelected]}
+                onPress={() => router.push(`/paper/${encodeURIComponent(item.id)}`)}
+              >
+                <View style={styles.cardHeader}>
+                  <Pressable style={styles.checkbox} onPress={() => togglePaperSelection(item.id)}>
+                    <Ionicons
+                      name={isSelected ? "checkbox" : "square-outline"}
+                      size={22}
+                      color={isSelected ? colors.primary : colors.muted}
+                    />
                   </Pressable>
-                ))}
-              </View>
-            </View>
-          </View>
-        </ScrollView>
+                  <Text style={styles.sourceTag}>{item.sourceTag || "[Live Metadata]"}</Text>
+                  <Text style={styles.yearBadge}>{item.pubYear || 2026}</Text>
+                </View>
+
+                <Text style={styles.title}>{item.title}</Text>
+                <Text style={styles.authors}>{item.authorName} • {item.organization}</Text>
+                <Text style={styles.summary} numberOfLines={3}>{item.summary}</Text>
+              </Pressable>
+            );
+          }}
+        />
       )}
+
+      {/* Multi-Selection Batch & Compare Action Bar */}
+      {selectedPaperIds.length > 0 && (
+        <View style={styles.batchBar}>
+          <Text style={styles.batchText}>{selectedPaperIds.length} Selected</Text>
+
+          {/* ISSUE 9: Dedicated Compare Papers Button */}
+          {selectedPaperIds.length > 1 && (
+            <Pressable style={styles.compareBtn} onPress={() => setCompareModalVisible(true)}>
+              <Ionicons name="git-compare-outline" size={16} color={colors.primary} />
+              <Text style={styles.compareBtnText}>Compare</Text>
+            </Pressable>
+          )}
+
+          <Pressable style={styles.createStackBtn} onPress={handleGenerateIndependentStacks} disabled={isGeneratingStack}>
+            {isGeneratingStack ? (
+              <ActivityIndicator color="#FFF" size="small" />
+            ) : (
+              <Text style={styles.createStackBtnText}>Generate Stacks</Text>
+            )}
+          </Pressable>
+        </View>
+      )}
+
+      {/* Compare Papers Modal */}
+      <ComparePapersModal
+        visible={compareModalVisible}
+        onClose={() => setCompareModalVisible(false)}
+        papers={selectedPapersList as any}
+      />
     </Screen>
   );
 }
 
-function getStyles(colors: typeof defaultColors, scale: number) {
+function getStyles(colors: any, scale: number) {
   return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background
+    },
     header: {
       flexDirection: "row",
-      paddingHorizontal: 16,
-      paddingTop: 12,
-      paddingBottom: 14,
       alignItems: "center",
-      gap: 10
+      padding: spacing.md,
+      gap: spacing.sm
     },
-    backButton: {
-      width: 44,
-      height: 44,
-      borderRadius: 14,
-      backgroundColor: colors.card,
-      borderWidth: 1,
-      borderColor: colors.border,
-      alignItems: "center",
-      justifyContent: "center"
+    backBtn: {
+      padding: 4
     },
-    searchBar: {
+    searchInputWrapper: {
       flex: 1,
       flexDirection: "row",
-      height: 44,
-      borderRadius: 14,
-      backgroundColor: colors.card,
-      borderWidth: 1,
-      borderColor: colors.border,
-      paddingHorizontal: 12,
       alignItems: "center",
-      gap: 8
-    },
-    input: {
-      flex: 1,
-      color: colors.text,
-      fontSize: 15 * scale,
-      height: "100%"
-    },
-    tabs: {
-      flexDirection: "row",
-      paddingHorizontal: 16,
-      paddingBottom: 10,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-      gap: 8
-    },
-    tab: {
-      paddingVertical: 8,
-      paddingHorizontal: 14,
-      borderRadius: radius.pill,
-      borderWidth: 1,
-      borderColor: "transparent",
-      backgroundColor: colors.card
-    },
-    tabActive: {
-      borderColor: colors.accentSoft,
-      backgroundColor: "rgba(6, 182, 212, 0.08)"
-    },
-    tabText: {
-      color: colors.subdued,
-      fontSize: 12 * scale,
-      fontWeight: "700"
-    },
-    tabTextActive: {
-      color: colors.accentSoft
-    },
-    resultsScroll: {
-      padding: 16,
-      gap: 20
-    },
-    section: {
-      gap: 12
-    },
-    sectionTitle: {
-      color: colors.text,
-      fontSize: 16 * scale,
-      fontWeight: "800",
-      letterSpacing: 0.5
-    },
-    list: {
-      gap: 12
-    },
-    mentorCard: {
-      flexDirection: "row",
-      backgroundColor: colors.card,
+      backgroundColor: colors.surface,
       borderRadius: radius.md,
-      borderWidth: 1,
-      borderColor: colors.border,
-      padding: 14,
-      gap: 12,
-      alignItems: "flex-start"
+      paddingHorizontal: spacing.md,
+      height: 44
     },
-    mentorAvatar: {
-      width: 40,
-      height: 40,
-      borderRadius: 12,
-      backgroundColor: colors.cardElevated,
-      borderWidth: 1,
-      borderColor: colors.border,
-      alignItems: "center",
-      justifyContent: "center"
-    },
-    mentorInfo: {
+    searchInput: {
       flex: 1,
-      gap: 2
+      fontSize: 14 * scale,
+      color: colors.text
     },
-    mentorName: {
-      color: colors.text,
-      fontSize: 16 * scale,
-      fontWeight: "800"
+    pubFilterBar: {
+      paddingVertical: spacing.xs,
+      backgroundColor: colors.surface,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border
     },
-    mentorTitle: {
-      color: colors.accentSoft,
-      fontSize: 11 * scale,
+    pubScroll: {
+      paddingHorizontal: spacing.md,
+      gap: spacing.xs
+    },
+    pubChip: {
+      paddingHorizontal: spacing.md,
+      paddingVertical: 6,
+      borderRadius: radius.pill,
+      backgroundColor: colors.background,
+      borderWidth: 1,
+      borderColor: colors.border
+    },
+    pubChipActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary
+    },
+    pubChipText: {
+      fontSize: 12 * scale,
+      color: colors.muted,
+      fontWeight: "500"
+    },
+    pubChipTextActive: {
+      color: "#FFFFFF",
       fontWeight: "700"
     },
-    mentorFocus: {
-      color: colors.muted,
-      fontSize: 13 * scale,
-      lineHeight: 18,
-      marginTop: 2
-    },
-    empty: {
-      alignItems: "center",
-      justifyContent: "center",
-      paddingVertical: 44,
-      gap: 10
-    },
-    emptyTitle: {
-      color: colors.text,
-      fontSize: 18 * scale,
-      fontWeight: "800"
-    },
-    emptySubtitle: {
-      color: colors.muted,
-      fontSize: 13 * scale,
-      lineHeight: 20,
-      textAlign: "center",
-      paddingHorizontal: 22
-    },
-    guideScroll: {
-      flexGrow: 1,
-      justifyContent: "center",
-      padding: 22
-    },
-    guide: {
-      alignItems: "center",
-      gap: 12
-    },
-    guideTitle: {
-      color: colors.text,
-      fontSize: 22 * scale,
-      fontWeight: "800",
-      textAlign: "center"
-    },
-    guideSubtitle: {
-      color: colors.muted,
-      fontSize: 14 * scale,
-      lineHeight: 22,
-      textAlign: "center",
-      paddingHorizontal: 12
-    },
-    quickTagsSection: {
-      marginTop: 32,
-      alignSelf: "stretch",
-      gap: 12
-    },
-    quickTitle: {
-      color: colors.subdued,
-      fontSize: 12 * scale,
-      fontWeight: "700",
-      textTransform: "uppercase",
-      letterSpacing: 1,
-      textAlign: "center"
-    },
-    quickGrid: {
+    optionsBar: {
       flexDirection: "row",
-      flexWrap: "wrap",
-      justifyContent: "center",
-      gap: 8
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.xs,
+      gap: spacing.sm
     },
-    quickTag: {
-      backgroundColor: colors.card,
-      borderColor: colors.border,
-      borderWidth: 1,
+    filterChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: spacing.sm + 4,
+      paddingVertical: spacing.xs,
       borderRadius: radius.pill,
-      paddingVertical: 8,
-      paddingHorizontal: 14
+      backgroundColor: colors.surface,
+      gap: 4
     },
-    quickTagText: {
-      color: colors.muted,
+    filterChipActive: {
+      backgroundColor: colors.primary
+    },
+    filterChipText: {
+      fontSize: 12 * scale,
+      color: colors.muted
+    },
+    filterChipTextActive: {
+      color: "#FFFFFF",
+      fontWeight: "700"
+    },
+    centerContainer: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      padding: spacing.xl
+    },
+    loadingText: {
+      marginTop: spacing.md,
       fontSize: 13 * scale,
-      fontWeight: "600"
+      color: colors.muted
+    },
+    emptyText: {
+      marginTop: spacing.sm,
+      fontSize: 14 * scale,
+      color: colors.muted,
+      textAlign: "center"
+    },
+    listContainer: {
+      padding: spacing.md,
+      paddingBottom: 100
+    },
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.md,
+      padding: spacing.md,
+      marginBottom: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border
+    },
+    cardSelected: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primary + "10"
+    },
+    cardHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: spacing.xs,
+      gap: spacing.xs
+    },
+    checkbox: {
+      marginRight: 4
+    },
+    sourceTag: {
+      fontSize: 11 * scale,
+      fontWeight: "700",
+      color: colors.primary
+    },
+    yearBadge: {
+      fontSize: 11 * scale,
+      color: colors.muted,
+      marginLeft: "auto"
+    },
+    title: {
+      fontSize: 15 * scale,
+      fontWeight: "700",
+      color: colors.text,
+      marginBottom: 4
+    },
+    authors: {
+      fontSize: 12 * scale,
+      color: colors.muted,
+      marginBottom: spacing.xs
+    },
+    summary: {
+      fontSize: 13 * scale,
+      color: colors.subdued,
+      lineHeight: 18
+    },
+    batchBar: {
+      position: "absolute",
+      bottom: 20,
+      left: 20,
+      right: 20,
+      backgroundColor: colors.surface,
+      padding: spacing.md,
+      borderRadius: radius.md,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      elevation: 5,
+      borderWidth: 1,
+      borderColor: colors.primary
+    },
+    batchText: {
+      fontSize: 14 * scale,
+      fontWeight: "700",
+      color: colors.text
+    },
+    compareBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.primary + "20",
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+      borderRadius: radius.sm,
+      gap: 4
+    },
+    compareBtnText: {
+      color: colors.primary,
+      fontWeight: "700",
+      fontSize: 12 * scale
+    },
+    createStackBtn: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.xs + 4,
+      borderRadius: radius.sm
+    },
+    createStackBtnText: {
+      color: "#FFF",
+      fontWeight: "700",
+      fontSize: 13 * scale
     }
   });
 }

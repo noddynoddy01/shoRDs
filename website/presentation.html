@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>shoRDs — Master Technical Presentation Deck</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #060913;
+      --card: #111827;
+      --card-border: rgba(255, 255, 255, 0.08);
+      --cyan: #06B6D4;
+      --purple: #8B5CF6;
+      --green: #10B981;
+      --text: #F8FAFC;
+      --muted: #CBD5E1;
+      --subdued: #64748B;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .deck-container {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+    }
+
+    .slide {
+      display: none;
+      width: 100%;
+      height: 100%;
+      padding: 40px 60px;
+      flex-direction: column;
+      justify-content: space-between;
+      position: absolute;
+      top: 0;
+      left: 0;
+      background: var(--bg);
+    }
+
+    .slide.active {
+      display: flex;
+      animation: slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: scale(0.98); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .slide-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .slide-num-pill {
+      font-size: 10px;
+      font-weight: 800;
+      color: var(--cyan);
+      background: rgba(6, 182, 212, 0.1);
+      border: 1px solid rgba(6, 182, 212, 0.25);
+      padding: 4px 12px;
+      border-radius: 999px;
+      letter-spacing: 1.5px;
+    }
+
+    .slide-title {
+      font-size: 34px;
+      font-weight: 900;
+      color: var(--text);
+      margin-top: 6px;
+    }
+
+    .slide-subtitle {
+      font-size: 14px;
+      color: var(--cyan);
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    /* Content Layout Grids */
+    .slide-body-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin: 16px 0;
+      flex: 1;
+      align-items: center;
+    }
+
+    .slide-card {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      box-shadow: 0 16px 32px rgba(0,0,0,0.4);
+    }
+
+    .glass-card {
+      background: rgba(17, 24, 39, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--card-border);
+    }
+
+    .point-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .icon-bullet {
+      color: var(--cyan);
+      font-size: 14px;
+      margin-top: 2px;
+    }
+
+    /* Visual Illustrations Styling */
+    .illustration-box {
+      background: #02040A;
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 20px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+    }
+
+    .slide-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      color: var(--subdued);
+      border-top: 1px solid var(--card-border);
+      padding-top: 12px;
+    }
+
+    .nav-controls {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      display: flex;
+      gap: 8px;
+      z-index: 9999;
+    }
+
+    .nav-btn {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-weight: 800;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s ease;
+    }
+
+    .nav-btn:hover {
+      background: var(--cyan);
+      color: #060913;
+    }
+
+    /* SVG Schematic Styling */
+    .node-text { font-size: 11px; font-weight: 800; fill: #F8FAFC; }
+    .sub-node-text { font-size: 9px; fill: #94A3B8; }
+  </style>
+</head>
+<body>
+
+  <div class="deck-container">
+
+    <!-- ════════════════ SLIDE 1: COVER & TITLE ════════════════ -->
+    <div class="slide active">
+      <div class="slide-header">
+        <div>
+          <span class="slide-num-pill">SLIDE 01 / 12</span>
+          <h1 class="slide-title">shoRDs — Research Operating System</h1>
+          <p class="slide-subtitle">Transforming 100-page academic PDFs into swipeable briefs, 3-column desktop workspaces, & 100% independent AI synthesis.</p>
+        </div>
+      </div>
+
+      <div class="slide-body-grid">
+        <div class="slide-card glass-card">
+          <div class="point-item"><span class="icon-bullet">🚀</span><span><strong>Presenter:</strong> Abhinav Prakash · Lead Architect & Founder (IIIT Surat)</span></div>
+          <div class="point-item"><span class="icon-bullet">📱</span><span><strong>Mobile App:</strong> React Native Expo APK · Swipeable Feed · Audio Speech Engine</span></div>
+          <div class="point-item"><span class="icon-bullet">💻</span><span><strong>Desktop OS:</strong> Next.js 15 PWA · 3-Column Reader · Split View · Spotlight Search (Ctrl+K)</span></div>
+          <div class="point-item"><span class="icon-bullet">💰</span><span><strong>Funding Allocation:</strong> Supported by ₹2.5 Lakhs Seed Grant for Open-Access Academic Infrastructure</span></div>
+        </div>
+
+        <div class="illustration-box">
+          <svg width="340" height="220" viewBox="0 0 340 220">
+            <rect x="20" y="20" width="130" height="180" rx="14" fill="#111827" stroke="#06B6D4" stroke-width="2" />
+            <text x="85" y="45" text-anchor="middle" fill="#06B6D4" font-size="10" font-weight="800">MOBILE APP</text>
+            <rect x="35" y="60" width="100" height="12" rx="4" fill="rgba(6,182,212,0.2)" />
+            <rect x="35" y="80" width="80" height="8" rx="4" fill="rgba(255,255,255,0.1)" />
+            <rect x="35" y="95" width="90" height="8" rx="4" fill="rgba(255,255,255,0.1)" />
+
+            <path d="M 150 110 L 190 110" stroke="#8B5CF6" stroke-width="2" stroke-dasharray="4" />
+            <circle cx="170" cy="110" r="10" fill="#8B5CF6" />
+            <text x="170" y="113" text-anchor="middle" fill="#FFFFFF" font-size="8" font-weight="800">SYNC</text>
+
+            <rect x="190" y="30" width="130" height="160" rx="12" fill="#111827" stroke="#8B5CF6" stroke-width="2" />
+            <text x="255" y="55" text-anchor="middle" fill="#8B5CF6" font-size="10" font-weight="800">DESKTOP WEB OS</text>
+            <rect x="205" y="70" width="30" height="100" rx="4" fill="rgba(255,255,255,0.03)" />
+            <rect x="240" y="70" width="45" height="100" rx="4" fill="rgba(6,182,212,0.1)" />
+            <rect x="290" y="70" width="25" height="100" rx="4" fill="rgba(255,255,255,0.03)" />
+          </svg>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>shoRDs Research Operating System — IIIT Surat</span>
+        <span>Use Left/Right Arrow Keys to Navigate Deck</span>
+      </div>
+    </div>
+
+    <!-- ════════════════ SLIDE 2: THE PROBLEM ════════════════ -->
+    <div class="slide">
+      <div class="slide-header">
+        <div>
+          <span class="slide-num-pill">SLIDE 02 / 12</span>
+          <h1 class="slide-title">The Academic Bottleneck & PDF Friction</h1>
+          <p class="slide-subtitle">Why 5 Million Annual Papers Remain Trapped & Hard to Digest</p>
+        </div>
+      </div>
+
+      <div class="slide-body-grid">
+        <div class="slide-card">
+          <div class="point-item"><span class="icon-bullet">⚠️</span><span><strong>Cognitive Overload:</strong> Researchers waste 70% of reading time skimming dense introductions just to find 1 relevant equation or result.</span></div>
+          <div class="point-item"><span class="icon-bullet">🔀</span><span><strong>Fragmented Workflows:</strong> Constant bouncing between PDF readers, Zotero citation managers, ChatGPT tabs, and Excel matrices.</span></div>
+          <div class="point-item"><span class="icon-bullet">🔒</span><span><strong>Third-Party Cloud AI Risks:</strong> Reliance on external API keys leads to privacy risks, hallucinations, and paywalled rate limits.</span></div>
+        </div>
+
+        <div class="illustration-box">
+          <svg width="340" height="200" viewBox="0 0 340 200">
+            <!-- Legacy Broken Flow -->
+            <rect x="20" y="20" width="90" height="60" rx="8" fill="rgba(239,68,68,0.1)" stroke="#EF4444" />
+            <text x="65" y="48" text-anchor="middle" fill="#EF4444" font-size="10" font-weight="800">100-Page PDF</text>
+            <path d="M 110 50 L 150 50" stroke="#EF4444" stroke-width="2" />
+            
+            <rect x="150" y="20" width="80" height="60" rx="8" fill="rgba(239,68,68,0.1)" stroke="#EF4444" />
+            <text x="190" y="48" text-anchor="middle" fill="#EF4444" font-size="10" font-weight="800">Zotero / Excel</text>
+            <path d="M 230 50 L 270 50" stroke="#EF4444" stroke-width="2" />
+
+            <rect x="270" y="20" width="50" height="60" rx="8" fill="rgba(239,68,68,0.1)" stroke="#EF4444" />
+            <text x="295" y="48" text-anchor="middle" fill="#EF4444" font-size="10" font-weight="800">API Key</text>
+
+            <!-- shoRDs Unified Flow -->
+            <rect x="20" y="120" width="300" height="60" rx="10" fill="rgba(6,182,212,0.1)" stroke="#06B6D4" stroke-width="2" />
+            <text x="170" y="145" text-anchor="middle" fill="#06B6D4" font-size="12" font-weight="800">shoRDs Unified Research OS</text>
+            <text x="170" y="162" text-anchor="middle" fill="#94A3B8" font-size="10">Swipeable Briefs + 3-Column Workspace + 100% Local AI</text>
+          </svg>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>shoRDs Research Operating System — IIIT Surat</span>
+        <span>Slide 2 of 12</span>
+      </div>
+    </div>
+
+    <!-- ════════════════ SLIDE 3: THE SOLUTION ════════════════ -->
+    <div class="slide">
+      <div class="slide-header">
+        <div>
+          <span class="slide-num-pill">SLIDE 03 / 12</span>
+          <h1 class="slide-title">The Solution — Dual-Platform shoRDs OS</h1>
+          <p class="slide-subtitle">A Re-imagined 5-Stage Research Journey Built for Speed & Precision</p>
+        </div>
+      </div>
+
+      <div class="slide-body-grid">
+        <div class="slide-card">
+          <div class="point-item"><span class="icon-bullet">📱</span><span><strong>Mobile APK Experience:</strong> Swipeable magazine cards, audio speech summaries, 1-tap card briefs.</span></div>
+          <div class="point-item"><span class="icon-bullet">💻</span><span><strong>Desktop Web OS:</strong> 3-Column Reader, resizable split view, Spotlight search (Ctrl+K), and SVG knowledge graph.</span></div>
+          <div class="point-item"><span class="icon-bullet">🛡️</span><span><strong>Privacy-First Local Intelligence:</strong> Deterministic extraction tying insights directly to exact line numbers and verified DOIs.</span></div>
+        </div>
+
+        <div class="illustration-box">
+          <svg width="340" height="200" viewBox="0 0 340 200">
+            <circle cx="170" cy="100" r="70" fill="rgba(6,182,212,0.05)" stroke="#06B6D4" stroke-width="1.5" stroke-dasharray="6" />
+            <circle cx="170" cy="100" r="34" fill="#06B6D4" />
+            <text x="170" y="104" text-anchor="middle" fill="#060913" font-size="11" font-weight="900">shoRDs</text>
+
+            <rect x="30" y="30" width="80" height="30" rx="6" fill="#111827" stroke="#8B5CF6" />
+            <text x="70" y="48" text-anchor="middle" fill="#8B5CF6" font-size="9" font-weight="800">MOBILE APK</text>
+
+            <rect x="230" y="30" width="80" height="30" rx="6" fill="#111827" stroke="#8B5CF6" />
+            <text x="270" y="48" text-anchor="middle" fill="#8B5CF6" font-size="9" font-weight="800">WEB OS PWA</text>
+
+            <rect x="30" y="140" width="80" height="30" rx="6" fill="#111827" stroke="#10B981" />
+            <text x="70" y="158" text-anchor="middle" fill="#10B981" font-size="9" font-weight="800">100% LOCAL AI</text>
+
+            <rect x="230" y="140" width="80" height="30" rx="6" fill="#111827" stroke="#10B981" />
+            <text x="270" y="158" text-anchor="middle" fill="#10B981" font-size="9" font-weight="800">INDEXEDDB</text>
+          </svg>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>shoRDs Research Operating System — IIIT Surat</span>
+        <span>Slide 3 of 12</span>
+      </div>
+    </div>
+
+    <!-- ════════════════ SLIDE 4: USPs ════════════════ -->
+    <div class="slide">
+      <div class="slide-header">
+        <div>
+          <span class="slide-num-pill">SLIDE 04 / 12</span>
+          <h1 class="slide-title">Unique Selling Propositions (USPs)</h1>
+          <p class="slide-subtitle">Breakthrough Differentiators Setting shoRDs Apart From Traditional Readers</p>
+        </div>
+      </div>
+
+      <div class="slide-body-grid">
+        <div class="slide-card">
+          <div class="point-item"><span class="icon-bullet">🛡️</span><span><strong>100% Independent Local AI:</strong> Zero external API key dependencies (Gemini/Claude/Perplexity). 100% private.</span></div>
+          <div class="point-item"><span class="icon-bullet">⚖️</span><span><strong>AI Scholarly Paper Debates:</strong> Simulates thesis debates between conflicting methodologies & matrix performance trade-offs.</span></div>
+          <div class="point-item"><span class="icon-bullet">🗺️</span><span><strong>4-Phase Implementation Roadmaps:</strong> Converts theoretical paper sections into actionable 4-step execution guides.</span></div>
+          <div class="point-item"><span class="icon-bullet">📋</span><span><strong>Instant Academic Citation Exports:</strong> One-tap BibTeX, RIS, APA, IEEE, & MLA code generator for Zotero/LaTeX.</span></div>
+        </div>
+
+        <div class="illustration-box">
+          <svg width="340" height="200" viewBox="0 0 340 200">
+            <rect x="20" y="20" width="140" height="70" rx="10" fill="rgba(6,182,212,0.1)" stroke="#06B6D4" />
+            <text x="90" y="45" text-anchor="middle" fill="#06B6D4" font-size="11" font-weight="800">100% LOCAL AI</text>
+            <text x="90" y="65" text-anchor="middle" fill="#94A3B8" font-size="9">Zero Cloud API Keys</text>
+
+            <rect x="180" y="20" width="140" height="70" rx="10" fill="rgba(139,92,246,0.1)" stroke="#8B5CF6" />
+            <text x="250" y="45" text-anchor="middle" fill="#8B5CF6" font-size="11" font-weight="800">AI PAPER DEBATES</text>
+            <text x="250" y="65" text-anchor="middle" fill="#94A3B8" font-size="9">Simulate Thesis Trade-offs</text>
+
+            <rect x="20" y="110" width="140" height="70" rx="10" fill="rgba(16,185,129,0.1)" stroke="#10B981" />
+            <text x="90" y="135" text-anchor="middle" fill="#10B981" font-size="11" font-weight="800">4-STEP ROADMAPS</text>
+            <text x="90" y="155" text-anchor="middle" fill="#94A3B8" font-size="9">Code Implementation</text>
+
+            <rect x="180" y="110" width="140" height="70" rx="10" fill="rgba(248,250,252,0.05)" stroke="#F8FAFC" />
+            <text x="250" y="135" text-anchor="middle" fill="#F8FAFC" font-size="11" font-weight="800">BIBTEX EXPORTS</text>
+            <text x="250" y="155" text-anchor="middle" fill="#94A3B8" font-size="9">Zotero & LaTeX Ready</text>
+          </svg>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>shoRDs Research Operating System — IIIT Surat</span>
+        <span>Slide 4 of 12</span>
+      </div>
+    </div>
+
+    <!-- ════════════════ SLIDE 5: TECHNICAL ARCHITECTURE ════════════════ -->
+    <div class="slide">
+      <div class="slide-header">
+        <div>
+          <span class="slide-num-pill">SLIDE 05 / 12</span>
+          <h1 class="slide-title">Deep Full-Stack Technical Architecture</h1>
+          <p class="slide-subtitle">Decoupled Mobile Native & Desktop PWA Shell with Shared Local Core</p>
+        </div>
+      </div>
+
+      <div class="slide-body-grid">
+        <div class="slide-card">
+          <div class="point-item"><span class="icon-bullet">📱</span><span><strong>Mobile App Stack:</strong> React Native, Expo Router v3, Reanimated 3, Native Android Speech Engine.</span></div>
+          <div class="point-item"><span class="icon-bullet">💻</span><span><strong>Desktop Web OS PWA:</strong> Service Workers, PWA Manifest.json, Vanilla TS, Flexbox/Grid canvas.</span></div>
+          <div class="point-item"><span class="icon-bullet">🔄</span><span><strong>Unified Storage & Sync:</strong> Shared LocalStorage + IndexedDB real-time state synchronization engine.</span></div>
+        </div>
+
+        <div class="illustration-box">
+          <svg width="340" height="200" viewBox="0 0 340 200">
+            <rect x="20" y="20" width="300" height="40" rx="8" fill="#111827" stroke="#06B6D4" />
+            <text x="170" y="44" text-anchor="middle" fill="#06B6D4" font-size="11" font-weight="800">REACT NATIVE / EXPO MOBILE + NEXT.JS PWA WEB OS</text>
+
+            <path d="M 170 60 L 170 90" stroke="#8B5CF6" stroke-width="2" />
+
+            <rect x="40" y="90" width="260" height="40" rx="8" fill="#111827" stroke="#8B5CF6" />
+            <text x="170" y="114" text-anchor="middle" fill="#8B5CF6" font-size="11" font-weight="800">SHARED LOCAL CORE & INDEXEDDB SYNC STORE</text>
+
+            <path d="M 170 130 L 170 160" stroke="#10B981" stroke-width="2" />
+
+            <rect x="60" y="160" width="220" height="30" rx="6" fill="#111827" stroke="#10B981" />
+            <text x="170" y="179" text-anchor="middle" fill="#10B981" font-size="10" font-weight="800">INDEPENDENT HEURISTIC LOCAL AI ENGINE</text>
+          </svg>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>shoRDs Research Operating System — IIIT Surat</span>
+        <span>Slide 5 of 12</span>
+      </div>
+    </div>
+
+    <!-- ════════════════ SLIDE 6: 100% INDEPENDENT AI ════════════════ -->
+    <div class="slide">
+      <div class="slide-header">
+        <div>
+          <span class="slide-num-pill">SLIDE 06 / 12</span>
+          <h1 class="slide-title">100% Independent Local AI Engine</h1>
+          <p class="slide-subtitle">Deterministic Text Processing & High-Trust Citation Integrity</p>
+        </div>
+      </div>
+
+      <div class="slide-body-grid">
+        <div class="slide-card">
+          <div class="point-item"><span class="icon-bullet">🛡️</span><span><strong>Zero Cloud Lock-In:</strong> Runs completely self-contained without requiring external API tokens.</span></div>
+          <div class="point-item"><span class="icon-bullet">📄</span><span><strong>Structured Extraction:</strong> Automatically parses Context, Technical Approach, Results, & Future Scope.</span></div>
+          <div class="point-item"><span class="icon-bullet">🎯</span><span><strong>Hallucination Shield:</strong> Ties generated insights directly to validated Crossref/arXiv DOI metadata.</span></div>
+        </div>
+
+        <div class="illustration-box">
+          <svg width="340" height="200" viewBox="0 0 340 200">
+            <rect x="20" y="30" width="80" height="140" rx="8" fill="#111827" stroke="#64748B" />
+            <text x="60" y="105" text-anchor="middle" fill="#CBD5E1" font-size="10" font-weight="800">RAW PDF</text>
+
+            <path d="M 100 100 L 130 100" stroke="#06B6D4" stroke-width="2" />
+
+            <rect x="130" y="50" width="90" height="100" rx="8" fill="rgba(6,182,212,0.1)" stroke="#06B6D4" />
+            <text x="175" y="95" text-anchor="middle" fill="#06B6D4" font-size="10" font-weight="800">PARSER</text>
+            <text x="175" y="115" text-anchor="middle" fill="#94A3B8" font-size="8">Local NLP</text>
+
+            <path d="M 220 100 L 250 100" stroke="#10B981" stroke-width="2" />
+
+            <rect x="250" y="30" width="70" height="140" rx="8" fill="rgba(16,185,129,0.1)" stroke="#10B981" />
+            <text x="285" y="80" text-anchor="middle" fill="#10B981" font-size="9" font-weight="800">4-SECTION</text>
+            <text x="285" y="100" text-anchor="middle" fill="#10B981" font-size="9" font-weight="800">BRIEF</text>
+            <text x="285" y="120" text-anchor="middle" fill="#10B981" font-size="9" font-weight="800">+ DOI</text>
+          </svg>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>shoRDs Research Operating System — IIIT Surat</span>
+        <span>Slide 6 of 12</span>
+      </div>
+    </div>
+
+    <!-- ════════════════ SLIDE 7: 5-STAGE JOURNEY ════════════════ -->
+    <div class="slide">
+      <div class="slide-header">
+        <div>
+          <span class="slide-num-pill">SLIDE 07 / 12</span>
+          <h1 class="slide-title">The 5-Stage Research Journey</h1>
+          <p class="slide-subtitle">End-to-End Workflow Optimization for Students, Researchers, & Faculty</p>
+        </div>
+      </div>
+
+      <div class="slide-body-grid">
+        <div class="slide-card">
+          <div class="point-item"><span class="icon-bullet">1️⃣</span><span><strong>DISCOVER:</strong> Swipeable magazine feed, voice triggers, & semantic topic search.</span></div>
+          <div class="point-item"><span class="icon-bullet">2️⃣</span><span><strong>UNDERSTAND:</strong> 3-column workspace reader, zoomable figure inspector, & 4-5 section tabs.</span></div>
+          <div class="point-item"><span class="icon-bullet">3️⃣</span><span><strong>DISCUSS:</strong> Scholar faculty profiles, H-index counters, & consultation slot booking.</span></div>
+          <div class="point-item"><span class="icon-bullet">4️⃣</span><span><strong>CREATE:</strong> Research identity contribution score (94.2), 14-day streak tracker, & library archives.</span></div>
+          <div class="point-item"><span class="icon-bullet">5️⃣</span><span><strong>PUBLISH:</strong> Publishing Studio with PDF drag-and-drop, arXiv link fetcher, & custom domain selector.</span></div>
+        </div>
+
+        <div class="illustration-box">
+          <svg width="340" height="200" viewBox="0 0 340 200">
+            <path d="M 30 100 L 310 100" stroke="rgba(255,255,255,0.1)" stroke-width="4" />
+            <circle cx="50" cy="100" r="14" fill="#06B6D4" />
+            <text x="50" y="104" text-anchor="middle" fill="#060913" font-size="9" font-weight="900">1</text>
+            <text x="50" y="130" text-anchor="middle" fill="#06B6D4" font-size="9" font-weight="800">Discover</text>
+
+            <circle cx="110" cy="100" r="14" fill="#8B5CF6" />
+            <text x="110" y="104" text-anchor="middle" fill="#FFFFFF" font-size="9" font-weight="900">2</text>
+            <text x="110" y="130" text-anchor="middle" fill="#8B5CF6" font-size="9" font-weight="800">Understand</text>
+
+            <circle cx="170" cy="100" r="14" fill="#10B981" />
+            <text x="170" y="104" text-anchor="middle" fill="#060913" font-size="9" font-weight="900">3</text>
+            <text x="170" y="130" text-anchor="middle" fill="#10B981" font-size="9" font-weight="800">Discuss</text>
+
+            <circle cx="230" cy="100" r="14" fill="#F59E0B" />
+            <text x="230" y="104" text-anchor="middle" fill="#060913" font-size="9" font-weight="900">4</text>
+            <text x="230" y="130" text-anchor="middle" fill="#F59E0B" font-size="9" font-weight="800">Create</text>
+
+            <circle cx="290" cy="100" r="14" fill="#EC4899" />
+            <text x="290" y="104" text-anchor="middle" fill="#FFFFFF" font-size="9" font-weight="900">5</text>
+            <text x="290" y="130" text-anchor="middle" fill="#EC4899" font-size="9" font-weight="800">Publish</text>
+          </svg>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>shoRDs Research Operating System — IIIT Surat</span>
+        <span>Slide 7 of 12</span>
+      </div>
+    </div>
+
+    <!-- ════════════════ SLIDE 8: DESKTOP FLAGSHIP TOOLS ════════════════ -->
+    <div class="slide">
+      <div class="slide-header">
+        <div>
+          <span class="slide-num-pill">SLIDE 08 / 12</span>
+          <h1 class="slide-title">Desktop Flagship Tools & Power Features</h1>
+          <p class="slide-subtitle">High-Density Productivity Suite Designed for 8-Hour Desktop Sessions</p>
+        </div>
+      </div>
+
+      <div class="slide-body-grid">
+        <div class="slide-card">
+          <div class="point-item"><span class="icon-bullet">🔍</span><span><strong>Spotlight Search (Ctrl + K):</strong> Command palette modal searching paper titles, DOIs, authors, & slash commands.</span></div>
+          <div class="point-item"><span class="icon-bullet">🕸️</span><span><strong>Interactive SVG Knowledge Graph:</strong> Visual node mapping linking authors, papers, institutions, & methods.</span></div>
+          <div class="point-item"><span class="icon-bullet">📊</span><span><strong>Multi-Column Comparison Matrix:</strong> Side-by-side table comparing Method, Dataset, Accuracy, & Weaknesses.</span></div>
+          <div class="point-item"><span class="icon-bullet">🔊</span><span><strong>Floating Waveform Mini Player:</strong> Synced audio playback with speed controls (1.0x, 1.5x, 2.0x).</span></div>
+        </div>
+
+        <div class="illustration-box">
+          <svg width="340" height="200" viewBox="0 0 340 200">
+            <!-- Node Graph -->
+            <line x1="80" y1="60" x2="160" y2="40" stroke="rgba(6,182,212,0.3)" stroke-width="2" />
+            <line x1="80" y1="60" x2="160" y2="100" stroke="rgba(6,182,212,0.3)" stroke-width="2" />
+
+            <circle cx="80" cy="60" r="20" fill="rgba(6,182,212,0.2)" stroke="#06B6D4" stroke-width="2" />
+            <text x="80" y="63" text-anchor="middle" fill="#FFFFFF" font-size="8" font-weight="800">Attention</text>
+
+            <circle cx="160" cy="40" r="16" fill="rgba(139,92,246,0.2)" stroke="#8B5CF6" stroke-width="2" />
+            <text x="160" y="43" text-anchor="middle" fill="#FFFFFF" font-size="7" font-weight="800">Quantum</text>
+
+            <circle cx="160" cy="100" r="16" fill="rgba(16,185,129,0.2)" stroke="#10B981" stroke-width="2" />
+            <text x="160" y="103" text-anchor="middle" fill="#FFFFFF" font-size="7" font-weight="800">CRISPR</text>
+
+            <!-- Table Preview -->
+            <rect x="200" y="30" width="120" height="140" rx="8" fill="#111827" stroke="rgba(255,255,255,0.1)" />
+            <rect x="210" y="45" width="100" height="8" rx="2" fill="#06B6D4" />
+            <rect x="210" y="65" width="100" height="6" rx="2" fill="rgba(255,255,255,0.1)" />
+            <rect x="210" y="80" width="100" height="6" rx="2" fill="rgba(255,255,255,0.1)" />
+            <rect x="210" y="95" width="100" height="6" rx="2" fill="rgba(255,255,255,0.1)" />
+          </svg>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>shoRDs Research Operating System — IIIT Surat</span>
+        <span>Slide 8 of 12</span>
+      </div>
+    </div>
+
+    <!-- ════════════════ SLIDE 9: ECOSYSTEM INTEGRATION ════════════════ -->
+    <div class="slide">
+      <div class="slide-header">
+        <div>
+          <span class="slide-num-pill">SLIDE 09 / 12</span>
+          <h1 class="slide-title">Academic Ecosystem Integration</h1>
+          <p class="slide-subtitle">Native Compatibility with Leading Citation Managers & Publishing Archives</p>
+        </div>
+      </div>
+
+      <div class="slide-body-grid">
+        <div class="slide-card">
+          <div class="point-item"><span class="icon-bullet">📂</span><span><strong>Zotero & Mendeley Sync:</strong> Auto-generates clean RIS files for 1-click import into reference managers.</span></div>
+          <div class="point-item"><span class="icon-bullet">📄</span><span><strong>LaTeX & Overleaf Ready:</strong> Formats copyable @article BibTeX blocks for instant paper authoring.</span></div>
+          <div class="point-item"><span class="icon-bullet">🔗</span><span><strong>arXiv & DOI Metadata Extractor:</strong> Automatically parses paper title, author, and abstract from URLs.</span></div>
+        </div>
+
+        <div class="illustration-box">
+          <svg width="340" height="200" viewBox="0 0 340 200">
+            <rect x="40" y="30" width="120" height="60" rx="10" fill="rgba(6,182,212,0.1)" stroke="#06B6D4" />
+            <text x="100" y="58" text-anchor="middle" fill="#06B6D4" font-size="11" font-weight="800">ZOTERO / RIS</text>
+            <text x="100" y="75" text-anchor="middle" fill="#94A3B8" font-size="8">1-Click Reference Import</text>
+
+            <rect x="180" y="30" width="120" height="60" rx="10" fill="rgba(139,92,246,0.1)" stroke="#8B5CF6" />
+            <text x="240" y="58" text-anchor="middle" fill="#8B5CF6" font-size="11" font-weight="800">LATEX BIBTEX</text>
+            <text x="240" y="75" text-anchor="middle" fill="#94A3B8" font-size="8">@article Format</text>
+
+            <rect x="110" y="110" width="120" height="60" rx="10" fill="rgba(16,185,129,0.1)" stroke="#10B981" />
+            <text x="170" y="138" text-anchor="middle" fill="#10B981" font-size="11" font-weight="800">ARXIV / DOI</text>
+            <text x="170" y="155" text-anchor="middle" fill="#94A3B8" font-size="8">Auto Link Fetcher</text>
+          </svg>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>shoRDs Research Operating System — IIIT Surat</span>
+        <span>Slide 9 of 12</span>
+      </div>
+    </div>
+
+    <!-- ════════════════ SLIDE 10: REAL-TIME SYNC ════════════════ -->
+    <div class="slide">
+      <div class="slide-header">
+        <div>
+          <span class="slide-num-pill">SLIDE 10 / 12</span>
+          <h1 class="slide-title">Real-Time Cross-Device Sync Engine</h1>
+          <p class="slide-subtitle">Seamless Transition Between Smartphone & Desktop Workstations</p>
+        </div>
+      </div>
+
+      <div class="slide-body-grid">
+        <div class="slide-card">
+          <div class="point-item"><span class="icon-bullet">📖</span><span><strong>Reading Progress Sync:</strong> Resumes reading from the exact sentence when switching devices.</span></div>
+          <div class="point-item"><span class="icon-bullet">📑</span><span><strong>Universal State Sync:</strong> Bookmarks, margin notes, audio playback timestamp, & collections stay 100% in sync.</span></div>
+          <div class="point-item"><span class="icon-bullet">⚡</span><span><strong>Offline-First Capability:</strong> PWA ServiceWorker caches paper briefs for offline reading.</span></div>
+        </div>
+
+        <div class="illustration-box">
+          <svg width="340" height="200" viewBox="0 0 340 200">
+            <rect x="30" y="50" width="90" height="100" rx="10" fill="#111827" stroke="#06B6D4" stroke-width="2" />
+            <text x="75" y="95" text-anchor="middle" fill="#06B6D4" font-size="10" font-weight="800">PHONE APK</text>
+            <text x="75" y="112" text-anchor="middle" fill="#94A3B8" font-size="8">Sentence 4</text>
+
+            <path d="M 120 100 L 220 100" stroke="#8B5CF6" stroke-width="3" stroke-dasharray="6" />
+            <circle cx="170" cy="100" r="14" fill="#8B5CF6" />
+            <text x="170" y="104" text-anchor="middle" fill="#FFFFFF" font-size="8" font-weight="900">SYNC</text>
+
+            <rect x="220" y="50" width="90" height="100" rx="10" fill="#111827" stroke="#06B6D4" stroke-width="2" />
+            <text x="265" y="95" text-anchor="middle" fill="#06B6D4" font-size="10" font-weight="800">DESKTOP PWA</text>
+            <text x="265" y="112" text-anchor="middle" fill="#94A3B8" font-size="8">Sentence 4</text>
+          </svg>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>shoRDs Research Operating System — IIIT Surat</span>
+        <span>Slide 10 of 12</span>
+      </div>
+    </div>
+
+    <!-- ════════════════ SLIDE 11: DEMO SCRIPT ════════════════ -->
+    <div class="slide">
+      <div class="slide-header">
+        <div>
+          <span class="slide-num-pill">SLIDE 11 / 12</span>
+          <h1 class="slide-title">Live Demonstration Walkthrough Script</h1>
+          <p class="slide-subtitle">3-Minute Live Workflow Demonstration</p>
+        </div>
+      </div>
+
+      <div class="slide-body-grid">
+        <div class="slide-card">
+          <div class="point-item"><span class="icon-bullet">⏱️</span><span><strong>Step 1 (0:00-0:45):</strong> Mobile swipeable cards, audio speech narration, & stack opening.</span></div>
+          <div class="point-item"><span class="icon-bullet">⏱️</span><span><strong>Step 2 (0:45-1:45):</strong> Desktop Web OS (http://localhost:8080), Ctrl+K Spotlight search, & 3-column reader.</span></div>
+          <div class="point-item"><span class="icon-bullet">⏱️</span><span><strong>Step 3 (1:45-2:30):</strong> 1-click BibTeX citation copying & AI Thesis Debate simulation.</span></div>
+          <div class="point-item"><span class="icon-bullet">⏱️</span><span><strong>Step 4 (2:30-3:00):</strong> Desktop Publishing Studio PDF drag-and-drop & instant brief publication.</span></div>
+        </div>
+
+        <div class="illustration-box">
+          <svg width="340" height="200" viewBox="0 0 340 200">
+            <rect x="20" y="30" width="300" height="30" rx="6" fill="rgba(6,182,212,0.1)" stroke="#06B6D4" />
+            <text x="35" y="49" fill="#06B6D4" font-size="10" font-weight="800">0:00 - Mobile APK Feed & Audio Narration</text>
+
+            <rect x="20" y="70" width="300" height="30" rx="6" fill="rgba(139,92,246,0.1)" stroke="#8B5CF6" />
+            <text x="35" y="89" fill="#8B5CF6" font-size="10" font-weight="800">0:45 - Desktop Web OS (Ctrl+K & 3-Column Reader)</text>
+
+            <rect x="20" y="110" width="300" height="30" rx="6" fill="rgba(16,185,129,0.1)" stroke="#10B981" />
+            <text x="35" y="129" fill="#10B981" font-size="10" font-weight="800">1:45 - BibTeX Export & AI Debate Simulator</text>
+
+            <rect x="20" y="150" width="300" height="30" rx="6" fill="rgba(245,158,11,0.1)" stroke="#F59E0B" />
+            <text x="35" y="169" fill="#F59E0B" font-size="10" font-weight="800">2:30 - PDF Drag & Drop Studio Brief Publication</text>
+          </svg>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>shoRDs Research Operating System — IIIT Surat</span>
+        <span>Slide 11 of 12</span>
+      </div>
+    </div>
+
+    <!-- ════════════════ SLIDE 12: VISION & FUNDING ════════════════ -->
+    <div class="slide">
+      <div class="slide-header">
+        <div>
+          <span class="slide-num-pill">SLIDE 12 / 12</span>
+          <h1 class="slide-title">Business Vision & ₹2.5 Lakhs Fund Allocation</h1>
+          <p class="slide-subtitle">Scaling Open-Access Infrastructure Across Universities & Global Institutes</p>
+        </div>
+      </div>
+
+      <div class="slide-body-grid">
+        <div class="slide-card">
+          <div class="point-item"><span class="icon-bullet">⚙️</span><span><strong>40% Infrastructure & Local AI Storage:</strong> Deploying vector indexing nodes for zero-latency retrieval.</span></div>
+          <div class="point-item"><span class="icon-bullet">🎓</span><span><strong>35% Open-Access Outreach:</strong> Onboarding university faculty and research scholars across IIITs/IITs.</span></div>
+          <div class="point-item"><span class="icon-bullet">⚡</span><span><strong>25% Mobile & PWA Performance Engineering:</strong> Low-bandwidth optimization for regional research access.</span></div>
+          <div class="point-item"><span class="icon-bullet">✉️</span><span><strong>Contact:</strong> Abhinav Prakash · IIIT Surat · abhinavprakash0401@gmail.com</span></div>
+        </div>
+
+        <div class="illustration-box">
+          <svg width="340" height="200" viewBox="0 0 340 200">
+            <!-- Pie Chart Representation -->
+            <path d="M 170 100 L 170 30 A 70 70 0 0 1 240 100 Z" fill="#06B6D4" />
+            <text x="200" y="70" fill="#060913" font-size="10" font-weight="900">40%</text>
+
+            <path d="M 170 100 L 240 100 A 70 70 0 0 1 120 150 Z" fill="#8B5CF6" />
+            <text x="180" y="135" fill="#FFFFFF" font-size="10" font-weight="900">35%</text>
+
+            <path d="M 170 100 L 120 150 A 70 70 0 0 1 170 30 Z" fill="#10B981" />
+            <text x="135" y="80" fill="#060913" font-size="10" font-weight="900">25%</text>
+          </svg>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>shoRDs Research Operating System — IIIT Surat</span>
+        <span>End of Technical Presentation</span>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="nav-controls">
+    <button class="nav-btn" onclick="prevSlide()">← Prev</button>
+    <button class="nav-btn" onclick="nextSlide()">Next →</button>
+  </div>
+
+  <script>
+    let currentSlide = 0;
+    const slides = document.querySelectorAll('.slide');
+
+    function showSlide(index) {
+      if (index < 0) index = 0;
+      if (index >= slides.length) index = slides.length - 1;
+      slides.forEach(s => s.classList.remove('active'));
+      slides[index].classList.add('active');
+      currentSlide = index;
+    }
+
+    function prevSlide() { showSlide(currentSlide - 1); }
+    function nextSlide() { showSlide(currentSlide + 1); }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === 'Space') nextSlide();
+      if (e.key === 'ArrowLeft') prevSlide();
+    });
+  </script>
+</body>
+</html>

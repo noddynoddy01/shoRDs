@@ -1,9 +1,9 @@
-import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import React, { useState } from "react";
+import { StyleSheet, Text, View, Pressable, Modal, Dimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "../context/ThemeContext";
-import { colors as defaultColors, radius } from "../constants/theme";
+import { colors as defaultColors, radius, spacing } from "../constants/theme";
 
 type LineChartData = {
   type: "line-chart";
@@ -34,6 +34,9 @@ type ResearchIllustrationProps = {
 
 export function ResearchIllustration({ dataString, compact }: ResearchIllustrationProps) {
   const { colors, fontSizeScale, theme } = useTheme();
+  const [modalVisible, setModalVisible] = useState(false);
+  const [zoomScale, setZoomScale] = useState(1);
+
   const styles = getStyles(colors, fontSizeScale, theme, compact);
 
   let data: IllustrationData | null = null;
@@ -51,33 +54,92 @@ export function ResearchIllustration({ dataString, compact }: ResearchIllustrati
 
   if (!data) return null;
 
-  const renderContent = () => {
+  const renderContent = (isZoomed?: boolean) => {
+    const activeStyles = getStyles(colors, fontSizeScale, theme, !isZoomed);
     switch (data.type) {
       case "bar-chart":
-        return renderBarChart(data, colors, styles, compact);
+        return renderBarChart(data, colors, activeStyles, !isZoomed);
       case "line-chart":
-        return renderLineChart(data, colors, styles, compact);
+        return renderLineChart(data, colors, activeStyles, !isZoomed);
       case "flow-chart":
-        return renderFlowChart(data, colors, styles, compact);
+        return renderFlowChart(data, colors, activeStyles, !isZoomed);
       default:
         return null;
     }
   };
 
+  const handleZoomIn = () => setZoomScale((prev) => Math.min(prev + 0.25, 3));
+  const handleZoomOut = () => setZoomScale((prev) => Math.max(prev - 0.25, 1));
+  const handleReset = () => setZoomScale(1);
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.chartTitle}>📊 {data.title || "Research Data Visual"}</Text>
-      <View style={styles.chartBody}>
-        {renderContent()}
-      </View>
-    </View>
+    <>
+      <Pressable style={styles.container} onPress={() => setModalVisible(true)}>
+        <Text style={styles.chartTitle}>{data.title || "Research Data Visual"}</Text>
+        <View style={styles.chartBody}>
+          {renderContent(false)}
+        </View>
+        <View style={styles.expandHint}>
+          <Ionicons name="expand-outline" size={10} color={colors.subdued} />
+          <Text style={styles.expandHintText}>Tap to zoom</Text>
+        </View>
+      </Pressable>
+
+      <Modal
+        visible={modalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          setModalVisible(false);
+          handleReset();
+        }}
+      >
+        <View style={styles.modalBg}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle} numberOfLines={1}>{data.title}</Text>
+            <Pressable
+              style={styles.closeBtn}
+              onPress={() => {
+                setModalVisible(false);
+                handleReset();
+              }}
+            >
+              <Ionicons name="close" size={22} color={colors.text} />
+            </Pressable>
+          </View>
+
+          <View style={styles.modalBody}>
+            <View style={{ transform: [{ scale: zoomScale }], width: "100%", alignItems: "center" }}>
+              <View style={{ width: Dimensions.get("window").width - 32 }}>
+                {renderContent(true)}
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.zoomControls}>
+            <Pressable style={styles.controlBtn} onPress={handleZoomOut}>
+              <Ionicons name="remove-circle-outline" size={24} color={colors.text} />
+            </Pressable>
+            <Text style={styles.scaleText}>{Math.round(zoomScale * 100)}%</Text>
+            <Pressable style={styles.controlBtn} onPress={handleZoomIn}>
+              <Ionicons name="add-circle-outline" size={24} color={colors.text} />
+            </Pressable>
+            {zoomScale > 1 && (
+              <Pressable style={styles.controlBtn} onPress={handleReset}>
+                <Ionicons name="refresh-circle-outline" size={24} color={colors.primary} />
+              </Pressable>
+            )}
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 }
 
 // 1. Render Bar Chart
 function renderBarChart(data: BarChartData, colors: any, styles: any, compact?: boolean) {
   const maxVal = Math.max(...data.values, 1);
-  const containerHeight = compact ? 60 : 110;
+  const containerHeight = compact ? 60 : 120;
 
   return (
     <View style={styles.barChartContainer}>
@@ -92,7 +154,7 @@ function renderBarChart(data: BarChartData, colors: any, styles: any, compact?: 
                 <Text style={styles.barValue}>{val}</Text>
                 <View style={[styles.barActiveContainer, { height: Math.max(barHeight, 8) }]}>
                   <LinearGradient
-                    colors={[colors.accent, colors.primary]}
+                    colors={[colors.primary, colors.primary]}
                     style={StyleSheet.absoluteFill}
                   />
                 </View>
@@ -106,10 +168,10 @@ function renderBarChart(data: BarChartData, colors: any, styles: any, compact?: 
   );
 }
 
-// 2. Render Line Chart (Dependency-free connector drawing with gradient shading)
+// 2. Render Line Chart
 function renderLineChart(data: LineChartData, colors: any, styles: any, compact?: boolean) {
   const maxVal = Math.max(...data.values, 1);
-  const containerHeight = compact ? 50 : 90;
+  const containerHeight = compact ? 50 : 100;
   const numPoints = data.values.length;
   
   const points = data.values.map((val, idx) => {
@@ -142,11 +204,11 @@ function renderLineChart(data: LineChartData, colors: any, styles: any, compact?
                 width: `${nextPt.xPct - pt.xPct}%`,
                 bottom: 0,
                 height: segmentHeight,
-                opacity: 0.45
+                opacity: 0.15
               }}
             >
               <LinearGradient
-                colors={[colors.accentSoft + "24", "transparent"]}
+                colors={[colors.primary + "1A", "transparent"]}
                 style={StyleSheet.absoluteFill}
               />
             </View>
@@ -171,8 +233,8 @@ function renderLineChart(data: LineChartData, colors: any, styles: any, compact?
                   borderLeftWidth: 1.5,
                   borderBottomWidth: nextPt.yVal >= pt.yVal ? 1.5 : 0,
                   borderTopWidth: nextPt.yVal < pt.yVal ? 1.5 : 0,
-                  borderColor: colors.accentSoft,
-                  opacity: 0.7
+                  borderColor: colors.primary,
+                  opacity: 0.8
                 }
               ]}
             />
@@ -188,7 +250,7 @@ function renderLineChart(data: LineChartData, colors: any, styles: any, compact?
               { left: `${pt.xPct}%`, bottom: pt.yVal - 5 }
             ]}
           >
-            <View style={[styles.chartDotInner, { backgroundColor: colors.accentSoft }]} />
+            <View style={[styles.chartDotInner, { backgroundColor: colors.primary }]} />
             <Text style={styles.dotValue}>{pt.rawVal}</Text>
           </View>
         ))}
@@ -221,22 +283,14 @@ function renderFlowChart(data: FlowChartData, colors: any, styles: any, compact?
         return (
           <React.Fragment key={idx}>
             <View style={[styles.flowStepCard, compact && { paddingVertical: 4, paddingHorizontal: 6 }]}>
-              <LinearGradient
-                colors={["rgba(6, 182, 212, 0.08)", "rgba(124, 58, 237, 0.04)"]}
-                style={StyleSheet.absoluteFill}
-              />
               <View style={styles.flowStepIdxContainer}>
-                <LinearGradient
-                  colors={[colors.accent, colors.primary]}
-                  style={StyleSheet.absoluteFill}
-                />
                 <Text style={styles.flowStepIdx}>{idx + 1}</Text>
               </View>
               <Text style={styles.flowStepText} numberOfLines={1}>{step}</Text>
             </View>
             {!isLast && (
               <View style={styles.flowArrow}>
-                <Ionicons name="arrow-forward" size={compact ? 12 : 14} color={colors.accentSoft} />
+                <Ionicons name="arrow-forward" size={compact ? 12 : 14} color={colors.primary} />
               </View>
             )}
           </React.Fragment>
@@ -249,13 +303,15 @@ function renderFlowChart(data: FlowChartData, colors: any, styles: any, compact?
 function getStyles(colors: typeof defaultColors, scale: number, theme: string, compact?: boolean) {
   return StyleSheet.create({
     container: {
-      backgroundColor: theme === "light" || theme === "sepia" ? "rgba(6, 182, 212, 0.03)" : "rgba(6, 182, 212, 0.02)",
+      backgroundColor: "rgba(255, 255, 255, 0.015)",
       borderColor: colors.border,
       borderWidth: 1,
       borderRadius: radius.md,
-      padding: compact ? 8 : 12,
-      marginVertical: compact ? 2 : 4,
-      gap: compact ? 6 : 10
+      padding: compact ? 8 : 14,
+      marginVertical: compact ? 2 : 6,
+      gap: compact ? 4 : 8,
+      width: "100%",
+      position: "relative"
     },
     chartTitle: {
       fontSize: (compact ? 9 : 11) * scale,
@@ -265,9 +321,22 @@ function getStyles(colors: typeof defaultColors, scale: number, theme: string, c
       textTransform: "uppercase"
     },
     chartBody: {
-      height: compact ? 85 : 140,
+      height: compact ? 80 : 140,
       justifyContent: "center",
       alignItems: "center"
+    },
+    expandHint: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      position: "absolute",
+      right: 10,
+      bottom: 8
+    },
+    expandHintText: {
+      fontSize: 8 * scale,
+      color: colors.subdued,
+      fontWeight: "700"
     },
     // Bar Chart Styles
     barChartContainer: {
@@ -294,18 +363,13 @@ function getStyles(colors: typeof defaultColors, scale: number, theme: string, c
     barValue: {
       fontSize: 10 * scale,
       fontWeight: "700",
-      color: colors.accentSoft,
+      color: colors.muted,
       marginBottom: 3
     },
     barActiveContainer: {
       width: 14,
-      borderRadius: 4,
-      overflow: "hidden",
-      shadowColor: colors.accent,
-      shadowOpacity: 0.3,
-      shadowRadius: 4,
-      shadowOffset: { width: 0, height: -2 },
-      elevation: 3
+      borderRadius: radius.sm,
+      overflow: "hidden"
     },
     barLabel: {
       fontSize: 9 * scale,
@@ -332,7 +396,6 @@ function getStyles(colors: typeof defaultColors, scale: number, theme: string, c
     gridLine: {
       height: 1,
       backgroundColor: colors.border,
-      borderStyle: "dashed",
       opacity: 0.5
     },
     lineChartPlot: {
@@ -342,24 +405,20 @@ function getStyles(colors: typeof defaultColors, scale: number, theme: string, c
     },
     chartDot: {
       position: "absolute",
-      width: 12,
-      height: 12,
-      borderRadius: 6,
-      backgroundColor: colors.surface || colors.card,
-      borderColor: colors.accentSoft,
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+      backgroundColor: colors.surface,
+      borderColor: colors.primary,
       borderWidth: 2,
       zIndex: 10,
       alignItems: "center",
-      justifyContent: "center",
-      shadowColor: colors.accentSoft,
-      shadowOpacity: 0.4,
-      shadowRadius: 3,
-      elevation: 4
+      justifyContent: "center"
     },
     chartDotInner: {
       width: 4,
       height: 4,
-      borderRadius: 2,
+      borderRadius: 2
     },
     dotValue: {
       position: "absolute",
@@ -404,6 +463,7 @@ function getStyles(colors: typeof defaultColors, scale: number, theme: string, c
       borderColor: colors.border,
       borderWidth: 1,
       borderRadius: radius.md,
+      backgroundColor: colors.cardElevated,
       paddingHorizontal: 8,
       paddingVertical: 8,
       gap: 6,
@@ -415,12 +475,15 @@ function getStyles(colors: typeof defaultColors, scale: number, theme: string, c
       width: 16,
       height: 16,
       borderRadius: 8,
+      backgroundColor: colors.primary + "20",
+      borderColor: colors.primary + "40",
+      borderWidth: 1,
       alignItems: "center",
       justifyContent: "center",
       overflow: "hidden"
     },
     flowStepIdx: {
-      color: "#FFFFFF",
+      color: colors.primary,
       fontSize: 9 * scale,
       fontWeight: "800",
       textAlign: "center"
@@ -434,6 +497,55 @@ function getStyles(colors: typeof defaultColors, scale: number, theme: string, c
     flowArrow: {
       alignItems: "center",
       justifyContent: "center"
+    },
+    // Modal Styles
+    modalBg: {
+      flex: 1,
+      backgroundColor: "rgba(3, 7, 18, 0.98)",
+      justifyContent: "center",
+      alignItems: "center",
+      padding: spacing.md
+    },
+    modalHeader: {
+      width: "100%",
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingVertical: spacing.md,
+      borderBottomWidth: 1,
+      borderColor: colors.border
+    },
+    modalTitle: {
+      color: colors.text,
+      fontSize: 14 * scale,
+      fontWeight: "800",
+      flex: 1,
+      marginRight: 10
+    },
+    closeBtn: {
+      padding: 4
+    },
+    modalBody: {
+      flex: 1,
+      width: "100%",
+      justifyContent: "center",
+      alignItems: "center"
+    },
+    zoomControls: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 16,
+      paddingVertical: spacing.lg
+    },
+    controlBtn: {
+      padding: 6
+    },
+    scaleText: {
+      color: colors.text,
+      fontSize: 14 * scale,
+      fontWeight: "700",
+      minWidth: 46,
+      textAlign: "center"
     }
   });
 }

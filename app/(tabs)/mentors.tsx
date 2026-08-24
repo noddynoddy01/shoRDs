@@ -1,8 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router, useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Alert,
+  FlatList,
   Modal,
   Pressable,
   ScrollView,
@@ -11,554 +11,538 @@ import {
   TextInput,
   View
 } from "react-native";
-import { GlassButton } from "@/components/GlassButton";
-import { PageHeader } from "@/components/PageHeader";
 import { Screen } from "@/components/Screen";
-import { colors as defaultColors, radius } from "@/constants/theme";
-import { getAllMentors, deleteMentor, addMentor } from "@/services/mentorsStore";
-import { useFeedMetrics } from "@/hooks/useFeedMetrics";
+import { colors as defaultColors, radius, spacing } from "@/constants/theme";
+import { getAllMentors } from "@/services/mentorsStore";
+import { getPaperEnquiries, sendPaperEnquiry, PaperEnquiry } from "@/services/enquiryService";
+import { Mentor } from "@/types/models";
 import { useTheme } from "@/context/ThemeContext";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Mentor, UserProfile, ChatSession } from "@/types/models";
-import { getChatSessions } from "@/services/chatService";
-import { FloatingChatButton } from "@/components/FloatingChatButton";
 
 export default function MentorsScreen() {
   const { colors, fontSizeScale, theme } = useTheme();
-  const [mentorsList, setMentorsList] = useState<Mentor[]>([]);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
-  const [activeSubTab, setActiveSubTab] = useState<"network" | "chats">("network");
-  const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
-  const [addModalVisible, setAddModalVisible] = useState(false);
-  const { contentBottomPadding } = useFeedMetrics();
+  const [activeTab, setActiveTab] = useState<"mentors" | "enquiries" | "collaboration">("mentors");
+  const [selectedMentor, setSelectedMentor] = useState<Mentor | null>(null);
+  const [mentors, setMentors] = useState<Mentor[]>([]);
 
-  // Form state for new mentor
-  const [name, setName] = useState("");
-  const [title, setTitle] = useState("");
-  const [focus, setFocus] = useState("");
-  const [affiliation, setAffiliation] = useState("");
-  const [bio, setBio] = useState("");
-  const [availability, setAvailability] = useState("");
+  // Enquiry modal state
+  const [isEnquiryModalOpen, setIsEnquiryModalOpen] = useState(false);
+  const [targetPaperTitle, setTargetPaperTitle] = useState("Attention Is All You Need");
+  const [targetAuthor, setTargetAuthor] = useState("Ashish Vaswani et al.");
+  const [senderName, setSenderName] = useState("");
+  const [senderEmail, setSenderEmail] = useState("");
+  const [questionText, setQuestionText] = useState("");
+  const [enquiries, setEnquiries] = useState<PaperEnquiry[]>([]);
 
   const styles = getStyles(colors, fontSizeScale, theme);
 
-  const fetchMentors = useCallback(() => {
-    getAllMentors().then(setMentorsList);
-    AsyncStorage.getItem("shords.currentUser").then((val) => {
-      if (val) {
-        const parsed = JSON.parse(val) as UserProfile;
-        setCurrentUser(parsed);
-        setIsAdmin(parsed.role === "admin");
-        getChatSessions(parsed.id).then(setChatSessions);
-      } else {
-        setIsAdmin(false);
-        setCurrentUser(null);
-      }
-    });
+  useEffect(() => {
+    loadEnquiries();
+    getAllMentors().then(setMentors);
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchMentors();
-    }, [fetchMentors])
-  );
+  const loadEnquiries = async () => {
+    const list = await getPaperEnquiries();
+    setEnquiries(list);
+  };
 
-  async function connect(mentor: Mentor) {
-    if (!currentUser) {
-      Alert.alert("Login Required", "Please log in to connect with mentors.");
-      router.push("/auth");
+  const handleSendEnquiry = async () => {
+    if (!senderName.trim() || !questionText.trim()) {
+      Alert.alert("Required Fields", "Please enter your name and question.");
       return;
     }
-
-    // Subscription check: Mentors can chat with anyone, normal users need premium
-    const { isSubscribed } = await import("@/services/subscriptionService");
-    const hasAccess = await isSubscribed();
-
-    if (!hasAccess && currentUser.role === "user") {
-      Alert.alert(
-        "Subscription Required",
-        "Connecting with mentors is a Premium feature. Opt for a subscription to unlock direct guidance.",
-        [
-          { text: "View Subscriptions", onPress: () => router.push("/paywall" as never) },
-          { text: "Cancel", style: "cancel" }
-        ]
-      );
-      return;
-    }
-
-    // Create session and go to chat
-    const { createChatSession } = await import("@/services/chatService");
-    const displayName = mentor.id === "abhinav-ai" ? "AI Bot" : mentor.name;
-    const session = await createChatSession(currentUser.id, currentUser.name, mentor.id, displayName);
-    router.push(`/chat/${session.id}` as never);
-  }
-
-  async function handleDelete(id: string, mentorName: string) {
-    Alert.alert(
-      "Remove Mentor",
-      `Are you sure you want to remove ${mentorName} from the network?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Remove",
-          style: "destructive",
-          onPress: async () => {
-            await deleteMentor(id);
-            Alert.alert("Removed", `${mentorName} has been removed.`);
-            fetchMentors();
-          }
-        }
-      ]
+    await sendPaperEnquiry(
+      "paper-1",
+      targetPaperTitle,
+      targetAuthor,
+      senderName,
+      senderEmail || "scholar@shoRDs.app",
+      questionText
     );
-  }
-
-  async function handleAddMentor() {
-    if (!name || !title || !focus || !affiliation) {
-      Alert.alert("Error", "Please fill in Name, Title, Focus, and Affiliation.");
-      return;
-    }
-
-    const newMentor: Mentor = {
-      id: `mentor-${Date.now()}`,
-      name,
-      title,
-      focus,
-      affiliation,
-      bio: bio || "Professional researcher ready to guide student publications.",
-      availability: availability || "Available upon request"
-    };
-
-    await addMentor(newMentor);
-    Alert.alert("Success", "New mentor added to the network.");
-    setAddModalVisible(false);
-    
-    // Clear form
-    setName("");
-    setTitle("");
-    setFocus("");
-    setAffiliation("");
-    setBio("");
-    setAvailability("");
-    
-    fetchMentors();
-  }
+    Alert.alert("Enquiry Sent", `Your question has been sent to ${targetAuthor}. You will receive a direct notification when answered!`);
+    setIsEnquiryModalOpen(false);
+    setQuestionText("");
+    loadEnquiries();
+  };
 
   return (
     <Screen>
-      <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: contentBottomPadding }]}
-        showsVerticalScrollIndicator={false}
-      >
-        <PageHeader
-          kicker="Mentors"
-          title="Learn with researchers who can guide your next paper"
-          subtitle="Connect for paper framing, readable summaries, experiments, and publication direction."
-        />
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Scholar & Collaboration Hub</Text>
+        <Text style={styles.headerSub}>Connect with faculty mentors, send direct paper enquiries, & write joint research.</Text>
+      </View>
 
-        {/* Sub-tab Toggle */}
-        <View style={styles.segment}>
-          <Pressable
-            onPress={() => setActiveSubTab("network")}
-            style={[styles.segmentButton, activeSubTab === "network" && styles.segmentActive]}
-          >
-            <Text style={[styles.segmentText, activeSubTab === "network" && styles.segmentTextActive]}>
-              Explore Mentors
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => {
-              setActiveSubTab("chats");
-              if (currentUser) {
-                getChatSessions(currentUser.id).then(setChatSessions);
-              }
-            }}
-            style={[styles.segmentButton, activeSubTab === "chats" && styles.segmentActive]}
-          >
-            <Text style={[styles.segmentText, activeSubTab === "chats" && styles.segmentTextActive]}>
-              Chats ({chatSessions.length})
-            </Text>
-          </Pressable>
-        </View>
+      {/* Tabs Row */}
+      <View style={styles.tabRow}>
+        <Pressable
+          style={[styles.tabBtn, activeTab === "mentors" && styles.tabBtnActive]}
+          onPress={() => setActiveTab("mentors")}
+        >
+          <Text style={[styles.tabBtnText, activeTab === "mentors" && styles.tabBtnTextActive]}>Faculty Mentors</Text>
+        </Pressable>
 
-        {activeSubTab === "chats" ? (
-          <View style={styles.chatsList}>
-            {chatSessions.length ? (
-              chatSessions.map((session) => {
-                const rawPartner = session.participantNames.find((n) => n !== currentUser?.name) || "Chat Room";
-                // Show "AI Bot" for AI sessions — never expose personal names
-                const isAiSession =
-                  session.participants?.includes("abhinav-ai") ||
-                  rawPartner.toLowerCase().includes("abhinav") ||
-                  rawPartner === "AI Bot";
-                const partnerName = isAiSession ? "AI Bot" : rawPartner;
-                return (
-                  <Pressable
-                    key={session.id}
-                    style={styles.chatCard}
-                    onPress={() => router.push(`/chat/${session.id}` as never)}
-                  >
-                    <View style={styles.chatAvatar}>
-                      <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.accentSoft} />
-                    </View>
-                    <View style={{ flex: 1, gap: 2 }}>
-                      <Text style={styles.chatPartner}>{partnerName}</Text>
-                      <Text style={styles.chatLastMsg} numberOfLines={1}>
-                        {session.lastMessageText}
-                      </Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={16} color={colors.subdued} />
-                  </Pressable>
-                );
-              })
-            ) : (
-              <Text style={styles.emptyChats}>
-                No conversations yet. Connect with a mentor under Explore Mentors to start a scholarly discussion.
-              </Text>
-            )}
-          </View>
-        ) : (
-          <>
-            {isAdmin && (
-              <GlassButton
-                title="Onboard New Mentor"
-                icon="person-add-outline"
-                onPress={() => setAddModalVisible(true)}
-                style={styles.onboardBtn}
-              />
-            )}
+        <Pressable
+          style={[styles.tabBtn, activeTab === "enquiries" && styles.tabBtnActive]}
+          onPress={() => setActiveTab("enquiries")}
+        >
+          <Text style={[styles.tabBtnText, activeTab === "enquiries" && styles.tabBtnTextActive]}>Direct Author Q&A</Text>
+        </Pressable>
 
-            <View style={styles.cards}>
-              {mentorsList.map((mentor) => {
-                // If current user is a mentor, don't display themselves in the lists
-                if (currentUser && currentUser.id === mentor.id) return null;
-                
-                return (
-                  <View key={mentor.id} style={styles.card}>
-                    <View style={styles.cardHeader}>
-                      <View style={styles.avatar}>
-                        <Ionicons name="person" color={colors.accentSoft} size={24} />
-                      </View>
-                      {isAdmin && (
-                        <Pressable style={styles.deleteBtn} onPress={() => handleDelete(mentor.id, mentor.name)}>
-                          <Ionicons name="trash-outline" color="#EF4444" size={20} />
-                        </Pressable>
-                      )}
-                    </View>
-                    <Text style={styles.name}>{mentor.name}</Text>
-                    <Text style={styles.title}>{mentor.title}</Text>
-                    <Text style={styles.focus}>{mentor.focus}</Text>
-                    <Text style={styles.bio}>{mentor.bio}</Text>
-                    <View style={styles.meta}>
-                      <Ionicons name="time-outline" color={colors.subdued} size={15} />
-                      <Text style={styles.availability}>{mentor.availability}</Text>
-                    </View>
-                    {mentor.id === "abhinav-ai" ? (
-                      <GlassButton
-                        title="Connect"
-                        icon="chatbubble-ellipses-outline"
-                        onPress={() => connect(mentor)}
-                      />
-                    ) : (
-                      <View style={styles.disabledConnect}>
-                        <Ionicons name="chatbubble-outline" color={colors.subdued} size={16} />
-                        <Text style={styles.disabledConnectText}>Direct Guidance / AI Chat Offline</Text>
-                      </View>
-                    )}
+        <Pressable
+          style={[styles.tabBtn, activeTab === "collaboration" && styles.tabBtnActive]}
+          onPress={() => setActiveTab("collaboration")}
+        >
+          <Text style={[styles.tabBtnText, activeTab === "collaboration" && styles.tabBtnTextActive]}>Collaboration Hub</Text>
+        </Pressable>
+      </View>
+
+      {activeTab === "mentors" && (
+        <FlatList
+          data={mentors}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContainer}
+          renderItem={({ item }) => (
+            <View style={styles.mentorCard}>
+              <View style={styles.avatarCircle}>
+                <Text style={styles.avatarText}>{item.name.split(" ").map(n => n[0]).join("")}</Text>
+              </View>
+
+              <View style={{ flex: 1, gap: 4 }}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                  <Text style={styles.mentorName}>{item.name}</Text>
+                  <View style={styles.hindexPill}>
+                    <Text style={styles.hindexText}>{item.availability}</Text>
                   </View>
-                );
-              })}
+                </View>
+                <Text style={styles.mentorDept}>{item.title} · {item.affiliation}</Text>
+                <Text style={styles.mentorBio}>{item.bio}</Text>
+
+                <View style={styles.cardActions}>
+                  <Pressable style={styles.actionBtnPrimary} onPress={() => setSelectedMentor(item)}>
+                    <Ionicons name="calendar-outline" size={14} color="#FFFFFF" />
+                    <Text style={styles.actionBtnPrimaryText}>Book Slot</Text>
+                  </Pressable>
+
+                  <Pressable
+                    style={styles.actionBtnSecondary}
+                    onPress={() => {
+                      setTargetAuthor(item.name);
+                      setTargetPaperTitle(`Research Inquiry for ${item.name}`);
+                      setIsEnquiryModalOpen(true);
+                    }}
+                  >
+                    <Ionicons name="chatbubble-ellipses-outline" size={14} color={colors.primary} />
+                    <Text style={styles.actionBtnSecondaryText}>Ask Author</Text>
+                  </Pressable>
+                </View>
+              </View>
             </View>
-          </>
-        )}
+          )}
+        />
+      )}
 
-        <View style={styles.contactPanel}>
-          <Text style={styles.contactTitle}>Need the shoRDs team?</Text>
-          <Text style={styles.contactText}>Reach out for mentor onboarding or research upload support.</Text>
-          <GlassButton
-            title="Open Contact Page"
-            icon="call-outline"
-            variant="quiet"
-            onPress={() => router.push("/(tabs)/contact" as never)}
-          />
-        </View>
-      </ScrollView>
+      {activeTab === "enquiries" && (
+        <ScrollView contentContainerStyle={styles.listContainer}>
+          <Pressable style={styles.newEnquiryBanner} onPress={() => setIsEnquiryModalOpen(true)}>
+            <Ionicons name="help-circle-outline" size={20} color={colors.primary} />
+            <Text style={styles.newEnquiryText}>+ Ask Question to Any Research Paper Author</Text>
+          </Pressable>
 
-      {/* Add Mentor Modal */}
-      <Modal visible={addModalVisible} animationType="slide" transparent={true} onRequestClose={() => setAddModalVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Onboard Mentor</Text>
-              <Pressable style={styles.closeBtn} onPress={() => setAddModalVisible(false)}>
-                <Ionicons name="close" size={20} color={colors.text} />
+          {enquiries.map((eq) => (
+            <View key={eq.id} style={styles.enquiryCard}>
+              <View style={styles.enquiryHeader}>
+                <Text style={styles.enquiryPaperTitle}>{eq.paperTitle}</Text>
+                <View style={[styles.statusBadge, eq.status === "answered" && styles.statusBadgeAnswered]}>
+                  <Text style={styles.statusText}>{eq.status.toUpperCase()}</Text>
+                </View>
+              </View>
+              <Text style={styles.enquiryAuthor}>Author: {eq.authorName} · Question from: {eq.senderName}</Text>
+              <Text style={styles.enquiryQuestion}>"{eq.questionText}"</Text>
+
+              {eq.replyText && (
+                <View style={styles.replyBox}>
+                  <Text style={styles.replyTitle}>Author Answer:</Text>
+                  <Text style={styles.replyText}>{eq.replyText}</Text>
+                </View>
+              )}
+            </View>
+          ))}
+        </ScrollView>
+      )}
+
+      {activeTab === "collaboration" && (
+        <ScrollView contentContainerStyle={styles.listContainer}>
+          <View style={styles.collabCard}>
+            <Ionicons name="people-outline" size={24} color={colors.primary} />
+            <Text style={styles.collabTitle}>Open Literature Review Group</Text>
+            <Text style={styles.collabSub}>Join 140+ researchers working on Quantum Surface Error Correction papers.</Text>
+            <Pressable style={styles.collabBtn} onPress={() => Alert.alert("Joined Group", "You have joined the Quantum Surface Error Group!")}>
+              <Text style={styles.collabBtnText}>Join Group</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.collabCard}>
+            <Ionicons name="document-text-outline" size={24} color={colors.primary} />
+            <Text style={styles.collabTitle}>Joint Grant Writing Project</Text>
+            <Text style={styles.collabSub}>Collaborate on Edge AI Optimization grant proposals for upcoming IEEE conferences.</Text>
+            <Pressable style={styles.collabBtn} onPress={() => Alert.alert("Request Sent", "Collaboration request sent to lead author!")}>
+              <Text style={styles.collabBtnText}>Request Collaboration</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      )}
+
+      {/* Direct Author Q&A Modal */}
+      <Modal visible={isEnquiryModalOpen} transparent animationType="slide">
+        <View style={styles.modalBg}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Ask Direct Question to Author</Text>
+            <Text style={styles.modalSub}>Paper: {targetPaperTitle} ({targetAuthor})</Text>
+
+            <TextInput
+              value={senderName}
+              onChangeText={setSenderName}
+              placeholder="Your Full Name (e.g. Abhinav Prakash)"
+              placeholderTextColor={colors.subdued}
+              style={styles.inputField}
+            />
+
+            <TextInput
+              value={senderEmail}
+              onChangeText={setSenderEmail}
+              placeholder="Your Email (e.g. scholar@iiitsurat.ac.in)"
+              placeholderTextColor={colors.subdued}
+              style={styles.inputField}
+            />
+
+            <TextInput
+              value={questionText}
+              onChangeText={setQuestionText}
+              placeholder="Enter your technical question or enquiry..."
+              placeholderTextColor={colors.subdued}
+              multiline
+              numberOfLines={4}
+              style={[styles.inputField, { height: 90, textAlignVertical: "top" }]}
+            />
+
+            <View style={{ flexDirection: "row", gap: 10, marginTop: 8 }}>
+              <Pressable style={styles.modalCancelBtn} onPress={() => setIsEnquiryModalOpen(false)}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable style={styles.modalSendBtn} onPress={handleSendEnquiry}>
+                <Text style={styles.modalSendText}>Send Enquiry</Text>
               </Pressable>
             </View>
-
-            <ScrollView contentContainerStyle={styles.formScroll} showsVerticalScrollIndicator={false}>
-              <TextInput value={name} onChangeText={setName} placeholder="Mentor Full Name" placeholderTextColor={colors.subdued} style={styles.input} />
-              <TextInput value={title} onChangeText={setTitle} placeholder="Title (e.g. Associate Professor)" placeholderTextColor={colors.subdued} style={styles.input} />
-              <TextInput value={affiliation} onChangeText={setAffiliation} placeholder="Affiliation (e.g. IIIT Surat)" placeholderTextColor={colors.subdued} style={styles.input} />
-              <TextInput value={focus} onChangeText={setFocus} placeholder="Research Focus (Guidance fields)" placeholderTextColor={colors.subdued} style={styles.input} />
-              <TextInput value={bio} onChangeText={setBio} placeholder="Short Bio" placeholderTextColor={colors.subdued} multiline numberOfLines={3} style={[styles.input, styles.textArea]} />
-              <TextInput value={availability} onChangeText={setAvailability} placeholder="Availability (e.g. Mon/Wed evenings)" placeholderTextColor={colors.subdued} style={styles.input} />
-
-              <GlassButton title="Submit Onboarding" icon="checkmark-circle-outline" onPress={handleAddMentor} />
-            </ScrollView>
           </View>
         </View>
       </Modal>
-      <FloatingChatButton />
     </Screen>
   );
 }
 
-// Global sharing import fix
-import { Share } from "react-native";
-
 function getStyles(colors: typeof defaultColors, scale: number, theme: string) {
   return StyleSheet.create({
-    disabledConnect: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 6,
-      height: 48,
-      borderRadius: radius.md,
-      backgroundColor: theme === "light" || theme === "sepia" ? "rgba(0, 0, 0, 0.03)" : "rgba(255, 255, 255, 0.02)",
-      borderWidth: 1,
-      borderColor: colors.border,
-      opacity: 0.65
+    header: {
+      padding: spacing.md,
+      gap: spacing.xs,
+      borderBottomWidth: 1,
+      borderColor: colors.border
     },
-    disabledConnectText: {
-      color: colors.subdued,
-      fontSize: 12 * scale,
-      fontWeight: "700"
-    },
-    content: {
-      padding: 18,
-      gap: 18
-    },
-    onboardBtn: {
-      marginBottom: 6
-    },
-    cards: {
-      gap: 14
-    },
-    card: {
-      borderRadius: radius.lg,
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.card,
-      padding: 18,
-      gap: 10,
-      shadowColor: colors.accent,
-      shadowOpacity: 0.06,
-      shadowRadius: 12,
-      shadowOffset: { width: 0, height: 8 }
-    },
-    cardHeader: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center"
-    },
-    avatar: {
-      width: 48,
-      height: 48,
-      borderRadius: 16,
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.cardElevated,
-      alignItems: "center",
-      justifyContent: "center"
-    },
-    deleteBtn: {
-      width: 38,
-      height: 38,
-      borderRadius: 12,
-      backgroundColor: "rgba(239, 68, 68, 0.08)",
-      borderColor: "rgba(239, 68, 68, 0.2)",
-      borderWidth: 1,
-      alignItems: "center",
-      justifyContent: "center"
-    },
-    name: {
-      color: colors.text,
+    headerTitle: {
       fontSize: 18 * scale,
       fontWeight: "800",
-      textTransform: "uppercase"
+      color: colors.text
     },
-    title: {
-      color: colors.accentSoft,
+    headerSub: {
+      fontSize: 11 * scale,
+      color: colors.subdued,
+      lineHeight: 16 * scale
+    },
+    tabRow: {
+      flexDirection: "row",
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      gap: 8,
+      borderBottomWidth: 1,
+      borderColor: colors.border
+    },
+    tabBtn: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: radius.pill,
+      backgroundColor: "rgba(255,255,255,0.02)",
+      borderWidth: 1,
+      borderColor: colors.border
+    },
+    tabBtnActive: {
+      backgroundColor: colors.primary + "1A",
+      borderColor: colors.primary + "3D"
+    },
+    tabBtnText: {
       fontSize: 11 * scale,
       fontWeight: "700",
-      textTransform: "uppercase"
+      color: colors.subdued
     },
-    focus: {
-      color: colors.text,
-      fontSize: 14 * scale,
-      lineHeight: 20 * scale,
-      fontWeight: "700"
-    },
-    bio: {
-      color: colors.muted,
-      fontSize: 13 * scale,
-      lineHeight: 20 * scale
-    },
-    meta: {
-      flexDirection: "row",
-      gap: 8,
-      alignItems: "center"
-    },
-    availability: {
-      color: colors.subdued,
-      fontSize: 12 * scale,
-      fontWeight: "600",
-      flex: 1
-    },
-    contactPanel: {
-      borderRadius: radius.lg,
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: "rgba(6, 182, 212, 0.08)",
-      padding: 18,
-      gap: 10
-    },
-    contactTitle: {
-      color: colors.text,
-      fontSize: 17 * scale,
+    tabBtnTextActive: {
+      color: colors.primary,
       fontWeight: "800"
     },
-    contactText: {
-      color: colors.muted,
-      fontSize: 13 * scale,
-      lineHeight: 20 * scale
+    listContainer: {
+      padding: spacing.md,
+      gap: spacing.md
     },
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: "rgba(11, 16, 32, 0.45)",
-      justifyContent: "flex-end"
-    },
-    modalSheet: {
+    mentorCard: {
+      flexDirection: "row",
       backgroundColor: colors.surface,
-      borderTopLeftRadius: radius.lg,
-      borderTopRightRadius: radius.lg,
-      borderWidth: 1,
-      borderColor: colors.border,
-      paddingHorizontal: 20,
-      paddingBottom: 28,
-      paddingTop: 10,
-      maxHeight: "85%"
-    },
-    modalHeader: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      marginBottom: 20
-    },
-    modalTitle: {
-      color: colors.text,
-      fontSize: 18 * scale,
-      fontWeight: "800"
-    },
-    closeBtn: {
-      width: 34,
-      height: 34,
-      borderRadius: 17,
-      backgroundColor: colors.card,
-      borderWidth: 1,
-      borderColor: colors.border,
-      alignItems: "center",
-      justifyContent: "center"
-    },
-    formScroll: {
-      gap: 12
-    },
-    input: {
-      height: 52,
       borderRadius: radius.md,
-      backgroundColor: colors.card,
-      borderColor: colors.border,
+      padding: spacing.md,
+      gap: 12,
       borderWidth: 1,
-      color: colors.text,
-      paddingHorizontal: 14,
-      fontSize: 14 * scale,
-      fontWeight: "600"
+      borderColor: colors.border
     },
-    textArea: {
-      height: 90,
-      paddingTop: 12,
-      textAlignVertical: "top"
-    },
-    segment: {
-      flexDirection: "row",
-      borderRadius: radius.md,
-      backgroundColor: colors.card,
-      borderColor: colors.border,
-      borderWidth: 1,
-      padding: 4,
-      marginBottom: 14
-    },
-    segmentButton: {
-      flex: 1,
-      paddingVertical: 10,
+    avatarCircle: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: colors.primary + "1A",
       alignItems: "center",
       justifyContent: "center",
-      borderRadius: radius.sm
+      borderWidth: 1,
+      borderColor: colors.primary + "3D"
     },
-    segmentActive: {
-      backgroundColor: colors.cardElevated,
-      shadowColor: colors.accent,
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      shadowOffset: { width: 0, height: 2 }
-    },
-    segmentText: {
-      color: colors.muted,
+    avatarText: {
       fontSize: 14 * scale,
-      fontWeight: "700"
+      fontWeight: "800",
+      color: colors.primary
     },
-    segmentTextActive: {
-      color: colors.accentSoft
+    mentorName: {
+      fontSize: 14 * scale,
+      fontWeight: "800",
+      color: colors.text
     },
-    chatsList: {
-      gap: 12
+    hindexPill: {
+      backgroundColor: colors.primary + "12",
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: radius.pill
     },
-    chatCard: {
+    hindexText: {
+      fontSize: 9 * scale,
+      fontWeight: "800",
+      color: colors.primary
+    },
+    mentorDept: {
+      fontSize: 11 * scale,
+      color: colors.subdued,
+      fontWeight: "600"
+    },
+    mentorBio: {
+      fontSize: 11 * scale,
+      color: colors.muted,
+      lineHeight: 16 * scale
+    },
+    cardActions: {
+      flexDirection: "row",
+      gap: 8,
+      marginTop: 8
+    },
+    actionBtnPrimary: {
       flexDirection: "row",
       alignItems: "center",
-      padding: 14,
-      borderRadius: radius.md,
-      backgroundColor: colors.card,
-      borderColor: colors.border,
-      borderWidth: 1,
-      gap: 12
+      gap: 4,
+      backgroundColor: colors.primary,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: radius.pill
     },
-    chatAvatar: {
-      width: 40,
-      height: 40,
-      borderRadius: 12,
-      backgroundColor: "rgba(6, 182, 212, 0.08)",
-      borderColor: "rgba(6, 182, 212, 0.15)",
-      borderWidth: 1,
+    actionBtnPrimaryText: {
+      fontSize: 10 * scale,
+      fontWeight: "800",
+      color: "#FFFFFF"
+    },
+    actionBtnSecondary: {
+      flexDirection: "row",
       alignItems: "center",
-      justifyContent: "center"
+      gap: 4,
+      backgroundColor: colors.primary + "12",
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: radius.pill,
+      borderWidth: 1,
+      borderColor: colors.primary + "2C"
     },
-    chatPartner: {
+    actionBtnSecondaryText: {
+      fontSize: 10 * scale,
+      fontWeight: "800",
+      color: colors.primary
+    },
+    newEnquiryBanner: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      backgroundColor: colors.primary + "12",
+      borderWidth: 1,
+      borderColor: colors.primary + "2C",
+      borderRadius: radius.md,
+      padding: spacing.md
+    },
+    newEnquiryText: {
+      fontSize: 12 * scale,
+      fontWeight: "800",
+      color: colors.primary
+    },
+    enquiryCard: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.md,
+      padding: spacing.md,
+      gap: 6,
+      borderWidth: 1,
+      borderColor: colors.border
+    },
+    enquiryHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center"
+    },
+    enquiryPaperTitle: {
+      fontSize: 13 * scale,
+      fontWeight: "800",
       color: colors.text,
+      flex: 1
+    },
+    statusBadge: {
+      backgroundColor: "rgba(255,255,255,0.05)",
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: radius.pill
+    },
+    statusBadgeAnswered: {
+      backgroundColor: "rgba(16, 185, 129, 0.15)"
+    },
+    statusText: {
+      fontSize: 8 * scale,
+      fontWeight: "800",
+      color: colors.muted
+    },
+    enquiryAuthor: {
+      fontSize: 10 * scale,
+      color: colors.subdued,
+      fontWeight: "600"
+    },
+    enquiryQuestion: {
+      fontSize: 12 * scale,
+      color: colors.muted,
+      fontStyle: "italic"
+    },
+    replyBox: {
+      backgroundColor: colors.primary + "0A",
+      borderLeftWidth: 3,
+      borderLeftColor: colors.primary,
+      padding: spacing.sm,
+      borderRadius: radius.sm,
+      marginTop: 4,
+      gap: 2
+    },
+    replyTitle: {
+      fontSize: 10 * scale,
+      fontWeight: "800",
+      color: colors.primary
+    },
+    replyText: {
+      fontSize: 11 * scale,
+      color: colors.text,
+      lineHeight: 16 * scale
+    },
+    collabCard: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.md,
+      padding: spacing.md,
+      gap: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: "center"
+    },
+    collabTitle: {
+      fontSize: 14 * scale,
+      fontWeight: "800",
+      color: colors.text
+    },
+    collabSub: {
+      fontSize: 11 * scale,
+      color: colors.subdued,
+      textAlign: "center"
+    },
+    collabBtn: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: radius.pill,
+      marginTop: 4
+    },
+    collabBtnText: {
+      fontSize: 11 * scale,
+      fontWeight: "800",
+      color: "#FFFFFF"
+    },
+    modalBg: {
+      flex: 1,
+      backgroundColor: "rgba(2,4,10,0.8)",
+      justifyContent: "center",
+      alignItems: "center",
+      padding: spacing.lg
+    },
+    modalBox: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.lg,
+      padding: spacing.xl,
+      gap: 12,
+      width: "100%",
+      borderWidth: 1,
+      borderColor: colors.border
+    },
+    modalTitle: {
       fontSize: 16 * scale,
+      fontWeight: "800",
+      color: colors.text
+    },
+    modalSub: {
+      fontSize: 11 * scale,
+      color: colors.primary,
       fontWeight: "700"
     },
-    chatLastMsg: {
-      color: colors.muted,
-      fontSize: 13 * scale
+    inputField: {
+      backgroundColor: colors.background,
+      borderRadius: radius.md,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      color: colors.text,
+      fontSize: 12 * scale,
+      borderWidth: 1,
+      borderColor: colors.border
     },
-    emptyChats: {
-      color: colors.subdued,
-      fontSize: 14 * scale,
-      textAlign: "center",
-      paddingVertical: 32,
-      lineHeight: 20 * scale
+    modalCancelBtn: {
+      flex: 1,
+      backgroundColor: "rgba(255,255,255,0.05)",
+      paddingVertical: 10,
+      borderRadius: radius.md,
+      alignItems: "center"
+    },
+    modalCancelText: {
+      fontSize: 12 * scale,
+      fontWeight: "700",
+      color: colors.muted
+    },
+    modalSendBtn: {
+      flex: 1,
+      backgroundColor: colors.primary,
+      paddingVertical: 10,
+      borderRadius: radius.md,
+      alignItems: "center"
+    },
+    modalSendText: {
+      fontSize: 12 * scale,
+      fontWeight: "800",
+      color: "#FFFFFF"
     }
   });
 }

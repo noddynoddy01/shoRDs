@@ -1,19 +1,17 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useEffect, useRef, useState, useMemo } from "react";
-import { Alert, Animated, Pressable, Share, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Animated, Pressable, Share, StyleSheet, Text, View, ScrollView } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "../context/ThemeContext";
-import { colors as defaultColors, radius } from "../constants/theme";
+import { colors as defaultColors, radius, spacing } from "../constants/theme";
 import { Paper } from "@/types/models";
 import { isPaperSaved, toggleSavedPaper } from "@/services/savedPapers";
-import { Chip } from "./Chip";
-import { GlassButton } from "./GlassButton";
-import { ResearchIllustration } from "./ResearchIllustration";
+import { ExpandableFigure } from "./ExpandableFigure";
+import { VideoExplainerModal } from "./VideoExplainerModal";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Speech from "expo-speech";
 import { isSubscribed, hasFreeViewsRemaining } from "@/services/subscriptionService";
-import { VideoExplainerModal } from "./VideoExplainerModal";
 
 type ReelCardProps = {
   paper: Paper;
@@ -23,18 +21,20 @@ type ReelCardProps = {
   isMuted: boolean;
   onMuteToggle: () => void;
   onDelete?: () => void;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
 };
 
-export function ReelCard({ paper, height, index, isActive, isMuted, onMuteToggle, onDelete }: ReelCardProps) {
+export function ReelCard({ paper, height, index, isActive, isMuted, onMuteToggle, onDelete, isSelected, onToggleSelect }: ReelCardProps) {
   const { colors, fontSizeScale, theme } = useTheme();
   const [saved, setSaved] = useState(false);
   const [canDelete, setCanDelete] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
+  const [expandedSummary, setExpandedSummary] = useState(false);
   const [isVideoVisible, setIsVideoVisible] = useState(false);
   const [userLang, setUserLang] = useState<"en" | "hi" | "es">("en");
-  const pulse = useRef(new Animated.Value(1)).current;
-  const entrance = useRef(new Animated.Value(0)).current;
 
+  const entrance = useRef(new Animated.Value(0)).current;
   const styles = getStyles(colors, fontSizeScale, theme);
 
   useEffect(() => {
@@ -51,72 +51,17 @@ export function ReelCard({ paper, height, index, isActive, isMuted, onMuteToggle
     });
   }, [paper.id]);
 
-  const parsedTags = useMemo(() => {
-    const list: string[] = [];
-    if (paper.tags) {
-      paper.tags.forEach(t => {
-        if (!t) return;
-        t.split(/[,\n;]+/).forEach(p => {
-          const cleaned = p.replace(/^[•\-\*\s]+/, "").trim().toLowerCase();
-          if (cleaned) list.push(cleaned);
-        });
-      });
-    }
-    return list;
-  }, [paper.tags]);
-
   useEffect(() => {
     entrance.setValue(0);
     Animated.timing(entrance, {
       toValue: 1,
-      duration: 480,
+      duration: 450,
       useNativeDriver: true
     }).start();
   }, [entrance, paper.id]);
 
   useEffect(() => {
-    if (isActive) {
-      Speech.stop();
-      if (!isLocked && !isMuted) {
-        AsyncStorage.getItem("shords.currentUser").then((userVal) => {
-          let selectedLang = "en";
-          if (userVal) {
-            const parsedUser = JSON.parse(userVal);
-            const mappedLang: Record<string, string> = {
-              "English": "en",
-              "Hindi": "hi",
-              "Spanish": "es"
-            };
-            selectedLang = mappedLang[parsedUser.language] || "en";
-          }
-           const hasTranslation = paper.translations && paper.translations[selectedLang];
-          const displayTitle = hasTranslation ? paper.translations![selectedLang].title : paper.title;
-          const displaySummary = hasTranslation ? paper.translations![selectedLang].summary : paper.summary;
-          
-          let speechText = "";
-          if (selectedLang === "hi") {
-            speechText = `${displayTitle}। ... संक्षेप में कहें तो, ... ${displaySummary}।`;
-          } else if (selectedLang === "es") {
-            speechText = `${displayTitle}. ... En resumen: ... ${displaySummary}.`;
-          } else {
-            speechText = `${displayTitle}. ... In summary: ... ${displaySummary}.`;
-          }
-
-          Speech.speak(speechText, {
-            language: selectedLang,
-            rate: 0.85, // More humanly, relaxed pacing
-            pitch: 1.0,
-            onError: (e) => console.warn("Speech error:", e)
-          });
-        });
-      }
-    }
-  }, [isActive, isMuted, paper.id, isLocked]);
-
-  useEffect(() => {
     isPaperSaved(paper.id).then(setSaved);
-    
-    // Check if user has permission to delete this paper
     AsyncStorage.getItem("shords.currentUser").then((val) => {
       if (val) {
         const parsed = JSON.parse(val);
@@ -126,447 +71,373 @@ export function ReelCard({ paper, height, index, isActive, isMuted, onMuteToggle
       }
     });
 
-    // Check lock status
     async function checkLock() {
       const premium = await isSubscribed();
-      if (premium) {
-        setIsLocked(false);
-      } else {
+      if (!premium) {
         const remaining = await hasFreeViewsRemaining();
         const viewedPapersJson = await AsyncStorage.getItem("shords.viewedPapers") || "[]";
-        const viewedPapers = JSON.parse(viewedPapersJson) as string[];
-        const alreadyViewed = viewedPapers.includes(paper.id);
-        setIsLocked(!remaining && !alreadyViewed);
+        const viewed = JSON.parse(viewedPapersJson) as string[];
+        if (!remaining && !viewed.includes(paper.id) && index > 1) {
+          setIsLocked(true);
+        }
       }
     }
     checkLock();
-  }, [paper.id, paper.authorId]);
+  }, [paper.id, index]);
 
-  async function sharePaper() {
-    const shareMessage = `📚 Discover Research on shoRDs!
- 
-🔍 Title: ${paper.title}
-🔬 Domain: ${paper.domain}
-✍️ Author: ${paper.authorName} (${paper.authorRole})
-⏱️ Reading Time: ${paper.readingTime}
- 
-📖 Brief Summary:
-"${paper.summary}"
- 
-💡 Read the full interactive technical brief on shoRDs!
-🔗 Link: ${paper.originalLink}
- 
-Download shoRDs for quick, simplified, and technical research updates! 🚀`;
+  useEffect(() => {
+    if (isActive && !isLocked && !isMuted) {
+      Speech.stop();
+      Speech.speak(`${paper.title}. In summary: ${paper.summary}`, {
+        rate: 0.88,
+        pitch: 1.0
+      });
+    }
+  }, [isActive, isMuted, paper.id, isLocked]);
 
+  async function handleToggleSave() {
+    const next = await toggleSavedPaper(paper.id);
+    setSaved(next);
+  }
+
+  async function handleShare() {
     await Share.share({
       title: paper.title,
-      message: shareMessage
+      message: `${paper.title}\nRead on shoRDs Research OS: ${paper.originalLink}`
     });
   }
 
-  async function toggleSave() {
-    const next = await toggleSavedPaper(paper.id);
-    setSaved(next);
-    Animated.sequence([
-      Animated.timing(pulse, { toValue: 1.18, duration: 120, useNativeDriver: true }),
-      Animated.timing(pulse, { toValue: 1, duration: 120, useNativeDriver: true })
-    ]).start();
-  }
-
-  async function handleDelete() {
-    Alert.alert(
-      "Delete Paper",
-      "Are you sure you want to delete this research brief from the feed? This action is permanent.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            const { deletePaper } = await import("@/services/papersStore");
-            await deletePaper(paper.id);
-            Alert.alert("Success", "Research brief removed successfully.");
-            if (onDelete) onDelete();
-          }
-        }
-      ]
-    );
-  }
-
-  const handleCardPress = () => {
-    if (isLocked) {
-      router.push("/paywall" as never);
-    } else {
-      router.push(`/paper/${paper.id}` as never);
-    }
+  const openWorkspace = () => {
+    router.push(`/paper/${paper.id}` as never);
   };
 
   return (
-    <Animated.View
-      style={[
-        styles.frame,
-        {
-          height,
-          opacity: entrance,
-          transform: [{ translateY: entrance.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }]
-        }
-      ]}
-    >
-      <View style={styles.card}>
-        <LinearGradient
-          colors={colors.cardGradient as any}
-          style={StyleSheet.absoluteFill}
-        />
-
-        {/* Lock Overlay */}
-        {isLocked && (
-          <View style={styles.lockOverlay}>
-            <Ionicons name="lock-closed-outline" size={48} color={colors.accentSoft} />
-            <Text style={styles.lockTitle}>Premium Research Journal</Text>
-            <Text style={styles.lockDesc}>
-              You have viewed your limit of 5 free research papers. Upgrade to Premium for unlimited access, expert chats, and translations.
-            </Text>
-            <GlassButton
-              title="Unlock Premium"
-              icon="sparkles"
-              onPress={() => router.push("/paywall" as never)}
-              style={styles.lockBtn}
-            />
-          </View>
-        )}
-
-        <View style={styles.topMeta}>
-          <Text style={styles.stackLabel}>STACK {String(index + 1).padStart(2, "0")}</Text>
-          <Text style={styles.readingTime}>{paper.readingTime}</Text>
-        </View>
-
-        <Pressable style={styles.body} onPress={handleCardPress} disabled={false}>
-          {/* Authentic Journal Header */}
-          <View style={styles.journalHeader}>
-            <Text style={styles.journalName}>{paper.organization || "ACADEMIC PUBLICATION"}</Text>
-            <View style={styles.journalSubHeader}>
-              {paper.pubYear && (
-                <>
-                  <Text style={styles.journalYear}>{paper.pubYear}</Text>
-                  <Text style={styles.journalDot}>•</Text>
-                </>
+    <Animated.View style={[styles.cardContainer, { height }, { opacity: entrance }]}>
+      <ScrollView
+        contentContainerStyle={styles.magazineScroll}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* 1. Hero Cover Header */}
+        <Pressable style={styles.heroCover} onPress={openWorkspace}>
+          <LinearGradient
+            colors={["rgba(6, 182, 212, 0.16)", "rgba(139, 92, 246, 0.05)", "transparent"]}
+            style={StyleSheet.absoluteFill}
+          />
+          <View style={styles.headerTopRow}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              {onToggleSelect && (
+                <Pressable onPress={onToggleSelect} style={{ padding: 2 }}>
+                  <Ionicons
+                    name={isSelected ? "checkbox" : "square-outline"}
+                    size={20}
+                    color={isSelected ? colors.primary : colors.subdued}
+                  />
+                </Pressable>
               )}
-              {paper.doi && (
-                <Text style={styles.journalDoi} numberOfLines={1}>DOI: {paper.doi}</Text>
-              )}
+              <View style={styles.domainPill}>
+                <Text style={styles.domainText}>{paper.domain.toUpperCase()}</Text>
+              </View>
+            </View>
+            <View style={styles.tapToOpenBadge}>
+              <Text style={styles.tapToOpenText}>Tap to Open Brief ↗</Text>
             </View>
           </View>
 
-          {/* Authentic Heading Cutout */}
-          <View style={styles.cutoutBlock}>
-            <Text style={styles.cutoutTitle} numberOfLines={2}>{paper.title}</Text>
-          </View>
- 
-          <Text style={styles.summary} numberOfLines={2}>{paper.summary}</Text>
- 
-          {/* Dynamic Vector Illustration */}
-          {paper.illustrations && paper.illustrations.length > 0 && (
-            <ResearchIllustration dataString={paper.illustrations[0]} compact={true} />
-          )}
- 
-          {/* Highlights / Bullet Insights */}
-          {paper.insights && paper.insights.length > 0 && (
-            <View style={styles.insightsContainer}>
-              <Text style={styles.insightsLabel}>KEY HIGHLIGHTS</Text>
-              {paper.insights.slice(0, 2).map((insight, idx) => (
-                <View key={idx} style={styles.insightRow}>
-                  <Text style={styles.insightBullet}>✦</Text>
-                  <Text style={styles.insightText} numberOfLines={1}>{insight}</Text>
-                </View>
-              ))}
+          {/* 2. Large Magazine Title */}
+          <Text style={styles.heroTitle}>{paper.title}</Text>
+
+          {/* 3. One Sentence Hook */}
+          <Text style={styles.hookText}>"{paper.summary}"</Text>
+
+          {/* Author Meta */}
+          <View style={styles.authorMetaRow}>
+            <View style={styles.authorAvatar}>
+              <Text style={styles.avatarText}>
+                {paper.authorName.split(" ").map(n => n[0]).slice(0, 2).join("")}
+              </Text>
             </View>
-          )}
- 
-          {/* Media Indicators */}
-          <View style={styles.mediaIndicators}>
-            <View style={styles.mediaPill}>
-              <Ionicons name="volume-high" size={12} color={colors.accentSoft} />
-              <Text style={styles.mediaPillText}>AUDIO BRIEF</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.authorName}>{paper.authorName}</Text>
+              <Text style={styles.authorAffiliation}>{paper.authorRole} · {paper.organization || "Researcher"}</Text>
             </View>
-            <View style={styles.mediaPill}>
-              <Ionicons name="play-circle" size={12} color={colors.accentSoft} />
-              <Text style={styles.mediaPillText}>VIDEO OVERVIEW</Text>
-            </View>
-          </View>
- 
-          <View style={styles.authorBlock}>
-            <Text style={styles.author}>{paper.authorName}</Text>
-            <Text style={styles.role}>{paper.authorRole}</Text>
-          </View>
- 
-          <View style={styles.tags}>
-            {parsedTags.slice(0, 2).map((tag) => (
-              <Chip key={tag} label={`#${tag}`} />
-            ))}
-            <Chip key="domain" label={paper.domain} selected={true} />
           </View>
         </Pressable>
 
-        <View style={styles.rail}>
-          <Animated.View style={{ transform: [{ scale: pulse }] }}>
-            <Pressable style={[styles.railButton, saved && styles.railButtonActive]} onPress={toggleSave}>
-              <Ionicons
-                name={saved ? "bookmark" : "bookmark-outline"}
-                color={saved ? colors.accentSoft : colors.text}
-                size={22}
-              />
-              <Text style={[styles.railLabel, saved && { color: colors.accentSoft }]}>{saved ? "Saved" : "Save"}</Text>
-            </Pressable>
-          </Animated.View>
-          <Pressable style={styles.railButton} onPress={sharePaper}>
-            <Ionicons name="share-social-outline" color={colors.text} size={22} />
-            <Text style={styles.railLabel}>Share</Text>
+        {/* 4. Key Insight Chips */}
+        {paper.insights && paper.insights.length > 0 && (
+          <View style={styles.insightsSection}>
+            <Text style={styles.sectionHeaderTitle}>Key Insights</Text>
+            <View style={styles.insightsList}>
+              {paper.insights.map((insight, idx) => (
+                <Pressable key={idx} style={styles.insightChip} onPress={openWorkspace}>
+                  <Ionicons name="sparkles" size={12} color={colors.primary} />
+                  <Text style={styles.insightText}>{insight}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* 5. Swipeable Interactive Figures */}
+        {paper.illustrations && paper.illustrations.length > 0 && (
+          <View style={styles.figuresSection}>
+            <Text style={styles.sectionHeaderTitle}>Interactive Figures</Text>
+            <ExpandableFigure dataString={paper.illustrations[0]} caption="Figure 1: Benchmark Latency Distribution" />
+          </View>
+        )}
+
+        {/* 6. Expandable Brief & Discussion */}
+        <View style={styles.expandableSection}>
+          <Pressable
+            style={styles.expandTriggerBtn}
+            onPress={() => setExpandedSummary(!expandedSummary)}
+          >
+            <Text style={styles.expandTriggerText}>
+              {expandedSummary ? "Hide Detailed Brief" : "Expand Full Abstract & Methodology"}
+            </Text>
+            <Ionicons name={expandedSummary ? "chevron-up" : "chevron-down"} size={16} color={colors.primary} />
           </Pressable>
-          <Pressable style={styles.railButton} onPress={() => setIsVideoVisible(true)}>
-            <Ionicons name="play-circle-outline" color={colors.accentSoft} size={22} />
-            <Text style={[styles.railLabel, { color: colors.accentSoft }]}>Video</Text>
-          </Pressable>
-          <Pressable style={styles.railButton} onPress={onMuteToggle}>
-            <Ionicons
-              name={isMuted ? "volume-mute-outline" : "volume-high-outline"}
-              color={isMuted ? "#EF4444" : colors.accentSoft}
-              size={22}
-            />
-            <Text style={[styles.railLabel, isMuted && { color: "#EF4444" }]}>{isMuted ? "Muted" : "Mute"}</Text>
-          </Pressable>
-          <Pressable style={styles.railButton} onPress={handleCardPress}>
-            <Ionicons name={isLocked ? "lock-closed-outline" : "book-outline"} color={isLocked ? colors.accentSoft : colors.text} size={22} />
-            <Text style={[styles.railLabel, isLocked && { color: colors.accentSoft }]}>{isLocked ? "Unlock" : "Read"}</Text>
-          </Pressable>
-          {canDelete && (
-            <Pressable style={styles.railButton} onPress={handleDelete}>
-              <Ionicons name="trash-outline" color="#EF4444" size={22} />
-              <Text style={[styles.railLabel, { color: "#EF4444" }]}>Delete</Text>
-            </Pressable>
+
+          {expandedSummary && (
+            <View style={styles.expandedContent}>
+              <Text style={styles.fullExplanationText}>{paper.fullExplanation}</Text>
+            </View>
           )}
         </View>
-        <VideoExplainerModal
-          visible={isVideoVisible}
-          onClose={() => setIsVideoVisible(false)}
-          paper={paper}
-          selectedLang={userLang}
-        />
+
+        {/* Open Stack Button */}
+        <Pressable style={styles.readFullPaperBtn} onPress={openWorkspace}>
+          <Text style={styles.readFullPaperText}>Open Research Workspace Stack</Text>
+          <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+        </Pressable>
+
+        <View style={{ height: 80 }} />
+      </ScrollView>
+
+      {/* Floating Action Rail */}
+      <View style={styles.floatingActionRail}>
+        <Pressable style={styles.railBtn} onPress={openWorkspace}>
+          <Ionicons name="open-outline" size={18} color={colors.primary} />
+        </Pressable>
+        <Pressable style={styles.railBtn} onPress={() => setIsVideoVisible(true)}>
+          <Ionicons name="film-outline" size={18} color={colors.primary} />
+        </Pressable>
+        <Pressable style={styles.railBtn} onPress={handleToggleSave}>
+          <Ionicons name={saved ? "bookmark" : "bookmark-outline"} size={18} color={saved ? colors.primary : colors.text} />
+        </Pressable>
+        <Pressable style={styles.railBtn} onPress={onMuteToggle}>
+          <Ionicons name={isMuted ? "volume-mute-outline" : "volume-high-outline"} size={18} color={colors.text} />
+        </Pressable>
+        <Pressable style={styles.railBtn} onPress={handleShare}>
+          <Ionicons name="share-social-outline" size={18} color={colors.text} />
+        </Pressable>
+        {canDelete && (
+          <Pressable style={styles.railBtn} onPress={onDelete}>
+            <Ionicons name="trash-outline" size={18} color="#EF4444" />
+          </Pressable>
+        )}
       </View>
+
+      {/* AI Video Explainer Modal */}
+      <VideoExplainerModal
+        visible={isVideoVisible}
+        onClose={() => setIsVideoVisible(false)}
+        paper={paper}
+        selectedLang={userLang}
+      />
     </Animated.View>
   );
 }
 
 function getStyles(colors: typeof defaultColors, scale: number, theme: string) {
   return StyleSheet.create({
-    frame: {
-      paddingHorizontal: 14,
-      paddingVertical: 6
+    cardContainer: {
+      width: "100%",
+      backgroundColor: colors.background,
+      position: "relative"
     },
-    card: {
-      flex: 1,
+    magazineScroll: {
+      padding: spacing.md,
+      gap: spacing.md
+    },
+    heroCover: {
       borderRadius: radius.lg,
+      backgroundColor: colors.surface,
+      padding: spacing.md,
+      gap: spacing.sm,
       borderWidth: 1,
-      borderColor: colors.border,
-      overflow: "hidden",
-      padding: 14,
+      borderColor: colors.border
+    },
+    headerTopRow: {
+      flexDirection: "row",
+      alignItems: "center",
       justifyContent: "space-between"
     },
-    topMeta: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      zIndex: 10,
-      elevation: 2
+    domainPill: {
+      backgroundColor: colors.primary + "12",
+      borderColor: colors.primary + "2C",
+      borderWidth: 1,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: radius.pill
     },
-    stackLabel: {
-      color: colors.accentSoft,
-      fontSize: 12 * scale,
-      fontWeight: "800",
-      letterSpacing: 1
-    },
-    readingTime: {
-      color: colors.subdued,
-      fontSize: 12 * scale,
-      fontWeight: "600"
-    },
-    body: {
-      flex: 1,
-      justifyContent: "center",
-      gap: 4,
-      paddingRight: 58,
-      marginTop: 4,
-      marginBottom: 4
-    },
-    summary: {
-      color: colors.muted,
-      fontSize: 13 * scale,
-      lineHeight: 19 * scale
-    },
-    authorBlock: {
-      gap: 1,
-      marginTop: 2
-    },
-    author: {
-      color: colors.text,
-      fontSize: 13 * scale,
-      fontWeight: "700"
-    },
-    role: {
-      color: colors.subdued,
-      fontSize: 11 * scale
-    },
-    tags: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: 6,
-      marginTop: 2
-    },
-    rail: {
-      position: "absolute",
-      right: 14,
-      bottom: 18,
-      gap: 12,
-      alignItems: "center"
-    },
-    railButton: {
-      width: 52,
-      alignItems: "center",
-      gap: 3
-    },
-    railButtonActive: {
-      opacity: 1
-    },
-    railLabel: {
-      color: colors.subdued,
-      fontSize: 10 * scale,
-      fontWeight: "700",
-      textAlign: "center"
-    },
-    journalHeader: {
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-      paddingBottom: 4,
-      marginBottom: 2,
-    },
-    journalName: {
-      fontFamily: "serif",
-      fontSize: 13 * scale,
-      fontWeight: "800",
-      color: colors.text,
-      letterSpacing: 1.5,
-      textTransform: "uppercase",
-    },
-    journalSubHeader: {
-      flexDirection: "row",
-      alignItems: "center",
-      marginTop: 2,
-      gap: 6,
-    },
-    journalYear: {
-      fontSize: 10 * scale,
-      fontWeight: "700",
-      color: colors.accentSoft,
-    },
-    journalDot: {
-      fontSize: 10 * scale,
-      color: colors.subdued,
-    },
-    journalDoi: {
-      fontSize: 10 * scale,
-      fontFamily: "monospace",
-      color: colors.subdued,
-      flex: 1,
-    },
-    cutoutBlock: {
-      backgroundColor: theme === "light" || theme === "sepia" ? "#FDFBF7" : "rgba(253, 251, 247, 0.04)",
-      borderColor: theme === "light" || theme === "sepia" ? "#DCD1B4" : "rgba(220, 209, 180, 0.2)",
-      borderWidth: 1.5,
-      borderStyle: "dashed",
-      padding: 8,
-      borderRadius: radius.sm,
-      marginVertical: 2,
-    },
-    cutoutTitle: {
-      fontFamily: "serif",
-      fontSize: 18 * scale,
-      lineHeight: 23 * scale,
-      fontWeight: "800",
-      color: theme === "light" || theme === "sepia" ? "#3E2723" : colors.text,
-    },
-    insightsContainer: {
-      marginVertical: 2,
-      gap: 2,
-    },
-    insightsLabel: {
+    domainText: {
       fontSize: 9 * scale,
       fontWeight: "800",
-      color: colors.accent,
-      letterSpacing: 1,
+      color: colors.primary,
+      letterSpacing: 1
     },
-    insightRow: {
+    tapToOpenBadge: {
+      backgroundColor: "rgba(255, 255, 255, 0.03)",
+      borderColor: colors.border,
+      borderWidth: 1,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: radius.pill
+    },
+    tapToOpenText: {
+      fontSize: 9 * scale,
+      fontWeight: "700",
+      color: colors.subdued
+    },
+    heroTitle: {
+      fontSize: 22 * scale,
+      fontWeight: "800",
+      color: colors.text,
+      lineHeight: 30 * scale
+    },
+    hookText: {
+      fontSize: 13 * scale,
+      lineHeight: 20 * scale,
+      color: colors.muted,
+      fontStyle: "italic"
+    },
+    authorMetaRow: {
       flexDirection: "row",
-      gap: 6,
-      alignItems: "flex-start",
+      alignItems: "center",
+      gap: 10,
+      marginTop: spacing.xs
     },
-    insightBullet: {
+    authorAvatar: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      backgroundColor: "rgba(255, 255, 255, 0.02)",
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: "center",
+      justifyContent: "center"
+    },
+    avatarText: {
+      fontSize: 11 * scale,
+      fontWeight: "800",
+      color: colors.muted
+    },
+    authorName: {
+      fontSize: 12 * scale,
+      fontWeight: "800",
+      color: colors.text
+    },
+    authorAffiliation: {
       fontSize: 10 * scale,
-      color: colors.accentSoft,
-      marginTop: 1,
+      color: colors.subdued
+    },
+    insightsSection: {
+      gap: spacing.xs
+    },
+    sectionHeaderTitle: {
+      fontSize: 13 * scale,
+      fontWeight: "800",
+      color: colors.text,
+      letterSpacing: 0.5
+    },
+    insightsList: {
+      gap: 6
+    },
+    insightChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      backgroundColor: colors.surface,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border
     },
     insightText: {
-      color: colors.muted,
       fontSize: 12 * scale,
-      lineHeight: 16 * scale,
-      flex: 1,
+      color: colors.muted,
+      fontWeight: "600",
+      flex: 1
     },
-    mediaIndicators: {
-      flexDirection: "row",
-      gap: 6,
-      marginVertical: 2,
+    figuresSection: {
+      gap: spacing.xs
     },
-    mediaPill: {
+    expandableSection: {
+      gap: spacing.xs
+    },
+    expandTriggerBtn: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 4,
-      backgroundColor: "rgba(6, 182, 212, 0.06)",
-      borderColor: "rgba(6, 182, 212, 0.12)",
+      justifyContent: "space-between",
+      backgroundColor: colors.surface,
+      padding: spacing.md,
+      borderRadius: radius.md,
       borderWidth: 1,
-      paddingHorizontal: 6,
-      paddingVertical: 2,
-      borderRadius: radius.pill,
+      borderColor: colors.border
     },
-    mediaPillText: {
-      fontSize: 8 * scale,
-      fontWeight: "800",
-      color: colors.accentSoft,
-      letterSpacing: 0.5,
-    },
-    lockOverlay: {
-      ...StyleSheet.absoluteFillObject,
-      backgroundColor: theme === "light" || theme === "sepia" ? "rgba(253, 251, 247, 0.96)" : "rgba(11, 16, 32, 0.97)",
-      justifyContent: "center",
-      alignItems: "center",
-      padding: 16,
-      zIndex: 100,
-      elevation: 10,
-    },
-    lockTitle: {
-      color: colors.text,
-      fontSize: 18 * scale,
-      fontWeight: "800",
-      marginTop: 10,
-      marginBottom: 4,
-      textAlign: "center",
-    },
-    lockDesc: {
-      color: colors.muted,
+    expandTriggerText: {
       fontSize: 12 * scale,
-      lineHeight: 18 * scale,
-      textAlign: "center",
-      marginBottom: 16,
+      fontWeight: "800",
+      color: colors.primary
     },
-    lockBtn: {
-      width: "100%",
+    expandedContent: {
+      backgroundColor: colors.surface,
+      padding: spacing.md,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border
+    },
+    fullExplanationText: {
+      fontSize: 13 * scale,
+      lineHeight: 22 * scale,
+      color: colors.muted
+    },
+    readFullPaperBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      backgroundColor: colors.primary,
+      height: 48,
+      borderRadius: radius.md
+    },
+    readFullPaperText: {
+      color: "#FFFFFF",
+      fontSize: 13 * scale,
+      fontWeight: "800"
+    },
+    floatingActionRail: {
+      position: "absolute",
+      right: 16,
+      top: 16,
+      gap: 8
+    },
+    railBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: "center",
+      justifyContent: "center",
+      shadowColor: "#000000",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.1,
+      shadowRadius: 8,
+      elevation: 4
     }
   });
 }
