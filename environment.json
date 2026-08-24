@@ -1,0 +1,16 @@
+{
+  "environment": "local_staging_parity",
+  "os": "Windows 11 AMD64",
+  "nodeVersion": "v20.x",
+  "pythonVersion": "3.13.7",
+  "databaseProvider": "sqlite_with_postgres_parity_schema",
+  "databaseVersion": "SQLite 3.x (Production Target: PostgreSQL 16)",
+  "redisProvider": "in_memory_tenant_map_adapter",
+  "redisVersion": "In-Memory (Production Target: Redis 7.2)",
+  "llmProvider": "local_deterministic_rule_engine",
+  "llmModel": "local-deterministic-v1 (Production Target: Anthropic claude-3-5-sonnet)",
+  "httpTransport": "in_process_express_rest",
+  "deploymentMode": "local_verification",
+  "authProvider": "jwt_token_session_context",
+  "evidenceStore": "filesystem_json_provenance_index"
+}
