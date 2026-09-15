@@ -11,7 +11,10 @@ export class RequestDeduplicator {
 
   generateDeduplicationKey(request: LLMRequest): string {
     const evidenceIds = (request.evidenceChunks || []).map(c => c.chunkId).sort().join(",");
-    return `${request.tenantId}:${request.projectId}:${request.operation}:${request.prompt.trim().toLowerCase()}:${evidenceIds}`;
+    const paperId = request.paperId || "global";
+    const contentHash = request.contentHash || "nohash";
+    const schemaVersion = request.schemaVersion || "v1";
+    return `${request.tenantId}:${request.projectId}:${paperId}:${contentHash}:${schemaVersion}:${request.operation}:${request.prompt.trim().toLowerCase()}:${evidenceIds}`;
   }
 
   async coalesce(request: LLMRequest, executeFn: () => Promise<LLMResponse>): Promise<LLMResponse> {

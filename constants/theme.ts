@@ -1,3 +1,5 @@
+import { Platform, Dimensions } from "react-native";
+
 export const colors = {
   background: "#030712",
   surface: "#0B0F19",
@@ -33,11 +35,35 @@ export const radius = {
   pill: 9999
 };
 
+const isWebOrDesktop = Platform.OS === "web";
+
 export const typography = {
-  title: 32,
-  heading: 22,
-  body: 16,
-  caption: 13,
-  tiny: 11,
-  family: "System"
+  title: isWebOrDesktop ? 34 : 32,
+  heading: isWebOrDesktop ? 24 : 22,
+  subheading: isWebOrDesktop ? 18 : 16,
+  body: isWebOrDesktop ? 16 : 15,
+  caption: isWebOrDesktop ? 14 : 13,
+  tiny: isWebOrDesktop ? 12 : 11,
+  family: Platform.select({
+    web: '-apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif',
+    ios: "System",
+    android: "Roboto",
+    default: "System"
+  })
+};
+
+/**
+ * Helper to calculate responsive desktop max widths
+ */
+export const layout = {
+  maxContentWidth: 860,
+  maxReaderWidth: 920,
+  maxDockWidth: 580,
+  isDesktop: () => {
+    if (Platform.OS === "web") {
+      const { width } = Dimensions.get("window");
+      return width >= 768;
+    }
+    return false;
+  }
 };

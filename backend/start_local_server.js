@@ -84,26 +84,30 @@ const server = http.createServer((req, res) => {
         }
 
         const requestId = `req_cop_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+        const targetPaperId = (body.paperIds && body.paperIds.length > 0) ? body.paperIds[0] : (body.paperId || "openalex-W123");
+        const queryText = body.query || "Research investigation";
+        const claimText = `Evidence demonstrates verified empirical performance for ${targetPaperId}: ${queryText.slice(0, 70)}.`;
+
         const response = {
           requestId,
           status: "VERIFIED",
-          answer: "Evidence-grounded analytical synthesis derived from verified full-text chunks.",
+          answer: `Evidence-grounded analytical synthesis derived from verified full-text chunks for ${targetPaperId}.`,
           claims: [
             {
               claimId: "c_01",
-              text: "AUROC = 0.924 achieved on MIMIC-IV under differential privacy bounds.",
+              text: claimText,
               verificationStatus: "VERIFIED",
-              evidenceChunkIds: ["chunk_1842"],
-              paperIds: ["openalex-W123"]
+              evidenceChunkIds: [`${targetPaperId}_chunk_1`],
+              paperIds: [targetPaperId]
             }
           ],
           evidence: [
             {
-              chunkId: "chunk_1842",
-              paperId: "openalex-W123",
+              chunkId: `${targetPaperId}_chunk_1`,
+              paperId: targetPaperId,
               section: "Results",
-              page: 8,
-              text: "Achieved 0.924 AUROC on MIMIC-IV under differential privacy (epsilon=0.5)."
+              page: 1,
+              text: `Empirical findings and verified methodology addressing: ${queryText.slice(0, 100)}.`
             }
           ],
           queryType: "RESEARCH_QUESTION",

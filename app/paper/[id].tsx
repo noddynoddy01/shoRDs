@@ -48,18 +48,19 @@ export default function PaperDetailScreen() {
   const [selectedSection, setSelectedSection] = useState<{ title: string; content: string } | null>(null);
   const [inspectorVisible, setInspectorVisible] = useState(false);
 
-  const paper = (papers.find((p: Paper) => p.id === id) as Paper) || ({
-    id: id || "paper-1",
-    title: "Quantum Channel Estimation in High-Mobility Environments",
-    authorName: "Alice Smith, Bob Jones",
+  const targetId = id || "alphaqubit-decoder";
+  const foundPaper = papers.find((p: Paper) => p.id === targetId);
+  const paper = foundPaper || ({
+    id: targetId,
+    title: "Scientific Research Investigation",
+    authorName: "Research Author",
     pubYear: 2026,
-    domain: "Quantum & AI",
-    summary: "This paper presents a novel framework for channel estimation under high Doppler shifts.",
-    pdfUri: "https://arxiv.org/pdf/2608.01234.pdf",
-    organization: "IEEE Transactions on Signal Processing",
-    venue: "IEEE Transactions on Signal Processing",
-    publisher: "IEEE",
-    savedCount: 142
+    domain: "Science & Engineering",
+    summary: "Empirical investigation into foundational methodologies.",
+    fullExplanation: "Empirical investigation into foundational methodologies.",
+    pdfUri: "",
+    organization: "Research Archive",
+    savedCount: 10
   } as unknown as Paper);
 
   const isSaved = isPaperSaved(paper.id);
@@ -73,14 +74,18 @@ export default function PaperDetailScreen() {
     async function loadResearchBrief() {
       setLoading(true);
       try {
-        const fullTextStatus = paper.pdfUri ? "FULL_TEXT_PDF" : "ABSTRACT_ONLY";
+        const hasFullText = Boolean(paper.pdfUri || (paper as any).fullTextRaw || (paper as any).fullExplanation);
+        const fullTextStatus = hasFullText ? "FULL_TEXT_PDF" : "ABSTRACT_ONLY";
         const briefData = await generateGroundedResearchBriefAsync({
           id: paper.id,
           title: cleanTitle,
           authors: [paper.authorName || "Academic Scholar"],
           fullTextStatus,
           summary: paper.summary,
+          fullTextRaw: (paper as any).fullTextRaw || (paper as any).fullExplanation,
           pdfUri: paper.pdfUri,
+          htmlUri: (paper as any).originalLink,
+          doi: (paper as any).doi,
           domain: paper.domain
         });
 
@@ -136,6 +141,7 @@ export default function PaperDetailScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.desktopReaderWrapper}>
         {/* Abstract-Only / Metadata Notice Banner */}
         {isAbstractOnly && (
           <View style={styles.noticeBanner}>
@@ -275,6 +281,7 @@ export default function PaperDetailScreen() {
           <Ionicons name="open-outline" size={16} color="#FFF" />
           <Text style={styles.primaryActionBtnText}>Read Complete Original Manuscript</Text>
         </Pressable>
+        </View>
       </ScrollView>
 
       {/* Interactive Evidence Inspector Drawer */}
@@ -329,7 +336,12 @@ const styles = StyleSheet.create({
     padding: spacing.xs
   },
   scrollContent: {
-    padding: spacing.md
+    padding: spacing.md,
+    alignItems: "center"
+  },
+  desktopReaderWrapper: {
+    width: "100%",
+    maxWidth: 880
   },
   noticeBanner: {
     flexDirection: "row",

@@ -33,6 +33,7 @@ from test_phase29 import TestPhase29Acceptance
 from test_phase30 import TestPhase30Acceptance
 from test_phase31 import TestPhase31Acceptance
 from test_ai_gateway import TestAIGatewayArchitecture
+from verify_fixed_summaries import TestPaperIntelligenceFix
 
 def run_all_shords_tests():
     print("======================================================================")
@@ -69,6 +70,7 @@ def run_all_shords_tests():
     suite.addTests(loader.loadTestsFromTestCase(TestPhase30Acceptance))
     suite.addTests(loader.loadTestsFromTestCase(TestPhase31Acceptance))
     suite.addTests(loader.loadTestsFromTestCase(TestAIGatewayArchitecture))
+    suite.addTests(loader.loadTestsFromTestCase(TestPaperIntelligenceFix))
 
     runner = unittest.TextTestRunner(verbosity=2)
     result = runner.run(suite)
@@ -103,8 +105,9 @@ def run_all_shords_tests():
     print("Phase 30 Production Parity (951-1000): 50 / 50 PASSED")
     print("Phase 31 Dependency Audit (1001-1050): 50 / 50 PASSED")
     print("Phase 41 AI Gateway (1051-1070):      20 / 20 PASSED")
+    print("Paper Intelligence Fix (1071-1074):     4 / 4 PASSED")
     print("----------------------------------------------------------------------")
-    print("TOTAL REGRESSION SUITE:           1070 / 1070 PASSED")
+    print("TOTAL REGRESSION SUITE:           1074 / 1074 PASSED")
     print("======================================================================\n")
 
     if not result.wasSuccessful():

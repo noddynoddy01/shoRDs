@@ -10,7 +10,7 @@ import { FullTextStatus } from "./fullTextResolver";
 import { extractDocumentContent } from "./documentExtractionService";
 import { chunkExtractedDocument } from "./evidenceChunkingService";
 import { evidenceIndexService } from "./evidenceIndexService";
-import { buildStructuredPaperIntelligence } from "./paperIntelligenceService";
+import { buildStructuredPaperIntelligence, generatePaperIntelligence } from "./paperIntelligenceService";
 import { generateCanonicalPaperId } from "./deduplication";
 import {
   GroundedSection,
@@ -241,15 +241,16 @@ export async function generateGroundedResearchBriefAsync(paper: {
   evidenceIndexService.registerChunks(paperId, chunks);
 
   const structured = buildStructuredPaperIntelligence(doc, chunks);
+  const intel = generatePaperIntelligence(paper, doc, chunks);
 
-  // Key Verified Quantitative Numbers - Dynamic extraction with zero demo fixture leakage
+  // Key Verified Quantitative Numbers - Dynamic extraction from paper intelligence
   const extractedMetrics: KeyNumberMetric[] = [];
-  if (structured.quantitativeResults && structured.quantitativeResults.length > 0) {
-    structured.quantitativeResults.slice(0, 4).forEach((field, idx) => {
+  if (intel.quantitativeResults && intel.quantitativeResults.length > 0) {
+    intel.quantitativeResults.slice(0, 4).forEach((q, idx) => {
       extractedMetrics.push({
-        value: field.value,
-        label: `Verified Result #${idx + 1}`,
-        context: `Extracted quantitative metric from paper full text.`,
+        value: q.value,
+        label: q.metric || `Result #${idx + 1}`,
+        context: q.context || q.improvement || "Empirical quantitative result from paper.",
         verified: true
       });
     });
@@ -260,11 +261,11 @@ export async function generateGroundedResearchBriefAsync(paper: {
   // Abstract-Only Mode
   if (fullTextStatus === "ABSTRACT_ONLY") {
     const absChunk = chunks.find(c => c.section === "ABSTRACT") || chunks[0];
-    const claim1Text = `${title} presents research on ${doc.abstract || title}.`;
+    const claim1Text = intel.tldr;
     const claim1 = absChunk ? verifyClaimSemanticSupport(paperId, claim1Text, absChunk.chunkId, doc.quality.extractionConfidence) : null;
     const validClaims = claim1 ? [claim1] : [];
 
-    const briefText = `${title} addresses fundamental problems in this domain. ${doc.abstract || ""}`;
+    const briefText = `${intel.tldr} ${intel.researchProblem} ${intel.methodology.overview}`;
     const metrics = calculateBriefReadingMetrics(briefText, figures.length, 4);
 
     return {
@@ -274,7 +275,7 @@ export async function generateGroundedResearchBriefAsync(paper: {
       authors,
       fullTextStatus: "ABSTRACT_ONLY",
       summaryMode: "ABSTRACT_ONLY",
-      noticeMessage: "Full text was not available, so this brief is limited to the abstract.",
+      noticeMessage: "Full text was not available, so this brief is synthesized from the manuscript abstract.",
       readingMetrics: metrics,
       qualityScore: defaultQuality,
       readingTimeMinutes: metrics.estimatedReadingMinutes,
@@ -283,36 +284,32 @@ export async function generateGroundedResearchBriefAsync(paper: {
         {
           sectionId: "sec_30sec",
           title: "01 · The Paper in 30 Seconds",
-          content: `${title} addresses critical technical bottlenecks in this domain. The authors introduce a novel framework designed to improve operational stability and computational efficiency.`,
+          content: intel.tldr,
           claims: validClaims
         },
         {
           sectionId: "sec_problem",
           title: "02 · The Problem",
-          content: `Existing methods in this domain suffer from scalability limitations and high Doppler/channel uncertainty. ${doc.abstract || title}`,
+          content: intel.researchProblem,
           claims: []
         },
         {
           sectionId: "sec_method",
           title: "03 · What the Researchers Did",
-          content: `The authors formulate a structured analytical model evaluated against standard baseline benchmarks.`,
+          content: intel.methodology.overview,
           claims: []
         },
         {
           sectionId: "sec_evidence",
           title: "04 · The Stated Contribution",
-          content: `The abstract reports substantial performance gains and reduced inference latency under controlled evaluation setups.`,
+          content: intel.keyFindings[0] || intel.whyItMatters,
           claims: []
         }
       ],
       allClaims: validClaims,
       figures: [],
       keyNumbers: keyNumbers.slice(0, 2),
-      takeaways: [
-        `${title} addresses core operational limits in this domain.`,
-        `Extends baseline formulations with structured analytical techniques.`,
-        `Full-text PDF is recommended for complete methodology details.`
-      ],
+      takeaways: intel.keyContributions.slice(0, 3),
       rejectedClaimCount: 0
     };
   }
@@ -321,65 +318,52 @@ export async function generateGroundedResearchBriefAsync(paper: {
   const allClaims: GroundedClaim[] = [];
   let rejectedClaimCount = 0;
 
-  const introChunk = chunks.find(c => c.section === "INTRODUCTION") || chunks[0];
+  const introChunk = chunks.find(c => c.section === "INTRODUCTION" || c.section === "BACKGROUND") || chunks[0];
   const methodChunk = chunks.find(c => c.section === "METHODOLOGY") || chunks[0];
   const resultChunk = chunks.find(c => c.section === "RESULTS" || c.section === "TABLE") || chunks[0];
   const limChunk = chunks.find(c => c.section === "LIMITATIONS");
 
   // Section 01 · The Paper in 30 Seconds (~100 words hook)
-  const sec1Text = `${title} addresses fundamental challenges in ${doc.sections[0]?.heading || "this domain"}. The authors introduce an end-to-end framework combining feature extraction with targeted attention mapping. Experimental results demonstrate a +18.4% improvement over traditional baselines while cutting computational latency by 3.1x.`;
+  const sec1Text = intel.tldr;
   const claim1 = verifyClaimSemanticSupport(paperId, sec1Text, introChunk.chunkId, doc.quality.extractionConfidence);
   if (claim1) allClaims.push(claim1); else rejectedClaimCount++;
 
   // Section 02 · The Problem
-  const sec2Text = `Existing approaches suffer from high signal distortion and severe performance degradation under dynamic operational conditions. Traditional methods rely on heavy matrix inversion or rigid assumptions that fail when scaling to complex real-world environments. This work addresses the urgent need for a resilient, low-latency formulation that maintains high precision.`;
+  const sec2Text = intel.researchProblem;
   const claim2 = verifyClaimSemanticSupport(paperId, sec2Text, introChunk.chunkId, doc.quality.extractionConfidence);
   if (claim2) allClaims.push(claim2); else rejectedClaimCount++;
 
   // Section 03 · What the Researchers Did
-  const sec3Text = `To solve this gap, the researchers designed a 4-step architectural pipeline:
-
-1. Input Signal Preprocessing: Normalizes incoming feature vectors and removes ambient noise artifacts.
-2. Sparse Representation Extraction: Isolates high-dimensional spatial and temporal features.
-3. Adaptive Transformation: Applies dynamic weighting to prioritize signal-rich channels.
-4. Evaluation & Inference: Computes final estimates with minimal floating-point complexity.`;
+  const sec3Text = intel.methodology.overview;
   const claim3 = verifyClaimSemanticSupport(paperId, sec3Text, methodChunk.chunkId, doc.quality.extractionConfidence);
   if (claim3) allClaims.push(claim3); else rejectedClaimCount++;
 
   // Section 04 · How It Works
-  const sec4Text = `The core mechanism relies on continuous state estimation and adaptive feedback loops. By decoupling feature extraction from parameter tuning, the framework avoids catastrophic error propagation. Equations in the paper establish lower bound error convergence:
-
-Equation 1: E[||x - x_hat||^2] <= delta + gamma * N^(-1)
-
-In simple terms: As the sample size N increases, the estimation error bounds decrease asymptotically, ensuring theoretical mathematical stability under all noise conditions.`;
+  const sec4Text = `${intel.methodology.overview}\n\nTechnical Approach: ${intel.methodology.approach || `${paper.domain || "Domain"} architecture`}.\nKey Techniques: ${(intel.methodology.techniques || []).join(", ")}.`;
   const claim4 = verifyClaimSemanticSupport(paperId, sec4Text, methodChunk.chunkId, doc.quality.extractionConfidence);
   if (claim4) allClaims.push(claim4); else rejectedClaimCount++;
 
   // Section 05 · The Evidence & Results
-  const sec5Text = `The strongest empirical evidence comes from benchmark trials comparing the proposed approach against 4 competitive baselines. Across 142 experimental runs, the model achieved a peak accuracy of 94.2% while maintaining stable memory consumption.`;
+  const sec5Text = `${intel.keyFindings.join("\n\n")}${intel.quantitativeResults.length > 0 ? "\n\nKey Quantitative Findings:\n" + intel.quantitativeResults.map(r => `• ${r.metric}: ${r.value}${r.baselineValue ? ` (compared to ${r.baselineValue})` : ""}${r.improvement ? ` — ${r.improvement}` : ""}`).join("\n") : ""}`;
   const claim5 = verifyClaimSemanticSupport(paperId, sec5Text, resultChunk.chunkId, doc.quality.extractionConfidence);
   if (claim5) allClaims.push(claim5); else rejectedClaimCount++;
 
   // Section 07 · Why This Matters
-  const sec7Text = `This contribution is significant for both academic researchers and systems engineers. By providing high accuracy at 3.1x reduced computational overhead, the approach enables real-time edge deployment on power-constrained hardware without compromising reliability.`;
+  const sec7Text = `${intel.whyItMatters}\n\n${(intel.practicalImplications || []).map(p => `• ${p}`).join("\n")}`;
   const claim7 = verifyClaimSemanticSupport(paperId, sec7Text, introChunk.chunkId, doc.quality.extractionConfidence);
   if (claim7) allClaims.push(claim7); else rejectedClaimCount++;
 
   // Section 08 · Limitations
-  const sec8Text = limChunk && structured.limitations.length > 0
-    ? structured.limitations[0].value
-    : `The authors note that extreme Doppler shifts exceeding 500 Hz require additional calibration data, and performance degrades slightly when training data contains less than 10% representative channel samples.`;
+  const sec8Text = (intel.limitations.authorStated && intel.limitations.authorStated.length > 0)
+    ? `Author-Stated Limitations:\n${intel.limitations.authorStated.map(l => `• ${l}`).join("\n")}`
+    : `Analytical Cautions:\n${(intel.limitations.analyticalCautions || []).map(c => `• ${c}`).join("\n")}`;
   const claim8 = verifyClaimSemanticSupport(paperId, sec8Text, (limChunk || resultChunk).chunkId, doc.quality.extractionConfidence);
   if (claim8) allClaims.push(claim8); else rejectedClaimCount++;
 
   // Section 09 · What to Remember
-  const takeaways = [
-    `Presents a resilient pipeline combining sparse feature extraction with dynamic weighting.`,
-    `Achieves 94.2% peak accuracy with an 18.4% improvement over standard baselines.`,
-    `Reduces computational inference latency by 3.1x for real-time hardware execution.`,
-    `Supported by mathematical convergence bounds and 142 benchmark trial runs.`,
-    `Requires adequate calibration data under extreme (>500 Hz) Doppler shift environments.`
-  ];
+  const takeaways = intel.keyContributions.length > 0
+    ? intel.keyContributions
+    : intel.keyFindings.slice(0, 5);
 
   const sections: GroundedSection[] = [
     { sectionId: "sec_30sec", title: "01 · The Paper in 30 Seconds", content: sec1Text, claims: claim1 ? [claim1] : [] },
@@ -427,17 +411,22 @@ In simple terms: As the sample size N increases, the estimation error bounds dec
 }
 
 /**
- * Backward compatibility helper for feed cards and legacy views.
+ * Educational Stack Generator for feed cards and reels.
+ * Fully grounded in PaperIntelligence with zero cross-paper contamination.
  */
 export function generateEducationalStack(paper: Paper) {
+  const intel = generatePaperIntelligence(paper);
   return {
     sections: [
-      { title: "What is this paper about?", content: paper.summary },
-      { title: "Why was it written?", content: `Addresses critical limits in ${paper.domain || "research"}.` },
-      { title: "How did they do it?", content: "Formulates an analytical framework validated across baseline benchmarks." },
-      { title: "What did they find?", content: "Empirical results show significant performance gains." },
-      { title: "Why should I care?", content: "Enables practical deployment in enterprise and research systems." },
-      { title: "Limitations", content: "No explicit limitations identified in abstract." }
+      { title: "What is this paper about?", content: intel.tldr },
+      { title: "Why was it written?", content: intel.researchProblem },
+      { title: "How did they do it?", content: intel.methodology.overview },
+      { title: "What did they find?", content: intel.keyFindings.join("\n\n") },
+      { title: "Why should I care?", content: intel.whyItMatters },
+      {
+        title: "Limitations",
+        content: intel.limitations.authorStated?.[0] || intel.limitations.analyticalCautions?.[0] || "No critical limitations reported."
+      }
     ]
   };
 }
@@ -459,17 +448,21 @@ export interface Structured18PartSummary {
 }
 
 export function buildStructuredSummaryFromPaper(paper: Paper): Structured18PartSummary {
+  const intel = generatePaperIntelligence(paper);
   return {
-    problemStatement: paper.summary || paper.title,
-    coreMethodology: "Analytic framework and benchmark evaluation.",
-    keyFindings: ["High precision accuracy gain.", "Reduced compute latency."],
-    limitations: ["Requires adequate training domain samples."],
-    futureDirections: ["Edge deployment and hyperparameter optimization."],
+    problemStatement: intel.researchProblem,
+    coreMethodology: intel.methodology.overview,
+    keyFindings: intel.keyFindings,
+    limitations: [
+      ...(intel.limitations.authorStated || []),
+      ...(intel.limitations.analyticalCautions || [])
+    ],
+    futureDirections: intel.futureWork || [`Advancing ${paper.domain || "research"} evaluation across broader workloads.`],
     quickBrief: {
-      what: paper.summary || paper.title,
-      why: `Addresses critical limits in ${paper.domain || "research"}.`,
-      mainContribution: "Achieves peak accuracy with reduced computational latency.",
-      whyCare: "Enables practical deployment in enterprise and research systems."
+      what: intel.tldr,
+      why: intel.motivation || intel.researchProblem,
+      mainContribution: intel.keyContributions[0] || intel.tldr,
+      whyCare: intel.whyItMatters
     }
   };
 }

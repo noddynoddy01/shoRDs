@@ -84,7 +84,9 @@ export function extractDocumentContent(
     };
   }
 
-  if (fullTextStatus === "ABSTRACT_ONLY" || textLength < 1000) {
+  const hasExplicitSections = /(?:🔬|⚙️|📊|🔮|💡|\[[A-Za-z0-9\s&/,-]+\]|^(?:\d+\.|\#\#?)\s+[A-Za-z]|^[A-Z][A-Za-z0-9\s&/,-]{2,30}:)/m.test(cleanText);
+
+  if (!hasExplicitSections && (fullTextStatus === "ABSTRACT_ONLY" || textLength < 500)) {
     const abs = abstractText || cleanText;
     return {
       paperId,
@@ -114,7 +116,7 @@ export function extractDocumentContent(
   const tables: ExtractedTable[] = [];
   const figures: ExtractedFigure[] = [];
 
-  let currentHeading = "Introduction";
+  let currentHeading = "Context & Background";
   let currentParagraphs: string[] = [];
 
   // Table & Figure regex patterns
@@ -132,7 +134,7 @@ export function extractDocumentContent(
         tableId: `table_${tableMatch[1]}`,
         caption: trimmed,
         headers: ["Metric", "Baseline", "Proposed"],
-        rows: [["Accuracy", "91.0%", "94.2%"]],
+        rows: [["Metric Result", "Baseline", "Demonstrated Result"]],
         page: Math.floor(sections.length / 2) + 1
       });
       continue;
@@ -149,8 +151,28 @@ export function extractDocumentContent(
       continue;
     }
 
-    // Detect Section Headings (e.g. 1. Introduction, 2. Methods, Results)
-    if (/^(\d+\.|\#\#?)\s+[A-Z]/.test(trimmed) || (trimmed.length < 50 && trimmed.toUpperCase() === trimmed)) {
+    // Detect Section Headings (e.g. 🔬 [Context & Background], 1. Introduction, ## Methods, Results:)
+    let detectedHeading: string | null = null;
+    const bracketMatch = trimmed.match(/^[🔬⚙️📊🔮💡🎯🚀📌🔍\s]*\[([A-Za-z0-9\s&/,-]+)\]/);
+    if (bracketMatch) {
+      detectedHeading = bracketMatch[1].trim();
+    } else if (/^#{1,4}\s+(.+)/.test(trimmed)) {
+      const m = trimmed.match(/^#{1,4}\s+(.+)/);
+      if (m) detectedHeading = m[1].replace(/[*_]/g, "").trim();
+    } else if (/^(\d+(\.\d+)*)\s+([A-Za-z].+)/.test(trimmed)) {
+      const m = trimmed.match(/^(\d+(\.\d+)*)\s+([A-Za-z].+)/);
+      if (m && m[3].length < 60) detectedHeading = m[3].trim();
+    } else if (/^\*\*([A-Za-z0-9\s&/,-]{2,40})\*\*:?$/.test(trimmed)) {
+      const m = trimmed.match(/^\*\*([A-Za-z0-9\s&/,-]{2,40})\*\*:?$/);
+      if (m) detectedHeading = m[1].trim();
+    } else if (/^([A-Z][A-Za-z0-9\s&/,-]{2,35}):\s*$/.test(trimmed)) {
+      const m = trimmed.match(/^([A-Z][A-Za-z0-9\s&/,-]{2,35}):\s*$/);
+      if (m) detectedHeading = m[1].trim();
+    } else if (trimmed.length >= 4 && trimmed.length < 50 && trimmed.toUpperCase() === trimmed && /^[A-Z0-9\s&/,-]+$/.test(trimmed)) {
+      detectedHeading = trimmed.trim();
+    }
+
+    if (detectedHeading) {
       if (currentParagraphs.length > 0) {
         sections.push({
           heading: currentHeading,
@@ -160,7 +182,7 @@ export function extractDocumentContent(
         });
         currentParagraphs = [];
       }
-      currentHeading = trimmed.replace(/^(\d+\.|\#\#?)\s+/, "");
+      currentHeading = detectedHeading;
       continue;
     }
 
@@ -176,14 +198,27 @@ export function extractDocumentContent(
     });
   }
 
+  // If no sections were identified, treat full text as content
+  if (sections.length === 0 && cleanText.length > 0) {
+    sections.push({
+      heading: "Overview",
+      content: cleanText,
+      paragraphs: cleanText.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean),
+      page: 1
+    });
+  }
+
+  const absSection = sections.find(s => /abstract|context|background/i.test(s.heading));
+  const finalAbstract = abstractText || (absSection ? absSection.content : (sections[0]?.content || cleanText.slice(0, 300)));
+
   const paragraphCount = sections.reduce((acc, s) => acc + s.paragraphs.length, 0);
-  const extractionConfidence: ExtractionConfidence = sections.length >= 3 && paragraphCount >= 5 ? "HIGH" : "MEDIUM";
+  const extractionConfidence: ExtractionConfidence = sections.length >= 2 || cleanText.length > 600 ? "HIGH" : "MEDIUM";
 
   return {
     paperId,
     title,
     authors,
-    abstract: abstractText,
+    abstract: finalAbstract,
     fullTextStatus,
     sections,
     tables,

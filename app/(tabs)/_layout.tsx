@@ -3,7 +3,7 @@ import { Tabs } from "expo-router";
 import { StyleSheet, View, Pressable, Animated, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../../context/ThemeContext";
-import { radius } from "../../constants/theme";
+import { radius, layout } from "../../constants/theme";
 import React, { useRef, useEffect } from "react";
 
 function CustomTabBar({ state, descriptors, navigation }: any) {
@@ -14,7 +14,11 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
   const totalTabs = state.routes.length;
   const barPadding = 6;
   const barMargin = 20;
-  const availableWidth = windowWidth - (barMargin * 2) - (barPadding * 2);
+  
+  // Constrain dock width on desktop/laptop screens
+  const maxDockWidth = layout.maxDockWidth || 580;
+  const dockWidth = Math.min(windowWidth - (barMargin * 2), maxDockWidth);
+  const availableWidth = dockWidth - (barPadding * 2);
   const tabWidth = availableWidth / totalTabs;
 
   const slideAnim = useRef(new Animated.Value(0)).current;
@@ -30,7 +34,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
 
   return (
     <View style={[styles.floatingDockContainer, { bottom: Math.max(insets.bottom, 16) }]}>
-      <View style={[styles.blurDock, { backgroundColor: colors.card + "D8", borderColor: colors.border }]}>
+      <View style={[styles.blurDock, { width: dockWidth, backgroundColor: colors.card + "D8", borderColor: colors.border }]}>
         
         {/* Active Sliding Pill Indicator */}
         <Animated.View
@@ -134,9 +138,10 @@ export default function TabsLayout() {
 const styles = StyleSheet.create({
   floatingDockContainer: {
     position: "absolute",
-    left: 20,
-    right: 20,
+    left: 0,
+    right: 0,
     alignItems: "center",
+    justifyContent: "center",
     zIndex: 999
   },
   blurDock: {
@@ -149,8 +154,8 @@ const styles = StyleSheet.create({
     position: "relative",
     shadowColor: "#000000",
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
     elevation: 8
   },
   activePill: {

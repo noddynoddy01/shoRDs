@@ -34,6 +34,9 @@ export interface LLMRequest {
   bypassCache?: boolean;
   metadata?: Record<string, any>;
   planTier?: UserPlanTier;
+  paperId?: string;
+  contentHash?: string;
+  schemaVersion?: string;
 }
 
 export interface LLMResponse {

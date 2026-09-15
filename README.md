@@ -1,4 +1,4 @@
-﻿# 🚀 shoRDs — The World's Premier Research Operating System
+# 🚀 shoRDs — The World's Premier Research Operating System
 
 <div align="center">
 
@@ -6,7 +6,7 @@
 
 **Transforming 100-page academic papers into interactive, grounded, multimodal research intelligence.**
 
-[![CI / Regression Tests](https://img.shields.io/badge/Tests-1070%2F1070%20Passed-brightgreen)](docs/testing/PHASE_42_ZERO_COST_FINAL_AUDIT.md)
+[![CI / Regression Tests](https://img.shields.io/badge/Tests-1074%2F1074%20Passed-brightgreen)](docs/testing/PHASE_42_ZERO_COST_FINAL_AUDIT.md)
 [![TypeScript](https://img.shields.io/badge/TypeScript-100%25%20TypeSafe-blue)](tsconfig.json)
 [![Docker](https://img.shields.io/badge/Docker-Multi--Container%20Ready-2496ED)](docker-compose.yml)
 [![Android](https://img.shields.io/badge/Platform-Android%20%7C%20Web%20PWA-3DDC84)](docs/android/ANDROID_BUILD_AND_RELEASE.md)

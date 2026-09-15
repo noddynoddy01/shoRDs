@@ -116,3 +116,61 @@ export type ResearchRoadmap = {
     estimatedTime: string;
   }[];
 };
+
+export type ContentCoverageType = "FULL_TEXT" | "ABSTRACT_ONLY" | "METADATA_ONLY" | "CONTENT_UNAVAILABLE";
+export type IntelligenceConfidence = "HIGH" | "MEDIUM" | "LIMITED";
+
+export interface PaperQuantitativeResult {
+  metric: string;
+  value: string;
+  baselineValue?: string;
+  improvement?: string;
+  units?: string;
+  context?: string;
+  evidenceReference?: string;
+}
+
+export interface PaperIntelligence {
+  paperId: string;
+  intelligenceVersion: string;
+  contentCoverage: ContentCoverageType;
+  confidence: IntelligenceConfidence;
+  confidenceReason: string;
+  tldr: string;
+  researchProblem: string;
+  motivation?: string;
+  keyContributions: string[];
+  methodology: {
+    overview: string;
+    approach?: string;
+    techniques?: string[];
+    architecture?: string;
+    dataset?: string;
+    sampleSize?: string;
+    experimentalSetup?: string;
+    baselines?: string[];
+  };
+  keyFindings: string[];
+  quantitativeResults: PaperQuantitativeResult[];
+  strengths?: string[];
+  limitations: {
+    authorStated?: string[];
+    analyticalCautions?: string[];
+  };
+  whyItMatters: string;
+  practicalImplications?: string[];
+  futureWork?: string[];
+  keywords: string[];
+  evidence: Array<{
+    claimText: string;
+    section: string;
+    page?: number;
+    chunkId: string;
+    verified: boolean;
+  }>;
+  readingMetrics: {
+    wordCount: number;
+    estimatedReadingMinutes: number;
+    technicalTermDensity: number;
+  };
+}

@@ -18,12 +18,15 @@ export class CacheManager {
   private localMemoryFallback: Map<string, { response: LLMResponse; expiresAt: number }> = new Map();
 
   generateCacheKey(request: LLMRequest, promptVersion: string = "2026.1"): string {
-    // Incorporate normalized query, evidence IDs, operation, model, and prompt version
+    // Incorporate normalized query, evidence IDs, operation, model, paperId, contentHash, schemaVersion, and prompt version
     const evidenceIds = (request.evidenceChunks || []).map(c => c.chunkId).sort().join(",");
-    const rawPayload = `${request.operation}:${request.prompt.trim().toLowerCase()}:${evidenceIds}:${request.model || "default"}:${promptVersion}`;
+    const paperId = request.paperId || "global";
+    const contentHash = request.contentHash || "nohash";
+    const schemaVersion = request.schemaVersion || "v1";
+    const rawPayload = `${request.operation}:${paperId}:${contentHash}:${schemaVersion}:${request.prompt.trim().toLowerCase()}:${evidenceIds}:${request.model || "default"}:${promptVersion}`;
     const hash = crypto.createHash("sha256").update(rawPayload).digest("hex").substring(0, 32);
 
-    return `${this.prefix}:${request.tenantId}:${request.projectId}:${hash}`;
+    return `${this.prefix}:${request.tenantId}:${request.projectId}:${paperId}:${hash}`;
   }
 
   async get(request: LLMRequest): Promise<LLMResponse | null> {
