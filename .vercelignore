@@ -1,0 +1,14 @@
+node_modules/
+.expo/
+.expo-shared/
+dist/
+android/
+ios/
+desktop/
+backend/
+Dockerfile
+docker-compose.yml
+*.apk
+*.aab
+.env*
+.git/
