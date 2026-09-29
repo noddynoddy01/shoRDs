@@ -27,6 +27,24 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if ((url === "/" || url === "") && method === "GET") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({
+      name: "shoRDs API Gateway",
+      version: "1.0.0",
+      status: "ONLINE",
+      frontend: "https://shords.vercel.app",
+      endpoints: [
+        "/health",
+        "/ready",
+        "/api/v1/llm/health",
+        "/api/v1/llm/metrics",
+        "/api/v1/copilot/query"
+      ]
+    }, null, 2));
+    return;
+  }
+
   if (url === "/health" && method === "GET") {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ status: "UP", timestamp: new Date().toISOString() }));
