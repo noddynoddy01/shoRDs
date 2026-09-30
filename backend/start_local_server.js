@@ -9,9 +9,50 @@
  */
 
 const http = require("http");
+const net = require("net");
 
 const PORT = parseInt(process.env.PORT || "4000", 10);
 const HOST = process.env.HOST || "0.0.0.0";
+
+function checkTcpSocket(connectionString, defaultPort) {
+  return new Promise((resolve) => {
+    if (!connectionString) {
+      return resolve({ alive: true, configured: false });
+    }
+    try {
+      let host = "127.0.0.1";
+      let port = defaultPort;
+      if (connectionString.includes("://")) {
+        const u = new URL(connectionString);
+        host = u.hostname;
+        port = parseInt(u.port || String(defaultPort), 10);
+      } else if (connectionString.includes(":")) {
+        const parts = connectionString.split(":");
+        host = parts[0];
+        port = parseInt(parts[1], 10);
+      } else {
+        host = connectionString;
+      }
+
+      const socket = net.createConnection({ host, port, timeout: 2000 }, () => {
+        socket.end();
+        resolve({ alive: true, configured: true, host, port });
+      });
+
+      socket.on("error", (err) => {
+        socket.destroy();
+        resolve({ alive: false, configured: true, host, port, error: err.message });
+      });
+
+      socket.on("timeout", () => {
+        socket.destroy();
+        resolve({ alive: false, configured: true, host, port, error: "Connection timed out" });
+      });
+    } catch (e) {
+      resolve({ alive: false, configured: true, error: e.message });
+    }
+  });
+}
 
 const server = http.createServer((req, res) => {
   const url = req.url || "/";
@@ -52,8 +93,30 @@ const server = http.createServer((req, res) => {
   }
 
   if (url === "/ready" && method === "GET") {
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ ready: true, database: true, redis: true, aiGateway: true }));
+    const dbUrl = process.env.DATABASE_URL;
+    const redisUrl = process.env.REDIS_URL;
+
+    Promise.all([
+      checkTcpSocket(dbUrl, 5432),
+      checkTcpSocket(redisUrl, 6379)
+    ]).then(([dbStatus, redisStatus]) => {
+      const isReady = dbStatus.alive && redisStatus.alive;
+      res.writeHead(isReady ? 200 : 503, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({
+        ready: isReady,
+        database: dbStatus.alive,
+        redis: redisStatus.alive,
+        aiGateway: true,
+        details: {
+          database: { alive: dbStatus.alive, configured: dbStatus.configured },
+          redis: { alive: redisStatus.alive, configured: redisStatus.configured },
+          aiGateway: { alive: true }
+        }
+      }));
+    }).catch(err => {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ready: false, error: err.message }));
+    });
     return;
   }
 

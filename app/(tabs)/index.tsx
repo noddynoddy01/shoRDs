@@ -10,12 +10,16 @@ import {
   View,
   ViewToken,
   ActivityIndicator,
-  RefreshControl
+  RefreshControl,
+  useWindowDimensions
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { Logo } from "@/components/Logo";
 import { ReelCard } from "@/components/ReelCard";
+import { DesktopNavSidebar } from "@/components/DesktopNavSidebar";
+import { DesktopPaperCard } from "@/components/DesktopPaperCard";
+import { DesktopIntelligencePanel } from "@/components/DesktopIntelligencePanel";
 import { Screen } from "@/components/Screen";
 import { colors as defaultColors, radius, spacing } from "@/constants/theme";
 import { useFeedMetrics } from "@/hooks/useFeedMetrics";
@@ -48,6 +52,10 @@ export default function HomeScreen() {
 
   // Multi-Selection Checkbox state in Feed
   const [selectedPaperIds, setSelectedPaperIds] = useState<string[]>([]);
+  const [selectedDesktopPaper, setSelectedDesktopPaper] = useState<Paper | null>(null);
+
+  const { width: windowWidth } = useWindowDimensions();
+  const isDesktop = windowWidth >= 1024;
 
   const { reelHeight } = useFeedMetrics();
   const styles = getStyles(colors, fontSizeScale);
@@ -62,6 +70,9 @@ export default function HomeScreen() {
     try {
       const list = await getPapersAsync(filterDomain as any);
       setPapers(list);
+      if (list.length > 0) {
+        setSelectedDesktopPaper(list[0]);
+      }
     } catch {
       setPapers([]);
     } finally {
@@ -122,6 +133,83 @@ export default function HomeScreen() {
       prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
     );
   };
+
+  if (isDesktop) {
+    return (
+      <View style={{ flex: 1, flexDirection: "row", backgroundColor: colors.background, height: "100%" }}>
+        {/* Column 1: Left Navigation Sidebar */}
+        <DesktopNavSidebar
+          currentDomain={filterDomain}
+          onSelectDomain={(d) => router.push(d ? { pathname: "/(tabs)", params: { filterDomain: d } } as never : "/(tabs)" as never)}
+          onRefreshFeed={handleRefreshFeed}
+          onOpenSettings={() => setSettingsVisible(true)}
+          onOpenSubscription={() => setSubscriptionVisible(true)}
+          isMuted={isMuted}
+          onToggleMute={toggleMute}
+          userProfile={userProfile}
+        />
+
+        {/* Column 2: Center Research Feed */}
+        <View style={{ flex: 1, height: "100%", borderRightWidth: 1, borderColor: colors.border }}>
+          {/* Top Bar for Desktop Feed */}
+          <View style={styles.desktopFeedHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.desktopFeedTitle}>
+                {filterDomain ? filterDomain.toUpperCase() : "GLOBAL RESEARCH DISCOVERIES"}
+              </Text>
+              <Text style={styles.desktopFeedSubtitle}>
+                Live open-access research stream with evidence-grounded intelligence
+              </Text>
+            </View>
+            <Pressable style={styles.desktopSearchBtn} onPress={() => router.push("/search" as never)}>
+              <Ionicons name="search" size={16} color={colors.primary} />
+              <Text style={styles.desktopSearchBtnText}>Search Papers...</Text>
+            </Pressable>
+          </View>
+
+          {isLoadingFeed ? (
+            <View style={styles.centerBox}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={styles.loadingText}>Fetching Live Open-Access Research Stream...</Text>
+            </View>
+          ) : papers.length === 0 ? (
+            <View style={styles.centerBox}>
+              <Ionicons name="wifi-outline" size={36} color={colors.subdued} />
+              <Text style={styles.emptyTitle}>No Papers Found</Text>
+              <Text style={styles.emptySub}>Connect to internet to fetch live open-access research papers.</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={papers}
+              keyExtractor={(item, index) => `${item.id}-${index}`}
+              showsVerticalScrollIndicator={true}
+              contentContainerStyle={{ padding: spacing.lg }}
+              onEndReached={loadNextFeedPage}
+              onEndReachedThreshold={0.5}
+              renderItem={({ item, index }) => (
+                <DesktopPaperCard
+                  paper={item}
+                  isSelectedForIntelligence={selectedDesktopPaper?.id === item.id || (!selectedDesktopPaper && index === 0)}
+                  onSelectForIntelligence={() => setSelectedDesktopPaper(item)}
+                  isChecked={selectedPaperIds.includes(item.id)}
+                  onToggleCheck={() => toggleCardSelection(item.id)}
+                />
+              )}
+            />
+          )}
+        </View>
+
+        {/* Column 3: Right Structured Intelligence Panel */}
+        <View style={{ width: 440, height: "100%" }}>
+          <DesktopIntelligencePanel paper={selectedDesktopPaper || papers[0] || null} />
+        </View>
+
+        {/* Settings & Subscription Modals */}
+        <SettingsTray visible={settingsVisible} onClose={() => setSettingsVisible(false)} currentUserProfile={userProfile} />
+        <SubscriptionModal visible={subscriptionVisible} onClose={() => setSubscriptionVisible(false)} />
+      </View>
+    );
+  }
 
   return (
     <Screen style={styles.screenContainer}>
@@ -256,6 +344,43 @@ export default function HomeScreen() {
 
 function getStyles(colors: typeof defaultColors, scale: number) {
   return StyleSheet.create({
+    desktopFeedHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      borderBottomWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.card
+    },
+    desktopFeedTitle: {
+      color: colors.text,
+      fontSize: 15 * scale,
+      fontWeight: "800",
+      letterSpacing: 0.5
+    },
+    desktopFeedSubtitle: {
+      color: colors.subdued,
+      fontSize: 11 * scale,
+      marginTop: 2
+    },
+    desktopSearchBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      backgroundColor: colors.background,
+      paddingHorizontal: spacing.md,
+      paddingVertical: 8,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border
+    },
+    desktopSearchBtnText: {
+      color: colors.subdued,
+      fontSize: 12 * scale,
+      fontWeight: "500"
+    },
     screenContainer: {
       flex: 1,
       backgroundColor: colors.background

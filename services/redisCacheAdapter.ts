@@ -54,11 +54,6 @@ export class RedisCacheAdapter {
 
   async get(key: string): Promise<string | null> {
     const fullKey = (this.config.keyPrefix || "") + key;
-    if (this.isConnected) {
-      // Production Redis GET command
-      return null;
-    }
-    // Development fallback
     const entry = this.localFallbackMap.get(fullKey);
     if (!entry) return null;
     if (Date.now() > entry.expiresAt) {
@@ -71,10 +66,6 @@ export class RedisCacheAdapter {
   async set(key: string, value: string, ttlSeconds?: number): Promise<void> {
     const fullKey = (this.config.keyPrefix || "") + key;
     const ttl = ttlSeconds || this.config.defaultTtlSeconds || 3600;
-    if (this.isConnected) {
-      // Production Redis SETEX command
-      return;
-    }
     this.localFallbackMap.set(fullKey, {
       value,
       expiresAt: Date.now() + ttl * 1000

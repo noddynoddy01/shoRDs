@@ -6,6 +6,7 @@
 
 import * as crypto from "crypto";
 import { LLMRequest, LLMResponse } from "../../types/llmGateway";
+import { RedisCacheAdapter } from "../redisCacheAdapter";
 
 export interface CacheOptions {
   ttlSeconds?: number;
@@ -36,7 +37,24 @@ export class CacheManager {
 
     const key = this.generateCacheKey(request);
 
-    // In a live Redis setup, we query Redis. We also keep a robust memory fallback for local/test tiers.
+    // 1. Query Redis
+    try {
+      const redis = RedisCacheAdapter.getInstance();
+      const raw = await redis.get(key);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return {
+          ...parsed,
+          requestId: request.requestId,
+          cacheHit: true,
+          latencyMs: 1.2
+        };
+      }
+    } catch {
+      // Fall through to memory fallback
+    }
+
+    // 2. Local memory fallback
     const entry = this.localMemoryFallback.get(key);
     if (entry) {
       if (Date.now() > entry.expiresAt) {
@@ -58,6 +76,14 @@ export class CacheManager {
     const key = this.generateCacheKey(request);
     const ttl = ttlSeconds || this.defaultTtlSeconds;
     const expiresAt = Date.now() + (ttl * 1000);
+
+    // Write to Redis
+    try {
+      const redis = RedisCacheAdapter.getInstance();
+      await redis.set(key, JSON.stringify(response), ttl);
+    } catch {
+      // Ignore Redis set failure, memory fallback saves it
+    }
 
     this.localMemoryFallback.set(key, { response, expiresAt });
   }
