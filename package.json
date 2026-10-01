@@ -14,7 +14,8 @@
     "desktop:build": "npx expo export -p web",
     "desktop:start": "npx expo export -p web && electron desktop/main.js",
     "lint": "expo lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:node": "node --test backend/tests/node/anthropicClient.test.js backend/tests/node/copilotService.test.js"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",

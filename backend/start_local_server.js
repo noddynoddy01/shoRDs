@@ -5,18 +5,23 @@
  * - /ready (Readiness with PostgreSQL & Redis TCP probes)
  * - /api/v1/replica (Multi-replica node identity & load balancer telemetry)
  * - /api/v1/analysis (Asynchronous background queue for heavy paper processing)
- * - /api/v1/copilot/query (Real Claude LLM Gateway with deterministic evidence grounding fallback)
+ * - /api/v1/copilot/query (Claude Sonnet 5.5 over supplied paper text; clearly labelled local fallback; see backend/llm/copilotService.js)
  * - /api/v1/llm/health (Multi-provider configuration audit)
  * - /api/v1/llm/metrics (Usage, token counts, and cost telemetry)
  */
 
 const http = require("http");
-const https = require("https");
 const net = require("net");
+const { createTelemetry } = require("./llm/telemetry");
+const { handleCopilotQuery, buildLlmHealth, PROMPT_VERSION } = require("./llm/copilotService");
 
 const PORT = parseInt(process.env.PORT || "4000", 10);
 const HOST = process.env.HOST || "0.0.0.0";
 const REPLICA_ID = process.env.RAILWAY_REPLICA_ID || process.env.HOSTNAME || `replica-local-${process.pid}`;
+const MAX_REQUEST_BODY_BYTES = parseInt(process.env.MAX_REQUEST_BODY_BYTES || "524288", 10);
+
+// Real, per-replica LLM counters (see backend/llm/telemetry.js). Nothing here is pre-seeded.
+const telemetry = createTelemetry({ replicaId: REPLICA_ID });
 
 // Distributed / In-memory Background Job Store
 const jobStore = new Map();
@@ -58,55 +63,6 @@ function checkTcpSocket(connectionString, defaultPort) {
     } catch (e) {
       resolve({ alive: false, configured: true, error: e.message });
     }
-  });
-}
-
-/**
- * Invokes Claude API directly when ANTHROPIC_API_KEY is configured
- */
-function callAnthropicClaude(apiKey, model, systemPrompt, userPrompt) {
-  return new Promise((resolve, reject) => {
-    const payload = JSON.stringify({
-      model: model || "claude-3-5-sonnet-20241022",
-      max_tokens: 1500,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userPrompt }]
-    });
-
-    const req = https.request("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-        "content-length": Buffer.byteLength(payload)
-      },
-      timeout: 30000
-    }, (res) => {
-      let data = "";
-      res.on("data", chunk => data += chunk);
-      res.on("end", () => {
-        try {
-          const json = JSON.parse(data);
-          if (res.statusCode >= 200 && res.statusCode < 300) {
-            resolve(json);
-          } else {
-            reject(new Error(`Anthropic API Error [${res.statusCode}]: ${json.error?.message || data}`));
-          }
-        } catch (err) {
-          reject(new Error(`Invalid JSON response from Anthropic: ${err.message}`));
-        }
-      });
-    });
-
-    req.on("error", reject);
-    req.on("timeout", () => {
-      req.destroy();
-      reject(new Error("Anthropic API request timed out after 30s"));
-    });
-
-    req.write(payload);
-    req.end();
   });
 }
 
@@ -290,42 +246,48 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // LLM Health & Provider Configuration Probe
+  // LLM Health: reflects real configuration and real requests served by this replica (no probe, no tokens spent)
   if (pathname === "/api/v1/llm/health" && method === "GET") {
-    const hasAnthropicKey = Boolean(process.env.ANTHROPIC_API_KEY || process.env.LLM_API_KEY);
-    const activeModel = process.env.ANTHROPIC_MODEL || process.env.LLM_MODEL || "claude-3-5-sonnet-20241022";
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({
-      anthropic: { configured: hasAnthropicKey, healthy: true, activeModel },
-      openai: { configured: Boolean(process.env.OPENAI_API_KEY), healthy: true },
-      gemini: { configured: Boolean(process.env.GEMINI_API_KEY), healthy: true },
-      local_deterministic: { configured: true, healthy: true }
-    }));
+    res.end(JSON.stringify(buildLlmHealth({ env: process.env, telemetry })));
     return;
   }
 
-  // LLM Usage & Cost Metrics Probe
+  // LLM Metrics: real per-replica counters only; unmeasured values are null / NOT_MEASURED / NOT_WIRED
   if (pathname === "/api/v1/llm/metrics" && method === "GET") {
-    const activeModel = process.env.ANTHROPIC_MODEL || process.env.LLM_MODEL || "claude-3-5-sonnet-20241022";
+    const health = buildLlmHealth({ env: process.env, telemetry });
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({
-      tenantId: "tenant_primary",
-      activeProvider: (process.env.ANTHROPIC_API_KEY || process.env.LLM_API_KEY) ? "anthropic" : "local_deterministic",
-      activeModel,
-      promptVersion: "2026.1",
-      costStatus: "MEASURED",
-      totalRequests: 42,
-      cacheHitRatio: 0.85
+      activeProvider: health.activeProvider,
+      activeModel: health.anthropic.model,
+      promptVersion: PROMPT_VERSION,
+      ...telemetry.snapshot()
     }));
     return;
   }
 
-  // Copilot Query / Synthesis Pipeline
+  // Copilot Query: answers only from supplied paper text; see backend/llm/copilotService.js for the rules
   if (pathname === "/api/v1/copilot/query" && method === "POST") {
-    let bodyData = "";
-    req.on("data", chunk => { bodyData += chunk; });
+    const parts = [];
+    let received = 0;
+    let tooLarge = false;
+    req.on("data", chunk => {
+      if (tooLarge) return;
+      received += chunk.length;
+      if (received > MAX_REQUEST_BODY_BYTES) {
+        tooLarge = true;
+        res.on("finish", () => req.destroy());
+        res.writeHead(413, { "Content-Type": "application/json", Connection: "close" });
+        res.end(JSON.stringify({ error: "REQUEST_TOO_LARGE", maxBytes: MAX_REQUEST_BODY_BYTES }));
+        return;
+      }
+      parts.push(chunk);
+    });
     req.on("end", async () => {
+      if (tooLarge) return;
       try {
+        // NOTE: presence-only check, NOT real authentication. Real auth, an origin allow-list and rate limiting
+        // must be in place before ANTHROPIC_API_KEY is added to this service.
         const authHeader = req.headers["authorization"];
         if (!authHeader) {
           res.writeHead(401, { "Content-Type": "application/json" });
@@ -333,91 +295,28 @@ const server = http.createServer((req, res) => {
           return;
         }
 
-        const body = JSON.parse(bodyData || "{}");
-        if (body.projectId === "unauthorized_project_B") {
+        let body;
+        try {
+          body = JSON.parse(Buffer.concat(parts).toString("utf8") || "{}");
+        } catch (parseErr) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "INVALID_JSON", message: "Request body is not valid JSON." }));
+          return;
+        }
+
+        if (body && body.projectId === "unauthorized_project_B") {
           res.writeHead(403, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: "FORBIDDEN: User not authorized for target project" }));
           return;
         }
 
-        const startTime = Date.now();
-        const requestId = `req_cop_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-        const targetPaperId = (body.paperIds && body.paperIds.length > 0) ? body.paperIds[0] : (body.paperId || "openalex-W123");
-        const queryText = body.query || "Research investigation";
-        const anthropicApiKey = process.env.ANTHROPIC_API_KEY || process.env.LLM_API_KEY;
-        const targetModel = process.env.ANTHROPIC_MODEL || process.env.LLM_MODEL || "claude-3-5-sonnet-20241022";
-
-        let answerText = "";
-        let modelMode = "LOCAL_DETERMINISTIC_VERIFIED";
-        let inputTokens = 120;
-        let outputTokens = 85;
-
-        // If Anthropic API key is present in environment, invoke Claude directly
-        if (anthropicApiKey) {
-          try {
-            const systemPrompt = "You are shoRDs Research Intelligence Copilot. Provide rigorous, evidence-grounded scientific synthesis with verified claims.";
-            const userPrompt = `Synthesize findings for scientific paper ${targetPaperId} regarding the following inquiry:\n"${queryText}"`;
-            const claudeRes = await callAnthropicClaude(anthropicApiKey, targetModel, systemPrompt, userPrompt);
-            if (claudeRes && claudeRes.content && claudeRes.content[0]) {
-              answerText = claudeRes.content[0].text;
-              modelMode = "EXTERNAL_CLAUDE";
-              inputTokens = claudeRes.usage?.input_tokens || inputTokens;
-              outputTokens = claudeRes.usage?.output_tokens || outputTokens;
-            }
-          } catch (claudeErr) {
-            // Log fallback but continue gracefully with verified evidence grounding
-            console.warn(`[AIGateway] Claude call failed, falling back to local grounded synthesis: ${claudeErr.message}`);
-          }
-        }
-
-        if (!answerText) {
-          answerText = `Evidence-grounded analytical synthesis derived from verified full-text chunks for ${targetPaperId}. Methodology confirms rigorous quantitative evaluations on benchmark datasets with reproducible bounds.`;
-        }
-
-        const claimText = `Evidence demonstrates verified empirical performance for ${targetPaperId}: ${queryText.slice(0, 70)}.`;
-        const latencyMs = Date.now() - startTime + 5.2;
-
-        const response = {
-          requestId,
-          status: "VERIFIED",
-          answer: answerText,
-          claims: [
-            {
-              claimId: "c_01",
-              text: claimText,
-              verificationStatus: "VERIFIED",
-              evidenceChunkIds: [`${targetPaperId}_chunk_1`],
-              paperIds: [targetPaperId]
-            }
-          ],
-          evidence: [
-            {
-              chunkId: `${targetPaperId}_chunk_1`,
-              paperId: targetPaperId,
-              section: "Results",
-              page: 1,
-              text: `Empirical findings and verified methodology addressing: ${queryText.slice(0, 100)}.`
-            }
-          ],
-          tokens: {
-            inputTokens,
-            outputTokens,
-            totalTokens: inputTokens + outputTokens,
-            estimatedCostUsd: Number(((inputTokens * 0.000003) + (outputTokens * 0.000015)).toFixed(6))
-          },
-          queryType: "RESEARCH_QUESTION",
-          latencyMs,
-          modelVersion: targetModel,
-          modelMode,
-          promptVersion: "2026.1",
-          replicaId: REPLICA_ID
-        };
-
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(response));
+        const result = await handleCopilotQuery(body, { env: process.env, telemetry, replicaId: REPLICA_ID });
+        res.writeHead(result.httpStatus, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(result.body));
       } catch (err) {
-        res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: err.message }));
+        console.error(`[Copilot] Unexpected failure: ${err && err.message ? err.message : err}`);
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "INTERNAL_ERROR" }));
       }
     });
     return;
