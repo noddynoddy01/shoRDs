@@ -293,9 +293,10 @@ const server = http.createServer((req, res) => {
   // LLM Health & Provider Configuration Probe
   if (pathname === "/api/v1/llm/health" && method === "GET") {
     const hasAnthropicKey = Boolean(process.env.ANTHROPIC_API_KEY || process.env.LLM_API_KEY);
+    const activeModel = process.env.ANTHROPIC_MODEL || process.env.LLM_MODEL || "claude-3-5-sonnet-20241022";
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({
-      anthropic: { configured: hasAnthropicKey, healthy: true, activeModel: process.env.LLM_MODEL || "claude-3-5-sonnet-20241022" },
+      anthropic: { configured: hasAnthropicKey, healthy: true, activeModel },
       openai: { configured: Boolean(process.env.OPENAI_API_KEY), healthy: true },
       gemini: { configured: Boolean(process.env.GEMINI_API_KEY), healthy: true },
       local_deterministic: { configured: true, healthy: true }
@@ -305,11 +306,12 @@ const server = http.createServer((req, res) => {
 
   // LLM Usage & Cost Metrics Probe
   if (pathname === "/api/v1/llm/metrics" && method === "GET") {
+    const activeModel = process.env.ANTHROPIC_MODEL || process.env.LLM_MODEL || "claude-3-5-sonnet-20241022";
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({
       tenantId: "tenant_primary",
       activeProvider: (process.env.ANTHROPIC_API_KEY || process.env.LLM_API_KEY) ? "anthropic" : "local_deterministic",
-      activeModel: process.env.LLM_MODEL || "claude-3-5-sonnet-20241022",
+      activeModel,
       promptVersion: "2026.1",
       costStatus: "MEASURED",
       totalRequests: 42,
@@ -343,7 +345,7 @@ const server = http.createServer((req, res) => {
         const targetPaperId = (body.paperIds && body.paperIds.length > 0) ? body.paperIds[0] : (body.paperId || "openalex-W123");
         const queryText = body.query || "Research investigation";
         const anthropicApiKey = process.env.ANTHROPIC_API_KEY || process.env.LLM_API_KEY;
-        const targetModel = process.env.LLM_MODEL || "claude-3-5-sonnet-20241022";
+        const targetModel = process.env.ANTHROPIC_MODEL || process.env.LLM_MODEL || "claude-3-5-sonnet-20241022";
 
         let answerText = "";
         let modelMode = "LOCAL_DETERMINISTIC_VERIFIED";
