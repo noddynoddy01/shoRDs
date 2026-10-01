@@ -5,6 +5,7 @@
  */
 
 import { LLMProviderType } from "../types/llmGateway";
+import { resolveAnthropicModel } from "../services/llm/anthropicModels";
 
 export interface AppConfig {
   env: "development" | "staging" | "production" | "test";
@@ -38,8 +39,8 @@ export class ProductionConfigManager {
       redisUrl: process.env.REDIS_URL,
       llmApiKey: process.env.LLM_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY,
       llmProvider: (process.env.LLM_PROVIDER as LLMProviderType) || "anthropic",
-      llmModel: process.env.LLM_MODEL || "claude-3-5-sonnet-20241022",
-      llmTimeoutMs: parseInt(process.env.LLM_TIMEOUT_MS || "30000", 10),
+      llmModel: resolveAnthropicModel(),
+      llmTimeoutMs: parseInt(process.env.LLM_TIMEOUT_MS || "120000", 10),
       llmMaxRetries: parseInt(process.env.LLM_MAX_RETRIES || "3", 10),
       llmCostControlEnabled: process.env.LLM_COST_CONTROL_ENABLED !== "false",
       llmFallbackEnabled: process.env.LLM_FALLBACK_ENABLED !== "false",

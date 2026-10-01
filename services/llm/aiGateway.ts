@@ -160,7 +160,8 @@ export class AIGateway {
       systemPrompt,
       model: targetModel,
       maxOutputTokens: route.maxTokens,
-      temperature: route.temperature
+      temperature: route.temperature,
+      effort: route.effort
     };
 
     // Execute with fallback chain if needed

@@ -8,7 +8,7 @@
   "redisProvider": "in_memory_tenant_map_adapter",
   "redisVersion": "In-Memory (Production Target: Redis 7.2)",
   "llmProvider": "local_deterministic_rule_engine",
-  "llmModel": "local-deterministic-v1 (Production Target: Anthropic claude-3-5-sonnet)",
+  "llmModel": "local-deterministic-v1 (Production Target: Anthropic claude-sonnet-5-5)",
   "httpTransport": "in_process_express_rest",
   "deploymentMode": "local_verification",
   "authProvider": "jwt_token_session_context",

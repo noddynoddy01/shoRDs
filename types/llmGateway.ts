@@ -28,7 +28,10 @@ export interface LLMRequest {
   evidenceChunks?: EvidenceContextChunk[];
   model?: string;
   provider?: LLMProviderType;
+  /** Ignored by Anthropic Sonnet 5.5, which rejects non-default sampling values with HTTP 400. */
   temperature?: number;
+  /** Anthropic only: reasoning/cost control, sent as output_config.effort. */
+  effort?: "low" | "medium" | "high" | "xhigh" | "max";
   maxOutputTokens?: number;
   timeoutMs?: number;
   bypassCache?: boolean;
@@ -48,7 +51,10 @@ export interface LLMResponse {
   outputTokens: number;
   totalTokens: number;
   estimatedCostUsd: number;
+  /** ESTIMATED = computed from token counts and a verified price table; NOT_AVAILABLE = no verified price (cost is 0, not real). */
   costStatus: "MEASURED" | "ESTIMATED" | "NOT_AVAILABLE";
+  /** PROVIDER = token counts reported by the provider; ESTIMATED = approximated locally because the provider omitted usage. */
+  usageSource?: "PROVIDER" | "ESTIMATED";
   latencyMs: number;
   finishReason: "STOP" | "LENGTH" | "ERROR" | "TIMEOUT";
   retryCount: number;
@@ -71,6 +77,9 @@ export type LLMErrorCategory =
   | "CIRCUIT_OPEN"
   | "BUDGET_EXCEEDED"
   | "PRIVACY_RESTRICTED"
+  | "REFUSAL"
+  | "MALFORMED_RESPONSE"
+  | "NO_TEXT_CONTENT"
   | "UNKNOWN";
 
 export interface LLMErrorDetails {
@@ -94,7 +103,9 @@ export interface LLMCapabilities {
 
 export interface LLMHealthStatus {
   provider: LLMProviderType;
+  /** True only when a real request has succeeded and no failure has happened since; see `status` for the nuance. */
   healthy: boolean;
+  status?: "NOT_CONFIGURED" | "CONFIGURED_UNVERIFIED" | "OK" | "DEGRADED";
   configured: boolean;
   latencyMs?: number;
   lastChecked: string;

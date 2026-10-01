@@ -32,11 +32,8 @@ export interface UsageRecord {
 
 export class CostManager {
   private pricingMatrix: Record<string, ModelPricing> = {
-    // Anthropic
-    "claude-3-5-sonnet-20241022": { inputPerMillion: 3.00, outputPerMillion: 15.00 },
-    "claude-3-5-sonnet": { inputPerMillion: 3.00, outputPerMillion: 15.00 },
-    "claude-3-5-haiku-20241022": { inputPerMillion: 0.80, outputPerMillion: 4.00 },
-    "claude-3-opus-20240229": { inputPerMillion: 15.00, outputPerMillion: 75.00 },
+    // Anthropic (only models with a verified price; retired models are intentionally absent)
+    "claude-sonnet-5-5": { inputPerMillion: 2.00, outputPerMillion: 10.00 },
     // OpenAI
     "gpt-4o": { inputPerMillion: 2.50, outputPerMillion: 10.00 },
     "gpt-4o-mini": { inputPerMillion: 0.15, outputPerMillion: 0.60 },
@@ -59,8 +56,10 @@ export class CostManager {
   // In-memory telemetry accumulator for quick aggregates (backed by DB in production)
   private usageHistory: UsageRecord[] = [];
 
-  calculateCost(model: string, inputTokens: number, outputTokens: number): number {
-    const pricing = this.pricingMatrix[model] || { inputPerMillion: 3.00, outputPerMillion: 15.00 };
+  /** Returns null when the model has no verified price, instead of charging an invented default rate. */
+  calculateCost(model: string, inputTokens: number, outputTokens: number): number | null {
+    const pricing = this.pricingMatrix[model];
+    if (!pricing) return null;
     const inputCost = (inputTokens / 1_000_000) * pricing.inputPerMillion;
     const outputCost = (outputTokens / 1_000_000) * pricing.outputPerMillion;
     return Number((inputCost + outputCost).toFixed(6));

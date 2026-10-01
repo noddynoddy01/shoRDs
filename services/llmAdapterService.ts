@@ -7,6 +7,7 @@
 import { LLMProvider as LegacyLLMProvider, LLMProviderResult } from "../types/copilotObservability";
 import { AIGateway } from "./llm/aiGateway";
 import { LLMRequest } from "../types/llmGateway";
+import { resolveAnthropicModel } from "./llm/anthropicModels";
 
 export { AIGateway } from "./llm/aiGateway";
 export { AnthropicProvider } from "./llm/providers/anthropicProvider";
@@ -85,7 +86,7 @@ export class ExternalLLMModelProvider implements LegacyLLMProvider {
   }
 
   getModelName(): string {
-    return process.env.LLM_MODEL || "claude-3-5-sonnet-20241022";
+    return resolveAnthropicModel();
   }
 
   async generate(prompt: string, context: Record<string, any> = {}): Promise<LLMProviderResult> {
