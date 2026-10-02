@@ -1,6 +1,11 @@
 /**
- * Production Express Server Entrypoint for shoRDs Research Intelligence OS (Phase 41)
- * Provides TCP HTTP server, /health, /ready, /api/v1/copilot/query, AI Gateway metrics, and graceful shutdown.
+ * TypeScript server skeleton for shoRDs Research Intelligence OS (Phase 41).
+ *
+ * NOT THE PRODUCTION ENTRYPOINT. Docker and railway.json run `node backend/start_local_server.js`
+ * (assembled in backend/runtime.js, HTTP in backend/app.js), which has real Firebase ID-token verification,
+ * project authorization, Redis rate limiting, an honest /ready and persistent jobs. This class has none of that:
+ * its adapters are stubs, so it must not serve traffic. Its copilot handler therefore fails closed instead of
+ * trusting any Authorization header (it used to hand every caller OWNER rights in "tenant_primary").
  */
 
 import { ProductionConfigManager } from "../config/productionConfig";
@@ -48,16 +53,12 @@ export class ProductionServer {
   }
 
   async handleCopilotQuery(body: any, authHeader?: string): Promise<any> {
-    if (!authHeader) {
-      throw new Error("UNAUTHORIZED: Missing Authorization Bearer token");
-    }
-    const authContext = {
-      userId: "usr_session_verified",
-      tenantId: "tenant_primary",
-      role: "OWNER"
-    };
-
-    return CopilotExecutionPipelineService.executePipeline(body, authContext);
+    // Authentication lives in backend/security/auth.js (Firebase ID-token verification) and is wired in backend/app.js.
+    // This skeleton has no verifier, so it refuses every request rather than inventing an identity.
+    void body;
+    void authHeader;
+    void CopilotExecutionPipelineService;
+    throw new Error("NOT_SUPPORTED: backend/server.ts is not the production server; use backend/start_local_server.js");
   }
 
   async handleLLMHealth(): Promise<any> {

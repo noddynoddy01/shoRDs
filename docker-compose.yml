@@ -13,6 +13,11 @@ services:
       - PORT=4000
       - DATABASE_URL=postgresql://shords_user:shords_secure_password@postgres:5432/shords_production
       - REDIS_URL=redis://redis:6379
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:8081}
+      - ADMIN_UIDS=${ADMIN_UIDS:-}
+      - TRUST_PROXY=${TRUST_PROXY:-false}
+      - REQUIRE_AI_PROVIDER=${REQUIRE_AI_PROVIDER:-false}
       - LLM_PROVIDER=${LLM_PROVIDER:-anthropic}
       - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-claude-sonnet-5-5}
       - LLM_API_KEY=${LLM_API_KEY}
@@ -24,7 +29,6 @@ services:
       - LLM_COST_CONTROL_ENABLED=${LLM_COST_CONTROL_ENABLED:-true}
       - LLM_FALLBACK_ENABLED=${LLM_FALLBACK_ENABLED:-true}
       - LLM_CACHE_ENABLED=${LLM_CACHE_ENABLED:-true}
-      - SESSION_SECRET=${SESSION_SECRET}
     depends_on:
       - postgres
       - redis

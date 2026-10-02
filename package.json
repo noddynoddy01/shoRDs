@@ -15,7 +15,8 @@
     "desktop:start": "npx expo export -p web && electron desktop/main.js",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
-    "test:node": "node --test backend/tests/node/anthropicClient.test.js backend/tests/node/copilotService.test.js"
+    "test:node": "node --test backend/tests/node/anthropicClient.test.js backend/tests/node/copilotService.test.js backend/tests/node/auth.test.js backend/tests/node/cors.test.js backend/tests/node/rateLimitConfig.test.js backend/tests/node/cacheKey.test.js backend/tests/node/readiness.test.js",
+    "test:integration": "node --test --test-concurrency=1 backend/tests/node/dataClients.integration.test.js backend/tests/node/api.integration.test.js backend/tests/node/rateLimit.integration.test.js backend/tests/node/readiness.integration.test.js backend/tests/node/jobs.integration.test.js backend/tests/node/cache.integration.test.js backend/tests/node/multiprocess.integration.test.js"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",

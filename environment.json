@@ -11,6 +11,6 @@
   "llmModel": "local-deterministic-v1 (Production Target: Anthropic claude-sonnet-5-5)",
   "httpTransport": "in_process_express_rest",
   "deploymentMode": "local_verification",
-  "authProvider": "jwt_token_session_context",
+  "authProvider": "firebase_id_token_verified_server_side (backend/security/auth.js); the earlier \"jwt_token_session_context\" label described no implementation",
   "evidenceStore": "filesystem_json_provenance_index"
 }

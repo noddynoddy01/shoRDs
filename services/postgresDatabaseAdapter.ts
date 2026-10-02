@@ -1,4 +1,8 @@
 /**
+ * RUNTIME STATUS (Phase 6 audit): NOT used by the production runtime. This adapter is a stub (constant health,
+ * simulated migrations, empty query results). The production database client is backend/data/pgClient.js
+ * (PostgreSQL wire protocol, SCRAM-SHA-256) with schema in backend/data/migrations.js.
+ *
  * Production PostgreSQL Database Adapter for shoRDs Research Intelligence OS (Phase 33)
  * Provides connection pooling, migration execution, transaction rollback, and health/readiness checks.
  */

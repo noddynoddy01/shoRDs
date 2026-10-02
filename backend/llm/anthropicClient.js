@@ -264,6 +264,51 @@ function httpsTransport({ headers, body, timeoutMs }) {
   });
 }
 
+
+/** Default GET transport for the free model-metadata probe. Resolves with { statusCode, headers, body }. */
+function httpsGetTransport({ path, headers, timeoutMs }) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const done = (fn, value) => { if (!settled) { settled = true; clearTimeout(timer); fn(value); } };
+    const req = https.request({ hostname: API_HOST, path, method: "GET", headers }, (res) => {
+      const chunks = [];
+      let size = 0;
+      res.on("data", (c) => {
+        size += c.length;
+        if (size > 262144) { req.destroy(); done(reject, new ClientError("MALFORMED_RESPONSE", "probe response too large")); return; }
+        chunks.push(c);
+      });
+      res.on("end", () => done(resolve, { statusCode: res.statusCode, headers: res.headers, body: Buffer.concat(chunks).toString("utf8") }));
+      res.on("error", (e) => done(reject, new ClientError("NETWORK_ERROR", `response stream error: ${e.code || e.message}`)));
+    });
+    const timer = setTimeout(() => { req.destroy(); done(reject, new ClientError("TIMEOUT", `probe timed out after ${timeoutMs}ms`)); }, timeoutMs);
+    req.on("error", (e) => done(reject, new ClientError("NETWORK_ERROR", `network failure: ${e.code || e.message}`)));
+    req.end();
+  });
+}
+
+/**
+ * Reachability + credential + model probe that spends no tokens: GET /v1/models/{model} (metadata only).
+ * Never throws. status: REACHABLE | UNREACHABLE (network, timeout, 5xx, 429) | REJECTED (401/403/404: key or model unusable) | NOT_CONFIGURED. `detail` is a category, never a key or response body.
+ */
+async function probeModel({ apiKey, model, timeoutMs = 3000, transport = httpsGetTransport }) {
+  if (!apiKey) return { status: "NOT_CONFIGURED", detail: "NO_API_KEY" };
+  try {
+    const res = await transport({
+      path: `/v1/models/${encodeURIComponent(model)}`,
+      headers: { "x-api-key": apiKey, "anthropic-version": API_VERSION },
+      timeoutMs
+    });
+    if (res.statusCode >= 200 && res.statusCode < 300) return { status: "REACHABLE", detail: "OK", httpStatus: res.statusCode };
+    const e = classifyHttpError(res.statusCode, res.body, res.headers || {});
+    // 401/403/404: the provider answered, but this key or model cannot be used (REJECTED). Anything else (5xx, 429...) is UNREACHABLE.
+    const rejected = res.statusCode === 401 || res.statusCode === 403 || res.statusCode === 404;
+    return { status: rejected ? "REJECTED" : "UNREACHABLE", detail: e.category || "UNKNOWN", httpStatus: res.statusCode };
+  } catch (err) {
+    return { status: "UNREACHABLE", detail: (err && err.category) || "NETWORK_ERROR" };
+  }
+}
+
 const defaultSleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /**
@@ -349,5 +394,7 @@ module.exports = {
   classifyHttpError,
   computeCost,
   httpsTransport,
+  httpsGetTransport,
+  probeModel,
   callMessages
 };

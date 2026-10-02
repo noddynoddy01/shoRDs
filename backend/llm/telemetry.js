@@ -10,7 +10,7 @@
 function createTelemetry({ now = Date.now, replicaId = "unknown" } = {}) {
   const startedAt = now();
   const state = {
-    served: { realProvider: 0, fallback: 0 },
+    served: { realProvider: 0, fallback: 0, cacheHit: 0 },
     fallbackReasons: {},
     providerErrors: {},
     inputTokens: 0,
@@ -21,10 +21,26 @@ function createTelemetry({ now = Date.now, replicaId = "unknown" } = {}) {
     lastSuccess: null,
     lastError: null
   };
+  const cache = { hits: 0, misses: 0, stores: 0, dedupWaits: 0, errors: 0 };
+  // Components are reported NOT_WIRED until the entrypoint declares them wired (setComponents). Wiring is a fact about
+  // the running process, not a default.
+  let components = { cache: "NOT_WIRED", deduplication: "NOT_WIRED", rateLimiter: "NOT_WIRED" };
+  let rateLimiterSnapshot = null;
+
+  function recordCache(kind) {
+    const k = { hit: "hits", miss: "misses", store: "stores", dedup_wait: "dedupWaits", error: "errors" }[kind];
+    if (k) cache[k] += 1;
+  }
+  function setComponents(next) {
+    components = { ...components, ...next };
+  }
+  function setRateLimiterSource(fn) {
+    rateLimiterSnapshot = fn;
+  }
 
   /**
    * @param {object} e
-   * @param {"REAL_PROVIDER"|"FALLBACK"} e.served       how the response was actually produced
+   * @param {"REAL_PROVIDER"|"FALLBACK"|"CACHE_HIT"} e.served       how the response was actually produced
    * @param {string} [e.fallbackReason]
    * @param {{category:string, httpStatus?:number}} [e.providerError]  set when a provider call failed
    * @param {{inputTokens:number, outputTokens:number}|null} [e.usage] real usage reported by the provider
@@ -44,6 +60,8 @@ function createTelemetry({ now = Date.now, replicaId = "unknown" } = {}) {
         state.realWithCost += 1;
         state.costUsd += e.costUsd;
       }
+    } else if (e.served === "CACHE_HIT") {
+      state.served.cacheHit += 1; // answered from the shared cache: no provider call, no tokens, not a fallback
     } else {
       state.served.fallback += 1;
       const reason = e.fallbackReason || "UNSPECIFIED";
@@ -64,9 +82,10 @@ function createTelemetry({ now = Date.now, replicaId = "unknown" } = {}) {
       since: new Date(startedAt).toISOString(),
       note: "In-memory counters for this replica only; reset on restart; not aggregated across replicas.",
       requests: {
-        total: real + state.served.fallback,
+        total: real + state.served.fallback + state.served.cacheHit,
         realProvider: real,
-        fallback: state.served.fallback
+        fallback: state.served.fallback,
+        cacheHit: state.served.cacheHit
       },
       fallbackReasons: { ...state.fallbackReasons },
       providerErrors: { ...state.providerErrors },
@@ -85,16 +104,16 @@ function createTelemetry({ now = Date.now, replicaId = "unknown" } = {}) {
         state.realWithCost > 0
           ? { costStatus: "ESTIMATED", requestsCounted: state.realWithCost, estimatedCostUsd: Number(state.costUsd.toFixed(6)) }
           : { costStatus: "NOT_MEASURED", requestsCounted: 0, estimatedCostUsd: null },
-      // Verified by inspection: backend/start_local_server.js does not import the TypeScript cache,
-      // rate limiter or deduplicator, so none of these run on the production request path.
-      runtimeComponents: { cache: "NOT_WIRED", deduplication: "NOT_WIRED", rateLimiter: "NOT_WIRED" },
-      cacheHitRatio: null,
+      runtimeComponents: { ...components },
+      cache: components.cache === "WIRED" ? { ...cache } : null,
+      cacheHitRatio: cache.hits + cache.misses > 0 ? Number((cache.hits / (cache.hits + cache.misses)).toFixed(4)) : null,
+      rateLimiter: rateLimiterSnapshot ? rateLimiterSnapshot() : null,
       lastSuccess: state.lastSuccess,
       lastError: state.lastError
     };
   }
 
-  return { record, snapshot };
+  return { record, recordCache, setComponents, setRateLimiterSource, snapshot };
 }
 
 module.exports = { createTelemetry };

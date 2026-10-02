@@ -23,7 +23,7 @@ export interface CopilotResponseClaim {
 
 export interface CopilotResponse {
   requestId: string;
-  status: "VERIFIED" | "PARTIALLY_VERIFIED" | "INSUFFICIENT_EVIDENCE" | "FAILED";
+  status: "VERIFIED" | "PARTIALLY_VERIFIED" | "UNVERIFIED" | "INSUFFICIENT_EVIDENCE" | "FAILED";
   answer: string;
   claims: CopilotResponseClaim[];
   evidence: { chunkId: string; paperId: string; section: string; page: number; text: string }[];

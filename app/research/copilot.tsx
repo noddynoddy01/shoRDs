@@ -13,14 +13,13 @@ import { ResearchCopilotService } from "../../services/researchCopilotService";
 import { ResearchMapService } from "../../services/researchMapService";
 
 export const ResearchCopilotWorkspace: React.FC = () => {
+  // Starts empty: nothing is pre-selected. (It used to be pre-filled with invented project / paper / evidence ids.)
   const [context, setContext] = useState<ResearchContext>({
-    projectId: "proj_medical_fl",
-    activeResearchQuestion: "What are effective transformer architectures for medical image segmentation under differential privacy?",
-    selectedPaperIds: ["openalex-W123", "arxiv-2305-14120"],
-    selectedEvidenceIds: ["chunk_1842", "chunk_b_08"],
-    selectedMethodIds: ["m_vit"],
-    selectedDatasetIds: ["d_mimic_iv"],
-    selectedGapIds: ["gap_dropout"]
+    selectedPaperIds: [],
+    selectedEvidenceIds: [],
+    selectedMethodIds: [],
+    selectedDatasetIds: [],
+    selectedGapIds: []
   });
 
   const [isLoading, setIsLoading] = useState(false);
@@ -34,10 +33,8 @@ export const ResearchCopilotWorkspace: React.FC = () => {
         const map = ResearchMapService.buildResearchMap(context.projectId, query);
         setActiveMap(map);
       }
-      const response = await ResearchCopilotService.processCopilotRequest(
-        { query, mode, projectId: context.projectId },
-        { userId: "usr_101", tenantId: "tenant_default", scope: "PROJECT_PRIVATE" }
-      );
+      // Identity (user, tenant, project access) is decided by the backend from the verified ID token, not sent from here.
+      const response = await ResearchCopilotService.processCopilotRequest({ query, mode, projectId: context.projectId });
       setActiveResponse(response);
     } finally {
       setIsLoading(false);

@@ -111,31 +111,11 @@ export class ResearchQueryEngine {
   }
 
   /**
-   * Executes method comparison across papers.
+   * Method comparison across papers. Returns no entries until it is fed retrieved, provenance-linked evidence.
+   * (It previously returned two invented rows - AUROC 0.924 vs 0.938 on "MIMIC-IV" - for any method name.)
    */
-  static compareMethods(methodName: string): MethodComparisonEntry[] {
-    return [
-      {
-        methodName,
-        paperId: "openalex-W123",
-        dataset: "MIMIC-IV",
-        evaluationMetric: "AUROC",
-        reportedResult: "0.924",
-        sampleSize: "40,000 subjects",
-        limitations: "Non-IID distribution degrades convergence by 4.2%",
-        evidenceChunkIds: ["p1-chunk-03"]
-      },
-      {
-        methodName: `${methodName} (Centralized Baseline)`,
-        paperId: "arxiv-2305-14120",
-        dataset: "MIMIC-IV",
-        evaluationMetric: "AUROC",
-        reportedResult: "0.938",
-        sampleSize: "NOT_REPORTED", // Explicit NOT_REPORTED handling
-        limitations: "Requires centralized data aggregation",
-        evidenceChunkIds: ["p2-chunk-05"]
-      }
-    ];
+  static compareMethods(_methodName: string): MethodComparisonEntry[] {
+    return [];
   }
 
   /**

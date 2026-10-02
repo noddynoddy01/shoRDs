@@ -1,4 +1,8 @@
 /**
+ * RUNTIME STATUS (Phase 6 audit): NOT used by the production runtime. It sends inline commands without AUTH or
+ * quoting and silently falls back to per-process maps when Redis is unreachable, so it cannot provide distributed
+ * limits or locks. The production Redis client is backend/data/redisClient.js (RESP2, AUTH, no silent fallback).
+ *
  * Production Redis Cache Adapter for shoRDs Research Intelligence OS (Phase 33 & Phase 41)
  * Provides tenant key namespaces, TTL expiration, monotonic version invalidations,
  * atomic increments for distributed rate limiting, setNx for distributed locking,

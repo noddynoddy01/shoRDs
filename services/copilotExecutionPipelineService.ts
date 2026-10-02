@@ -98,10 +98,12 @@ export class CopilotExecutionPipelineService {
 
     // 10. Candidate Claim Extraction & Verification Stage
     const t9 = performance.now();
+    // No claim-to-evidence verification exists in this harness: an excerpt being present does not verify anything,
+    // so claims are NEEDS_REVIEW and the response is UNVERIFIED (it used to label every excerpt "VERIFIED").
     const candidateClaims = evidence.map((e, idx) => ({
       claimId: `claim_${idx + 1}`,
       text: e.text.slice(0, 140),
-      verificationStatus: "VERIFIED" as const,
+      verificationStatus: "NEEDS_REVIEW" as const,
       evidenceChunkIds: [e.chunkId],
       paperIds: [e.paperId]
     }));
@@ -115,7 +117,7 @@ export class CopilotExecutionPipelineService {
 
     const response: CopilotResponse = {
       requestId,
-      status: "VERIFIED",
+      status: "UNVERIFIED",
       answer: modelRes.content,
       claims: verifiedClaims,
       evidence,
