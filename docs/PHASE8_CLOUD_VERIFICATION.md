@@ -12,6 +12,33 @@ in a PASS / FAIL / NOT_VERIFIED line rather than an opinion.
 | No access to your Railway or Vercel projects from this session. | Railway variables could not be read (Step 2): they must be listed by you, not assumed. |
 | The sandbox cannot reach the scholarly providers, Google's key endpoint, npm or Docker Hub; the linked computer has no folder shared and runs commands in a Linux VM, not on your Windows host. | Live retrieval, Docker build and the Expo web build did not run (Steps 5-9). |
 
+## 1b. Observed production state (read-only, 2026-10-04, via the desktop app's built-in browser)
+
+The sandbox cannot reach `*.up.railway.app` or `*.vercel.app` (egress allowlist), so these were plain GET requests made from the
+person's own desktop browser. Nothing was submitted, no sign-in was attempted, and no token or secret was read.
+
+| Observation | Result |
+|---|---|
+| Railway `GET /health` | 200 `{"status":"UP"}` |
+| Railway `GET /ready` | 200, **old shape**: `{ready, database, redis, aiGateway, details}`. No `auth` or `aiProvider` fields. |
+| Railway `GET /api/v1/projects`, `GET /api/v1/replica` | **404 NOT_FOUND**. These routes exist in Phase 6+, so the backend is running pre-Phase-6 code. |
+| Vercel entry bundle (`/_expo/static/js/web/entry-*.js`, 3.7 MB) | No Anthropic/OpenAI/Google key pattern, no `postgres://` or `redis://` URL, no private key. **But** it still contains the browser-side Gemini call (`generativelanguage.googleapis.com` with a key read from `shords.geminiKey`), the fake payment flow (`txn_demo_verification_token`), the local entitlement key `shords_user_subscription_state`, a call to a non-existent `/api/v1/search`, and no `purgeLegacyBrowserAiKeys` and no Firebase `apiKey` configuration. This is the pre-Phase-7/8 frontend. |
+| Railway dashboard | Browser is not signed in. Deployed commit and variables could not be read. |
+
+Conclusion: the live site still has the problems Phase 8 removed (client-side Pro grant and browser-side Gemini). Pushing the six
+commits and redeploying both services is the single action that closes them. The Vercel and Railway deployed *commits* themselves
+are `NOT_VERIFIED` (no dashboard access); the statements above are inferred from observed behaviour.
+
+Push diagnosis: `git push` -> 403 (repository not in the session's authorised set); `gh api repos/noddynoddy01/shoRDs` -> "not
+enabled for this session"; `add_repo(access: push)` -> `permission_denied: link your GitHub account`; `list_repos` -> "no GitHub
+account linked". The only fix is linking GitHub to this session (or applying `shords-all-unpushed.bundle` yourself). No other
+credential path exists and none was retried.
+
+Re-run this session (working tree unchanged, commit `78352b1`): `npm run test:node` 191/191, `npm run test:integration` 131/131
+(real PostgreSQL 16 + Redis 7), Python 1070 OK, gateway `tsc` 3 errors (all `@types/node` missing in the sandbox, identical to
+baseline), no tracked `.env`, no key/private-key patterns in tracked source. Docker: client present but no daemon and Docker Hub
+unreachable -> `NOT_VERIFIED`. Expo web build: npm registry 403 -> `NOT_VERIFIED`.
+
 ## 2. What this phase changed (code, all tested)
 
 | Area | Change | Proof |
