@@ -29,6 +29,23 @@ Conclusion: the live site still has the problems Phase 8 removed (client-side Pr
 commits and redeploying both services is the single action that closes them. The Vercel and Railway deployed *commits* themselves
 are `NOT_VERIFIED` (no dashboard access); the statements above are inferred from observed behaviour.
 
+### Additional production findings (same read-only session)
+
+- **Railway is older than GitHub `main`.** The live `/api/v1/llm/health` has no `activeModel` and `/api/v1/llm/metrics` has no
+  `totalRequests`/`cacheHitRatio`; `e479dd8` (and `af70141`) emit them. The response shapes and the missing `/api/v1/replica` match
+  `062a320` / `05e539d` (2026-09-29/30). So Railway did not even take the last two commits already on GitHub. Likely causes, not
+  proven: a build that failed and left the old container serving (the Dockerfile builder stage runs `npx tsc --noEmit`, and
+  `@types/node` is not a direct devDependency), or auto-deploy not wired to `main`. Read the Railway build log of the latest
+  deployment before assuming the next push will go live.
+- **The old backend's "authentication" is only the presence of an `Authorization` header** (`/api/v1/analysis`,
+  `/api/v1/copilot/query`: any value passes). `ANTHROPIC_API_KEY` is currently *not* configured there
+  (`llm/health: anthropic.configured=false`). **Do not set the key on Railway until the Phase 6+ backend is live and `/ready` reports
+  `auth` OK**, or anyone could spend it.
+- The stale frontend only *reads* `shords.geminiKey` / `shords.aiSource` (nothing in the old UI writes them), so the browser-side
+  Gemini path is reachable only by someone seeding localStorage by hand. The fake `txn_demo_verification_token` upgrade only changes
+  client-side state; the old backend has no entitlement system to grant. Both are still removed by Phase 8.
+- No existing kill switch or feature flag exists in the stale frontend or backend, so there is no mitigation short of deploying.
+
 Push diagnosis: `git push` -> 403 (repository not in the session's authorised set); `gh api repos/noddynoddy01/shoRDs` -> "not
 enabled for this session"; `add_repo(access: push)` -> `permission_denied: link your GitHub account`; `list_repos` -> "no GitHub
 account linked". The only fix is linking GitHub to this session (or applying `shords-all-unpushed.bundle` yourself). No other
