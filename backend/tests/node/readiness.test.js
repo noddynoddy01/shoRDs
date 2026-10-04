@@ -4,6 +4,8 @@ const assert = require("node:assert/strict");
 const { createReadinessChecker, createAiProbe } = require("../../readiness");
 const { probeModel } = require("../../llm/anthropicClient");
 const { FAKE_ANTHROPIC_KEY } = require("./helpers");
+const { MIGRATIONS } = require("../../data/migrations");
+const LATEST = Math.max(...MIGRATIONS.map((m) => m.version)); // the schema version this build expects
 
 // Controlled fakes: these tests are about how /ready interprets dependency state. Real-dependency versions run in api.integration.test.js.
 const SECRET_DB = "postgresql://svc_user:s3cr3t-db-pass@db.internal.example:5432/prod";
@@ -20,7 +22,7 @@ function checker(over = {}) {
 const poolWithSchema = (current) => ({ ping: async () => ({ ok: true, latencyMs: 2 }), query: async () => ({ rows: [{ v: current }] }) });
 
 test("all dependencies healthy -> READY, 200-equivalent, every check OK", async () => {
-  const r = await checker({ pool: poolWithSchema(1) })();
+  const r = await checker({ pool: poolWithSchema(LATEST) })();
   assert.equal(r.ready, true);
   assert.equal(r.status, "READY");
   assert.deepEqual([r.checks.database.status, r.checks.redis.status, r.checks.auth.status, r.checks.aiProvider.status], ["OK", "OK", "OK", "REACHABLE"]);
@@ -38,15 +40,17 @@ test("database unreachable -> NOT_READY with a category code only", async () => 
 });
 
 test("database reachable but schema behind -> NOT_READY (SCHEMA_NOT_READY)", async () => {
-  const r = await checker({ pool: poolWithSchema(0) })();
-  assert.equal(r.ready, false);
-  assert.equal(r.checks.database.status, "SCHEMA_NOT_READY");
-  assert.deepEqual({ c: r.checks.database.schema.current, e: r.checks.database.schema.expected }, { c: 0, e: 1 });
+  for (const behind of [0, LATEST - 1]) {
+    const r = await checker({ pool: poolWithSchema(behind) })();
+    assert.equal(r.ready, false, `schema ${behind} of ${LATEST}`);
+    assert.equal(r.checks.database.status, "SCHEMA_NOT_READY");
+    assert.deepEqual({ c: r.checks.database.schema.current, e: r.checks.database.schema.expected }, { c: behind, e: LATEST });
+  }
 });
 
 test("Redis unreachable -> NOT_READY", async () => {
   const redis = { ping: async () => ({ ok: false, latencyMs: 2, error: "REDIS_CONNECT_FAILED" }) };
-  const r = await checker({ pool: poolWithSchema(1), redis })();
+  const r = await checker({ pool: poolWithSchema(LATEST), redis })();
   assert.equal(r.ready, false);
   assert.equal(r.checks.redis.status, "DOWN");
   assert.equal(r.checks.redis.error, "REDIS_CONNECT_FAILED");
@@ -60,29 +64,29 @@ test("database configuration missing (no DATABASE_URL) -> NOT_CONFIGURED and NOT
 });
 
 test("Redis configuration missing (no REDIS_URL) -> NOT_CONFIGURED and NOT ready, never 'alive'", async () => {
-  const r = await checker({ pool: poolWithSchema(1), redis: null })();
+  const r = await checker({ pool: poolWithSchema(LATEST), redis: null })();
   assert.equal(r.ready, false);
   assert.equal(r.checks.redis.status, "NOT_CONFIGURED");
 });
 
 test("authentication not configured or its signing keys unreachable -> NOT_READY", async () => {
-  let r = await checker({ pool: poolWithSchema(1), verifier: { status: async () => ({ configured: false, ready: false, keysLoaded: 0 }) } })();
+  let r = await checker({ pool: poolWithSchema(LATEST), verifier: { status: async () => ({ configured: false, ready: false, keysLoaded: 0 }) } })();
   assert.equal(r.ready, false);
   assert.equal(r.checks.auth.status, "NOT_CONFIGURED");
-  r = await checker({ pool: poolWithSchema(1), verifier: { status: async () => ({ configured: true, ready: false, keysLoaded: 0 }) } })();
+  r = await checker({ pool: poolWithSchema(LATEST), verifier: { status: async () => ({ configured: true, ready: false, keysLoaded: 0 }) } })();
   assert.equal(r.ready, false);
   assert.equal(r.checks.auth.status, "KEYS_UNAVAILABLE");
 });
 
 test("AI provider not configured (no key): DEGRADED but ready by default; NOT_READY when REQUIRE_AI_PROVIDER=true", async () => {
   const aiCheck = createAiProbe({ env: {}, probe: async () => { throw new Error("must not probe without a key"); } });
-  let r = await checker({ pool: poolWithSchema(1), aiCheck })();
+  let r = await checker({ pool: poolWithSchema(LATEST), aiCheck })();
   assert.equal(r.ready, true);
   assert.equal(r.status, "DEGRADED");
   assert.equal(r.checks.aiProvider.status, "NOT_CONFIGURED");
   assert.equal(r.checks.aiProvider.required, false);
   assert.match(r.warnings[0], /fallback/);
-  r = await checker({ pool: poolWithSchema(1), aiCheck, env: { REQUIRE_AI_PROVIDER: "true" } })();
+  r = await checker({ pool: poolWithSchema(LATEST), aiCheck, env: { REQUIRE_AI_PROVIDER: "true" } })();
   assert.equal(r.ready, false);
   assert.equal(r.status, "NOT_READY");
 });
@@ -90,11 +94,11 @@ test("AI provider not configured (no key): DEGRADED but ready by default; NOT_RE
 test("provider configured but unreachable: reported UNREACHABLE (not healthy); DEGRADED, or NOT_READY when required", async () => {
   const env = { ANTHROPIC_API_KEY: FAKE_ANTHROPIC_KEY };
   const aiCheck = createAiProbe({ env, probe: async () => ({ status: "UNREACHABLE", detail: "NETWORK_ERROR" }) });
-  let r = await checker({ pool: poolWithSchema(1), aiCheck, env })();
+  let r = await checker({ pool: poolWithSchema(LATEST), aiCheck, env })();
   assert.equal(r.ready, true);
   assert.equal(r.status, "DEGRADED");
   assert.deepEqual({ s: r.checks.aiProvider.status, d: r.checks.aiProvider.detail }, { s: "UNREACHABLE", d: "NETWORK_ERROR" });
-  r = await checker({ pool: poolWithSchema(1), aiCheck, env: { ...env, REQUIRE_AI_PROVIDER: "true" } })();
+  r = await checker({ pool: poolWithSchema(LATEST), aiCheck, env: { ...env, REQUIRE_AI_PROVIDER: "true" } })();
   assert.equal(r.ready, false);
 });
 

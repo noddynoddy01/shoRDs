@@ -1,10 +1,13 @@
+import { Platform } from "react-native";
 import { initializeApp, getApps } from "firebase/app";
 import {
   createUserWithEmailAndPassword,
   getAuth,
   GoogleAuthProvider,
+  initializeAuth,
   signInWithCredential,
   signInWithEmailAndPassword,
+  signInWithPopup,
   updateProfile
 } from "firebase/auth";
 import {
@@ -28,13 +31,34 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID
 };
 
-const hasFirebaseConfig = Boolean(firebaseConfig.apiKey && firebaseConfig.projectId);
+// Firebase web config values are public identifiers (not secrets); they are supplied per environment, never hardcoded.
+export const hasFirebaseConfig = Boolean(
+  firebaseConfig.apiKey && firebaseConfig.authDomain && firebaseConfig.projectId && firebaseConfig.appId
+);
 
 export const firebaseApp = hasFirebaseConfig
   ? getApps()[0] ?? initializeApp(firebaseConfig)
   : undefined;
 
-export const auth = firebaseApp ? getAuth(firebaseApp) : undefined;
+/**
+ * Web uses the SDK's default (IndexedDB/localStorage) persistence. On native the session is persisted in AsyncStorage so a
+ * restart keeps the user signed in. `initializeAuth` throws if it already ran (fast refresh), in which case getAuth returns it.
+ */
+function createAuth(app: NonNullable<typeof firebaseApp>) {
+  if (Platform.OS === "web") return getAuth(app);
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const storage = require("@react-native-async-storage/async-storage").default;
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { getReactNativePersistence } = require("firebase/auth") as { getReactNativePersistence?: (s: unknown) => never };
+    if (!getReactNativePersistence) return getAuth(app);
+    return initializeAuth(app, { persistence: getReactNativePersistence(storage) });
+  } catch (_) {
+    return getAuth(app);
+  }
+}
+
+export const auth = firebaseApp ? createAuth(firebaseApp) : undefined;
 export const db = firebaseApp ? getFirestore(firebaseApp) : undefined;
 export const storage = firebaseApp ? getStorage(firebaseApp) : undefined;
 
@@ -60,8 +84,19 @@ export async function signupWithEmail(
     interests,
     profileImage: ""
   };
-  await setDoc(doc(db, "users", result.user.uid), profile);
+  try {
+    await setDoc(doc(db, "users", result.user.uid), profile);
+  } catch (_) {
+    // The account exists and is signed in; a profile-document failure (e.g. Firestore rules) must not look like a failed sign-up.
+    console.warn("[Auth] account created; profile document could not be written");
+  }
   return result;
+}
+
+/** Web only (popup). Native Google sign-in needs an OAuth client and is not available in this build. */
+export async function loginWithGooglePopup() {
+  if (!auth) throw new Error("Firebase is not configured.");
+  return signInWithPopup(auth, new GoogleAuthProvider());
 }
 
 export async function loginWithGoogleIdToken(idToken: string) {

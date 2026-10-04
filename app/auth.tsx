@@ -1,7 +1,5 @@
-import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
-  Alert,
   Animated,
   KeyboardAvoidingView,
   Platform,
@@ -18,14 +16,20 @@ import { Logo } from "@/components/Logo";
 import { Screen } from "@/components/Screen";
 import { colors as defaultColors, radius } from "@/constants/theme";
 import { domains } from "@/data/samplePapers";
-import { loginWithEmail, signupWithEmail, firebaseApp } from "@/services/firebase";
+import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { validateSignIn, validateSignUp } from "@/services/auth/forms";
 
-type AuthMode = "login" | "signup" | "mentor";
+/**
+ * Sign-in / sign-up. Identity is Firebase only: a successful submit signs the user in with Firebase, and the route guard
+ * (app/_layout.tsx) then takes them into the app. There is no local, offline, admin or mentor login, and a failure never
+ * creates a profile: the user stays signed out and is told why.
+ */
+type AuthMode = "login" | "signup";
 
 export default function AuthScreen() {
   const { colors, fontSizeScale, theme } = useTheme();
+  const { status, issue, login, register, loginWithGoogle, dismissIssue } = useAuth();
   const [mode, setMode] = useState<AuthMode>("login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -33,10 +37,12 @@ export default function AuthScreen() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [interests, setInterests] = useState<string[]>(["AI / ML"]);
   const [loading, setLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const float = useRef(new Animated.Value(0)).current;
   const reveal = useRef(new Animated.Value(0)).current;
 
   const styles = getStyles(colors, fontSizeScale);
+  const unconfigured = status === "UNCONFIGURED";
 
   useEffect(() => {
     Animated.timing(reveal, {
@@ -79,127 +85,48 @@ export default function AuthScreen() {
     );
   }
 
+  function switchMode(next: AuthMode) {
+    setMode(next);
+    setFormError(null);
+    dismissIssue();
+  }
+
   async function submit() {
+    if (loading || unconfigured) return;
+    setFormError(null);
+    dismissIssue();
+    const problem = mode === "login" ? validateSignIn({ email, password }) : validateSignUp({ name, email, password });
+    if (problem) {
+      setFormError(problem);
+      return;
+    }
     setLoading(true);
     try {
-      // 1. Admin login check
-      const usernameInput = email.trim().toUpperCase();
-      if (usernameInput === "ABHINAV01" && password === "HELLO") {
-        const adminProfile = {
-          id: "admin-user",
-          name: "Abhinav Prakash (Admin)",
-          email: "abhinav01@shords.app",
-          bio: "Lead Research Administrator for shoRDs.",
-          interests: ["AI / ML", "Quantum Computing", "Space Tech", "Robotics"],
-          profileImage: "",
-          role: "admin" as const,
-          phoneNumber: "+91 8757674333",
-          country: "India",
-          language: "English"
-        };
-        await AsyncStorage.setItem("shords.currentUser", JSON.stringify(adminProfile));
-        Alert.alert("Admin Login Successful", "Welcome back, Abhinav! You have administrator privileges.");
-        router.replace("/(tabs)");
-        return;
-      }
-
-      // 2. Mentor login check
-      if (mode === "mentor") {
-        const mentorId = email.trim().toLowerCase();
-        const { mentors } = await import("@/data/samplePapers");
-        const found = mentors.find((m) => m.id === mentorId || m.name.toLowerCase().includes(mentorId));
-        
-        const mentorProfile = {
-          id: found?.id || `mentor-${Date.now()}`,
-          name: found?.name || "Dr. " + (email.split("@")[0] || "Scholarly Mentor"),
-          email: found?.id ? `${found.id}@shords.app` : email,
-          bio: found?.bio || "Research mentor dedicated to guidance.",
-          interests: found?.focus ? [found.focus] : ["Research"],
-          profileImage: "",
-          role: "mentor" as const,
-          phoneNumber: "+91 9999999999",
-          country: "India",
-          language: "English"
-        };
-        await AsyncStorage.setItem("shords.currentUser", JSON.stringify(mentorProfile));
-        Alert.alert("Mentor Login Successful", `Welcome, ${mentorProfile.name}!`);
-        router.replace("/(tabs)");
-        return;
-      }
-
-      // 3. Standard login/signup
-      if (mode === "login") {
-        if (firebaseApp) {
-          await loginWithEmail(email, password);
-        }
-        
-        // Mock profile write for local use
-        const userProfile = {
-          id: `user-${Date.now()}`,
-          name: email.split("@")[0] || "Researcher",
-          email: email,
-          bio: "Learning emerging technology through simplified research discoveries.",
-          interests: ["AI / ML"],
-          profileImage: "",
-          role: "user" as const,
-          phoneNumber: "+1 555-0199",
-          country: "International",
-          language: "English"
-        };
-        await AsyncStorage.setItem("shords.currentUser", JSON.stringify(userProfile));
-      } else {
-        if (firebaseApp) {
-          await signupWithEmail(name, email, password, interests);
-        }
-        
-        const isIndia = phoneNumber.trim().startsWith("+91") || phoneNumber.trim().startsWith("91");
-        const userProfile = {
-          id: `user-${Date.now()}`,
-          name: name,
-          email: email,
-          bio: "Learning emerging technology through simplified research discoveries.",
-          interests: interests,
-          profileImage: "",
-          role: "user" as const,
-          phoneNumber: phoneNumber,
-          country: isIndia ? "India" : "International",
-          language: "English"
-        };
-        await AsyncStorage.setItem("shords.currentUser", JSON.stringify(userProfile));
-      }
-      router.replace("/(tabs)");
-    } catch (error) {
-      if (!email || !password || (mode === "signup" && (!name || !phoneNumber))) {
-        Alert.alert("Complete the form", "Add the required account details to continue.");
-      } else {
-        // Fallback for offline/local sandbox run
-        const isIndia = phoneNumber.trim().startsWith("+91") || phoneNumber.trim().startsWith("91");
-        const fallbackProfile = {
-          id: `user-${Date.now()}`,
-          name: mode === "signup" ? name : email.split("@")[0] || "Researcher",
-          email: email,
-          bio: "Learning emerging technology through simplified research discoveries.",
-          interests: mode === "signup" ? interests : ["AI / ML"],
-          profileImage: "",
-          role: "user" as const,
-          phoneNumber: phoneNumber || "+1 555-0199",
-          country: isIndia ? "India" : "International",
-          language: "English"
-        };
-        await AsyncStorage.setItem("shords.currentUser", JSON.stringify(fallbackProfile));
-        router.replace("/(tabs)");
-      }
+      // On success Firebase reports the user, the session becomes SIGNED_IN and the route guard navigates; nothing to do here.
+      // On failure the session stays SIGNED_OUT and `issue` says why.
+      if (mode === "login") await login(email, password);
+      else await register(name, email, password, interests, { phoneNumber });
     } finally {
       setLoading(false);
     }
   }
 
-  function googleLogin() {
-    Alert.alert(
-      "Google Login",
-      "Add EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID and Firebase OAuth credentials to enable Google sign-in."
-    );
+  async function googleLogin() {
+    if (loading || unconfigured) return;
+    if (Platform.OS !== "web") {
+      setFormError("Google sign-in is available on the web app. Use your email and password here.");
+      return;
+    }
+    setFormError(null);
+    setLoading(true);
+    try {
+      await loginWithGoogle();
+    } finally {
+      setLoading(false);
+    }
   }
+
+  const message = formError || (issue ? issue.message : null);
 
   const haloGlow = theme === "light" || theme === "sepia"
     ? "rgba(6, 182, 212, 0.08)"
@@ -260,7 +187,7 @@ export default function AuthScreen() {
           >
             <View style={styles.segment}>
               <Pressable
-                onPress={() => setMode("login")}
+                onPress={() => switchMode("login")}
                 style={[styles.segmentButton, mode === "login" && styles.segmentActive]}
               >
                 <Text style={[styles.segmentText, mode === "login" && styles.segmentTextActive]}>
@@ -268,15 +195,7 @@ export default function AuthScreen() {
                 </Text>
               </Pressable>
               <Pressable
-                onPress={() => setMode("mentor")}
-                style={[styles.segmentButton, mode === "mentor" && styles.segmentActive]}
-              >
-                <Text style={[styles.segmentText, mode === "mentor" && styles.segmentTextActive]}>
-                  Mentor
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => setMode("signup")}
+                onPress={() => switchMode("signup")}
                 style={[styles.segmentButton, mode === "signup" && styles.segmentActive]}
               >
                 <Text style={[styles.segmentText, mode === "signup" && styles.segmentTextActive]}>
@@ -286,15 +205,19 @@ export default function AuthScreen() {
             </View>
 
             <Text style={styles.title}>
-              {mode === "login" ? "Enter your research space" : mode === "mentor" ? "Mentor Hub Login" : "Create your research profile"}
+              {mode === "login" ? "Enter your research space" : "Create your research profile"}
             </Text>
             <Text style={styles.subtitle}>
               {mode === "login"
                 ? "A calmer way to discover papers, technologies, and ideas."
-                : mode === "mentor"
-                ? "Connect with students, manage chats, and review papers."
                 : "Choose the domains that should shape your discovery feed."}
             </Text>
+
+            {unconfigured && (
+              <Text style={styles.notice} accessibilityRole="alert">
+                Sign-in is not configured for this build, so no one can sign in. The administrator needs to set the EXPO_PUBLIC_FIREBASE_* variables and rebuild.
+              </Text>
+            )}
 
             {mode === "signup" && (
               <>
@@ -303,14 +226,16 @@ export default function AuthScreen() {
                   onChangeText={setName}
                   placeholder="Full Name"
                   placeholderTextColor={colors.subdued}
+                  autoComplete="name"
                   style={styles.input}
                 />
                 <TextInput
                   value={phoneNumber}
                   onChangeText={setPhoneNumber}
-                  placeholder="Phone (e.g. +91 8757674333)"
+                  placeholder="Phone (optional, used for regional pricing)"
                   placeholderTextColor={colors.subdued}
                   keyboardType="phone-pad"
+                  autoComplete="tel"
                   style={styles.input}
                 />
               </>
@@ -318,10 +243,12 @@ export default function AuthScreen() {
             <TextInput
               value={email}
               onChangeText={setEmail}
-              placeholder={mode === "login" ? "Email or Admin Username" : mode === "mentor" ? "Mentor ID (e.g. rajeev-shorey)" : "Email"}
+              placeholder="Email"
               placeholderTextColor={colors.subdued}
               autoCapitalize="none"
-              keyboardType={mode === "signup" ? "email-address" : "default"}
+              autoCorrect={false}
+              autoComplete="email"
+              keyboardType="email-address"
               style={styles.input}
             />
             <TextInput
@@ -330,6 +257,9 @@ export default function AuthScreen() {
               placeholder="Password"
               placeholderTextColor={colors.subdued}
               secureTextEntry
+              autoCapitalize="none"
+              autoComplete={mode === "login" ? "current-password" : "new-password"}
+              onSubmitEditing={submit}
               style={styles.input}
             />
 
@@ -349,14 +279,22 @@ export default function AuthScreen() {
               </View>
             )}
 
+            {message && (
+              <Text style={styles.error} accessibilityRole="alert">
+                {message}
+              </Text>
+            )}
+
             <GlassButton
-              title={loading ? "Please wait" : mode === "login" ? "Login" : mode === "mentor" ? "Enter Mentor Hub" : "Create Account"}
-              icon={mode === "login" || mode === "mentor" ? "log-in-outline" : "person-add-outline"}
+              title={loading ? "Please wait" : mode === "login" ? "Login" : "Create Account"}
+              icon={mode === "login" ? "log-in-outline" : "person-add-outline"}
               onPress={submit}
-              disabled={loading}
+              disabled={loading || unconfigured}
             />
 
-            <GlassButton title="Continue with Google" icon="logo-google" variant="quiet" onPress={googleLogin} />
+            {Platform.OS === "web" && (
+              <GlassButton title="Continue with Google" icon="logo-google" variant="quiet" onPress={googleLogin} disabled={loading || unconfigured} />
+            )}
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -484,6 +422,21 @@ function getStyles(colors: typeof defaultColors, scale: number) {
       flexDirection: "row",
       flexWrap: "wrap",
       gap: 8
+    },
+    error: {
+      color: "#F87171",
+      fontSize: 13 * scale,
+      lineHeight: 18 * scale,
+      fontWeight: "600"
+    },
+    notice: {
+      color: colors.muted,
+      fontSize: 12 * scale,
+      lineHeight: 17 * scale,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 14,
+      padding: 12
     }
   });
 }

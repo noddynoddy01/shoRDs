@@ -2,7 +2,8 @@
 /** Redis-backed rate limiting on the real request path: real Redis, real HTTP, two replicas sharing counters. */
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { startReplica, makeKeyPair, tokenFor, uniq, ipHeader, infraSkip, resetInfra, FAKE_ANTHROPIC_KEY } = require("./helpers");
+const fx = require("./paperFixtures");
+const { modelStub, startReplica, makeKeyPair, tokenFor, uniq, ipHeader, infraSkip, resetInfra, FAKE_ANTHROPIC_KEY } = require("./helpers");
 const { createRateLimiter, loadPolicies } = require("../../security/rateLimit");
 const { RedisClient } = require("../../data/redisClient");
 const { INFRA } = require("./helpers");
@@ -11,11 +12,12 @@ const skip = infraSkip();
 const keys = makeKeyPair("rl-key");
 const tok = (uid) => tokenFor(keys, uid);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const CHUNKS = [{ chunkId: "c1", paperId: "p1", section: "S", page: 1, text: "Some evidence text for the rate limit tests." }];
-const ASK = { query: "What does it say?", paperId: "p1", evidenceChunks: CHUNKS };
+const PAPER = `doi:${fx.FIXTURE_DOI}`;
+const ASK = { query: "What does it say?", paperId: PAPER };
 
 function stub() {
-  return { calls: 0, async callMessages(o) { this.calls++; return { text: `answer ${this.calls} [c1]`, usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15 }, stopReason: "end_turn", truncated: false, model: o.model, latencyMs: 1, attempts: 1, requestId: "r", costUsd: 0.0001, costStatus: "ESTIMATED" }; } };
+  const m = modelStub();
+  return { get calls() { return m.calls.length; }, callMessages: (o) => m.callMessages(o) };
 }
 // AI_CACHE_ENABLED=false: these tests count requests, not answers; a cache hit would still be limited, but keep them independent
 const baseEnv = { ANTHROPIC_API_KEY: FAKE_ANTHROPIC_KEY, AI_CACHE_ENABLED: "false" };
@@ -82,7 +84,7 @@ test("rate limiting (real Redis)", { skip }, async (t) => {
     const R = await startReplica({ keys, env: { ...baseEnv, RATE_LIMIT_ANALYSIS_USER: "2/60", RATE_LIMIT_ANALYSIS_USER_DAILY: "100/86400" } });
     const u = uniq("u-"), ip = ipHeader();
     const proj = (await R.call("POST", "/api/v1/projects", { token: tok(u), body: { name: "A" }, headers: ip })).json;
-    const create = () => R.call("POST", "/api/v1/analysis", { token: tok(u), body: { projectId: proj.projectId, paperId: "p1", evidenceChunks: CHUNKS }, headers: ip });
+    const create = () => R.call("POST", "/api/v1/analysis", { token: tok(u), body: { projectId: proj.projectId, paperId: PAPER }, headers: ip });
     assert.deepEqual([(await create()).status, (await create()).status, (await create()).status], [202, 202, 429]);
     await R.close();
 

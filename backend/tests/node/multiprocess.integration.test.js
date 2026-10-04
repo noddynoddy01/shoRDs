@@ -14,7 +14,8 @@ const skip = infraSkip();
 const keys = makeKeyPair("mp-key");
 const tok = (uid) => tokenFor(keys, uid);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const CHUNKS = [{ chunkId: "c1", paperId: "paper-1", section: "Results", page: 3, text: "Treatment reduced systolic pressure by 8.1 mmHg versus 2.3 mmHg (n=120)." }];
+const fx = require("./paperFixtures");
+const PAPER = `doi:${fx.FIXTURE_DOI}`;
 
 function freePort() {
   return new Promise((resolve) => { const s = net.createServer(); s.listen(0, "127.0.0.1", () => { const p = s.address().port; s.close(() => resolve(p)); }); });
@@ -60,7 +61,7 @@ test("multi-process replicas sharing PostgreSQL + Redis", { skip }, async (t) =>
     procs.push(A, B);
     assert.notEqual(A.pid, B.pid);
     const project = (await A.call("POST", "/api/v1/projects", { token: tok(owner), body: { name: "MP" }, headers: ipH() })).json;
-    const created = await A.call("POST", "/api/v1/analysis", { token: tok(owner), body: { projectId: project.projectId, paperId: "paper-1", evidenceChunks: CHUNKS }, headers: ipH() });
+    const created = await A.call("POST", "/api/v1/analysis", { token: tok(owner), body: { projectId: project.projectId, paperId: PAPER }, headers: ipH() });
     assert.equal(created.status, 202);
     assert.equal(created.headers["x-replica-id"], "proc-A");
     const id = created.json.jobId;
@@ -77,7 +78,21 @@ test("multi-process replicas sharing PostgreSQL + Redis", { skip }, async (t) =>
     assert.equal(done.processedByReplica, "proc-C");
     assert.equal(done.result.modelMode, "EXTERNAL_CLAUDE");
     assert.equal(done.result.verificationStatus, "UNVERIFIED");
-    assert.match(done.result.answer, /answer from pid \d+/);
+    assert.equal(done.result.providerRequestId, `stub-pid-${C.pid}`, "the model call was made by process C, not by A or B");
+    assert.equal(done.result.paper.paperId, PAPER);
+    assert.equal(done.result.contentCoverage, "FULL_TEXT");
+    assert.equal(done.result.queryType, "STRUCTURED_INTELLIGENCE");
+    assert.ok(done.result.intelligence.tldr.evidence[0].startsWith(`${PAPER}_chunk_`), "evidence came from the shared paper store");
+    // process A (which never ran a worker) can serve the stored paper and the usage ledger written by process C
+    const viaA = await A.call("POST", "/api/v1/papers/resolve", { token: tok(owner), body: { paperId: PAPER }, headers: ipH() });
+    assert.equal(viaA.json.coverage, "FULL_TEXT");
+    assert.equal(viaA.json.servedFrom, "STORE", "a paper retrieved by one process is served from the shared store by another");
+    const { PgPool } = require("../../data/pgClient");
+    const pool = new PgPool({ url: INFRA.databaseUrl, max: 1 });
+    const ledger = (await pool.query("SELECT replica_id, ai_called, input_tokens, cost_status, paper_id FROM ai_usage WHERE job_id = $1", [id])).rows;
+    await pool.end();
+    assert.equal(ledger.length, 1, "exactly one usage row for the job");
+    assert.deepEqual({ replica: ledger[0].replica_id, ai: ledger[0].ai_called, tokens: ledger[0].input_tokens, paper: ledger[0].paper_id }, { replica: "proc-C", ai: true, tokens: 1200, paper: PAPER });
     A.kill(); B.kill(); C.kill();
   });
 
@@ -86,7 +101,7 @@ test("multi-process replicas sharing PostgreSQL + Redis", { skip }, async (t) =>
     const W1 = await spawnReplica("crash-W1", { worker: true, delayMs: 6000, leaseSec: 2 });
     procs.push(A, W1);
     const project = (await A.call("POST", "/api/v1/projects", { token: tok(owner), body: { name: "Crash" }, headers: ipH() })).json;
-    const id = (await A.call("POST", "/api/v1/analysis", { token: tok(owner), body: { projectId: project.projectId, paperId: "paper-1", evidenceChunks: CHUNKS }, headers: ipH() })).json.jobId;
+    const id = (await A.call("POST", "/api/v1/analysis", { token: tok(owner), body: { projectId: project.projectId, paperId: PAPER }, headers: ipH() })).json.jobId;
     const processing = await until(async () => { const r = await A.call("GET", `/api/v1/analysis/${id}`, { token: tok(owner), headers: ipH() }); return r.json.status === "PROCESSING" ? r.json : null; });
     assert.equal(processing.processedByReplica, "crash-W1");
     W1.kill("SIGKILL"); // hard crash: no graceful shutdown, no failure report

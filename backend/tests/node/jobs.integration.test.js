@@ -7,7 +7,8 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("fs");
 const path = require("path");
-const { startReplica, makeKeyPair, tokenFor, uniq, ipHeader, infraSkip, resetInfra, FAKE_ANTHROPIC_KEY, INFRA } = require("./helpers");
+const fx = require("./paperFixtures");
+const { modelStub, startReplica, makeKeyPair, tokenFor, uniq, ipHeader, infraSkip, resetInfra, FAKE_ANTHROPIC_KEY, INFRA } = require("./helpers");
 const { createJobStore } = require("../../jobs/jobStore");
 const { PgPool } = require("../../data/pgClient");
 const { RedisClient } = require("../../data/redisClient");
@@ -16,16 +17,18 @@ const skip = infraSkip();
 const keys = makeKeyPair("jobs-key");
 const tok = (uid) => tokenFor(keys, uid);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const CHUNKS = (p = "paper-1") => [{ chunkId: "c1", paperId: p, section: "Results", page: 3, text: "Treatment reduced systolic pressure by 8.1 mmHg versus 2.3 mmHg in control (n=120)." }];
+const PAPER = `doi:${fx.FIXTURE_DOI}`;
+const PAPER_MISSING = `doi:${fx.DOI_MISSING}`;
 
-/** A model stub whose calls can be held open, so tests can observe PROCESSING and race cancellation. */
+/** A model stub whose calls can be held open, so tests can observe PROCESSING and race cancellation. It answers like a real model (valid structured JSON citing real chunk ids). */
 function gatedClient() {
-  const c = { calls: 0, started: 0, gate: null, release: null, hold: false };
+  const inner = modelStub();
+  const c = { calls: 0, started: 0, gate: null, release: null, hold: false, inner };
   c.arm = () => { c.hold = true; c.gate = new Promise((r) => { c.release = () => { c.hold = false; r(); }; }); };
   c.callMessages = async (o) => {
     c.calls++; c.started++;
     if (c.hold) await c.gate;
-    return { text: `Finding [c1] (call ${c.calls})`, usage: { inputTokens: 120, outputTokens: 40, totalTokens: 160 }, stopReason: "end_turn", truncated: false, model: o.model, latencyMs: 2, attempts: 1, requestId: "r", costUsd: 0.0005, costStatus: "ESTIMATED" };
+    return inner.callMessages(o);
   };
   return c;
 }
@@ -52,7 +55,7 @@ test("analysis jobs (PostgreSQL + Redis + worker, multiple replicas)", { skip },
     return p.projectId;
   }
   const create = (R, projectId, extra = {}, headers = {}) =>
-    R.call("POST", "/api/v1/analysis", { token: tok(owner), body: { projectId, paperId: "paper-1", evidenceChunks: CHUNKS(), ...extra }, headers: { ...ipHeader(), ...headers } });
+    R.call("POST", "/api/v1/analysis", { token: tok(owner), body: { projectId, paperId: PAPER, ...extra }, headers: { ...ipHeader(), ...headers } });
   const poll = (R, id) => R.call("GET", `/api/v1/analysis/${id}`, { token: tok(owner), ...ip() });
 
   await t.test("lifecycle across replicas: created on A, polled on B and C, processed by B's worker, completed result seen on A", async () => {
@@ -98,6 +101,11 @@ test("analysis jobs (PostgreSQL + Redis + worker, multiple replicas)", { skip },
     assert.ok(new Date(done.createdAt) <= new Date(done.startedAt) && new Date(done.startedAt) <= new Date(done.finishedAt), "timestamps are ordered");
     assert.equal(done.result.modelMode, "EXTERNAL_CLAUDE");
     assert.equal(done.result.verificationStatus, "UNVERIFIED", "model output is not claimed verified");
+    assert.equal(done.result.queryType, "STRUCTURED_INTELLIGENCE");
+    assert.equal(done.result.paper.paperId, PAPER);
+    assert.equal(done.result.contentCoverage, "FULL_TEXT");
+    assert.ok(done.result.intelligence.tldr.evidence.every((id) => id.startsWith(`${PAPER}_chunk_`)), "the worker's evidence is the stored paper's own chunks");
+    assert.ok(model.inner.calls[0].user.includes(`paper_id="${PAPER}"`));
     assert.ok(!JSON.stringify(done).includes('"VERIFIED"'), "no fake VERIFIED anywhere in the job");
     assert.equal(model.calls, 1);
     await Promise.all([A.close(), B.close(), C.close()]);
@@ -119,18 +127,51 @@ test("analysis jobs (PostgreSQL + Redis + worker, multiple replicas)", { skip },
   await t.test("a deterministic failure becomes FAILED with a categorised error and is not retried", async () => {
     const A = await startReplica({ keys, env: { ...workerEnv }, worker: true });
     const projectId = await setup(A);
-    // a corrupt job row: its stored request has no evidence
+    // a corrupt job row: its stored request names no paper
     const pool = new PgPool({ url: INFRA.databaseUrl, max: 1 });
     const jobId = `job_${"a".repeat(24)}`;
-    await pool.query("INSERT INTO analysis_jobs (job_id, project_id, tenant_id, user_id, paper_id, request, status, created_by_replica) SELECT $1, project_id, tenant_id, $2, 'paper-x', $3::jsonb, 'QUEUED', 'test' FROM projects WHERE project_id = $4", [jobId, owner, { query: "q", paperId: "paper-x", chunks: [] }, projectId]);
+    await pool.query("INSERT INTO analysis_jobs (job_id, project_id, tenant_id, user_id, paper_id, request, status, created_by_replica) SELECT $1, project_id, tenant_id, $2, 'paper-x', $3::jsonb, 'QUEUED', 'test' FROM projects WHERE project_id = $4", [jobId, owner, { query: "q", chunks: [] }, projectId]);
     await A.runtime.jobStore.enqueue(jobId);
     A.start();
     const failed = (await until(async () => { const r = await poll(A, jobId); return r.json.status === "FAILED" ? r : null; })).json;
-    assert.equal(failed.error.code, "NO_PAPER_CONTENT");
+    assert.equal(failed.error.code, "INVALID_JOB");
     assert.equal(failed.attempts, 1, "non-retryable: exactly one attempt");
     assert.equal(failed.result, null);
     assert.ok(failed.finishedAt);
     await pool.end(); await A.close();
+  });
+
+  await t.test("content that cannot be retrieved: FAILED with CONTENT_UNAVAILABLE, one attempt, no model call, no cost", async () => {
+    const model = gatedClient();
+    const A = await startReplica({ keys, env: { ...workerEnv, ANTHROPIC_API_KEY: FAKE_ANTHROPIC_KEY }, overrides: { client: model }, worker: true });
+    const projectId = await setup(A);
+    A.start();
+    const id = (await create(A, projectId, { paperId: "doi:10.9999/fixture.jobs.unseen.2015" })).json.jobId;
+    const failed = (await until(async () => { const r = await poll(A, id); return r.json.status === "FAILED" ? r : null; })).json;
+    assert.equal(failed.error.code, "CONTENT_UNAVAILABLE");
+    assert.match(failed.error.message, /No record|not available|unavailable/i);
+    assert.equal(failed.attempts, 1);
+    assert.equal(model.calls, 0);
+    // METADATA_ONLY behaves the same way
+    const id2 = (await create(A, projectId, { paperId: `doi:${fx.DOI_META}` })).json.jobId;
+    const failed2 = (await until(async () => { const r = await poll(A, id2); return r.json.status === "FAILED" ? r : null; })).json;
+    assert.equal(failed2.error.code, "METADATA_ONLY");
+    assert.equal(model.calls, 0);
+    await A.close();
+  });
+
+  await t.test("scholarly sources down: the job is retried (retryable), then FAILED with RETRIEVAL_UNAVAILABLE; nothing is stored as 'no content'", async () => {
+    const down = fx.createFixtureHttp({ fail: () => true });
+    const A = await startReplica({ keys, env: { ...workerEnv }, overrides: { http: down }, worker: true });
+    const projectId = await setup(A);
+    A.start();
+    const id = (await create(A, projectId, { paperId: "doi:10.9999/fixture.jobs.outage.2014" })).json.jobId;
+    const failed = (await until(async () => { const r = await poll(A, id); return r.json.status === "FAILED" ? r : null; }, { timeoutMs: 20000 })).json;
+    assert.equal(failed.error.code, "RETRIEVAL_UNAVAILABLE");
+    assert.equal(failed.attempts, 3, "a transient outage is retried up to max_attempts");
+    const n = (await A.runtime.pool.query("SELECT count(*)::int AS n FROM papers WHERE paper_id = 'doi:10.9999/fixture.jobs.outage.2014'")).rows[0].n;
+    assert.equal(n, 0);
+    await A.close();
   });
 
   await t.test("a transient failure is retried up to max_attempts, then FAILED (never stuck, never silently dropped)", async () => {
@@ -196,7 +237,7 @@ test("analysis jobs (PostgreSQL + Redis + worker, multiple replicas)", { skip },
     // another user with the same key gets their own job (needs their own project)
     const other = uniq("other-");
     const op = (await A.call("POST", "/api/v1/projects", { token: tok(other), body: { name: "O" }, ...ip() })).json;
-    const theirs = await A.call("POST", "/api/v1/analysis", { token: tok(other), body: { projectId: op.projectId, paperId: "paper-1", evidenceChunks: CHUNKS() }, headers: { ...ipHeader(), "idempotency-key": k } });
+    const theirs = await A.call("POST", "/api/v1/analysis", { token: tok(other), body: { projectId: op.projectId, paperId: PAPER }, headers: { ...ipHeader(), "idempotency-key": k } });
     assert.equal(theirs.status, 202);
     assert.notEqual(theirs.json.jobId, first.json.jobId);
     await pool.end(); await A.close();
@@ -209,7 +250,7 @@ test("analysis jobs (PostgreSQL + Redis + worker, multiple replicas)", { skip },
     const A = await startReplica({ keys });
     const projectId = await setup(A);
     const m = (await pool.query("SELECT tenant_id FROM projects WHERE project_id=$1", [projectId])).rows[0];
-    const { job } = await store.createJob({ projectId, tenantId: m.tenant_id, userId: owner, paperId: "p", request: { query: "q", paperId: "p", chunks: CHUNKS("p") }, replicaId: "race" });
+    const { job } = await store.createJob({ projectId, tenantId: m.tenant_id, userId: owner, paperId: PAPER, request: { paperId: PAPER, depth: null }, replicaId: "race" });
     const results = await Promise.all(Array.from({ length: 30 }, (_, i) => store.claim(job.jobId, `w${i}`, "race", 30)));
     assert.equal(results.filter(Boolean).length, 1);
     assert.equal((await store.getJob(job.jobId)).attempts, 1);
@@ -257,7 +298,7 @@ test("analysis jobs (PostgreSQL + Redis + worker, multiple replicas)", { skip },
     const projectId = await setup(A);
     const tenant = (await pool.query("SELECT tenant_id FROM projects WHERE project_id=$1", [projectId])).rows[0].tenant_id;
     const deadStore = createJobStore({ pool, redis: dead, logger: quiet });
-    const { job, enqueued } = await deadStore.createJob({ projectId, tenantId: tenant, userId: owner, paperId: "paper-1", request: { query: "q", paperId: "paper-1", chunks: CHUNKS() }, replicaId: "x" });
+    const { job, enqueued } = await deadStore.createJob({ projectId, tenantId: tenant, userId: owner, paperId: PAPER, request: { paperId: PAPER, depth: null }, replicaId: "x" });
     assert.equal(enqueued, false, "Redis was down at enqueue time");
     assert.equal(job.status, "QUEUED", "...but the job exists and is durable");
     await live.command("DEL", A.runtime.jobStore.queueKey);
@@ -285,12 +326,13 @@ test("analysis jobs (PostgreSQL + Redis + worker, multiple replicas)", { skip },
   await t.test("two workers on two replicas drain 12 jobs: each job is processed exactly once", async () => {
     const model = gatedClient();
     const env = { ...workerEnv, ANTHROPIC_API_KEY: FAKE_ANTHROPIC_KEY };
-    const A = await startReplica({ keys, env, overrides: { client: model }, worker: true });
-    const B = await startReplica({ keys, env, overrides: { client: model }, worker: true });
-    const projectId = await setup(A);
     const N = 12;
+    const http = fx.createFixtureHttp({ papers: fx.bulkPapers(N) });
+    const A = await startReplica({ keys, env, overrides: { client: model, http }, worker: true });
+    const B = await startReplica({ keys, env, overrides: { client: model, http }, worker: true });
+    const projectId = await setup(A);
     const ids = [];
-    for (let i = 0; i < N; i++) ids.push((await create(i % 2 ? A : B, projectId, { paperId: `paper-${i}`, evidenceChunks: CHUNKS(`paper-${i}`) })).json.jobId);
+    for (let i = 0; i < N; i++) ids.push((await create(i % 2 ? A : B, projectId, { paperId: `doi:10.9999/fixture.bulk${i}.2020` })).json.jobId);
     A.start(); B.start();
     let flip = 0;
     for (const id of ids) await until(async () => (await poll(flip++ % 2 ? A : B, id)).json.status === "COMPLETED", { timeoutMs: 15000 }); // alternate the polled replica
@@ -299,6 +341,7 @@ test("analysis jobs (PostgreSQL + Redis + worker, multiple replicas)", { skip },
     assert.equal(rows.length, N);
     assert.ok(rows.every((r) => r.attempts === 1), "no job ran twice");
     assert.equal(model.calls, N, "exactly one model call per job");
+    assert.equal(new Set(model.inner.calls.map((c) => /paper_id="([^"]+)"/.exec(c.user)[1])).size, N, "each job analysed its own paper");
     assert.ok(rows.every((r) => [A.replicaId, B.replicaId].includes(r.processed_by_replica)));
     await pool.end(); await A.close(); await B.close();
   });

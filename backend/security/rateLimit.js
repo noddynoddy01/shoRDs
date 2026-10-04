@@ -39,7 +39,11 @@ const DEFAULT_POLICIES = {
   ANALYSIS_USER: "10/60",
   ANALYSIS_USER_DAILY: "100/86400",
   ANALYSIS_TENANT: "60/60",
-  ANALYSIS_TENANT_DAILY: "1000/86400"
+  ANALYSIS_TENANT_DAILY: "1000/86400",
+  // paper retrieval: per user at the route, and one shared budget for calls to the scholarly providers (all replicas, all users)
+  RETRIEVAL_USER: "30/60",
+  RETRIEVAL_USER_DAILY: "600/86400",
+  RETRIEVAL_PROVIDERS: "240/60"
 };
 
 class RateLimiterUnavailable extends Error {

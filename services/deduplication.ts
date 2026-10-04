@@ -21,30 +21,82 @@ export type PaperMetadataRecord = {
 };
 
 /**
- * Normalizes title string by stripping file extensions (.pdf), trailing punctuation,
- * extra spaces, and converting to lowercase.
+ * Normalizes a title for identity purposes: strips ".pdf", accents and all punctuation, lowercases, collapses spaces.
+ * MUST stay identical to backend/papers/identity.js (backend/tests/node/paperIdentity.test.js checks both on a shared corpus).
  */
 export function normalizeTitleString(rawTitle: string): string {
-  if (!rawTitle) return "";
-  let clean = rawTitle.trim();
-  clean = clean.replace(/\.pdf$/i, "");
-  clean = clean.replace(/[:.,;\-–—]/g, " ");
-  clean = clean.replace(/\s+/g, " ").trim().toLowerCase();
-  return clean;
+  if (typeof rawTitle !== "string") return "";
+  let clean = rawTitle.trim().replace(/\.pdf$/i, "");
+  clean = clean.normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
+  return clean.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
-/**
- * Normalizes first author name.
- */
+/** Normalizes first author name. */
 export function normalizeAuthorName(authorStr?: string): string {
-  if (!authorStr) return "scholar";
-  const first = authorStr.split(",")[0].trim().toLowerCase();
-  return first.replace(/[^a-z]/g, "");
+  if (typeof authorStr !== "string" || !authorStr.trim()) return "scholar";
+  return authorStr.split(",")[0].trim().toLowerCase().normalize("NFKD").replace(/[^a-z]/g, "") || "scholar";
+}
+
+const DOI_RE = /^10\.\d{4,9}\/[a-z0-9\/._\-]+$/;
+const ARXIV_NEW_RE = /^\d{4}\.\d{4,5}$/;
+const ARXIV_OLD_RE = /^[a-z\-]+(\.[a-z]{2})?\/\d{7}$/;
+
+function normalizeDoi(raw?: string): string | null {
+  if (typeof raw !== "string") return null;
+  let s = raw.trim().toLowerCase();
+  s = s.replace(/^(https?:\/\/)?(dx\.)?doi\.org\//, "").replace(/^doi:\s*/, "");
+  s = s.replace(/[^a-z0-9\/._\-]/g, "");
+  return DOI_RE.test(s) && s.length <= 150 ? s : null;
+}
+
+function normalizeArxiv(raw?: string): string | null {
+  if (typeof raw !== "string") return null;
+  let s = raw.trim().toLowerCase();
+  s = s.replace(/^(https?:\/\/)?(www\.)?arxiv\.org\/(abs|pdf|html)\//, "").replace(/\.pdf$/, "").replace(/^arxiv:\s*/, "");
+  s = s.replace(/v\d+$/, "");
+  return ARXIV_NEW_RE.test(s) || ARXIV_OLD_RE.test(s) ? s : null;
 }
 
 /**
- * Resolves deterministic canonical paper ID using strict priority hierarchy:
- * 1) DOI -> 2) PMID -> 3) arXiv ID -> 4) Exact Normalized Title + First Author + Year -> 5) Multi-Signal Fuzzy
+ * The paper identity the backend uses (DOI -> PMID -> arXiv -> normalized title + first author + year), or null when the
+ * fields do not identify a paper. No random value and no default year is ever invented.
+ * MUST stay identical to backend/papers/identity.js canonicalPaperId.
+ */
+export function strictCanonicalPaperId(paper: {
+  doi?: string;
+  pmid?: string | number;
+  arxivId?: string;
+  title?: string;
+  authors?: string[];
+  authorName?: string;
+  pubYear?: number;
+}): string | null {
+  if (!paper || typeof paper !== "object") return null;
+  const doi = paper.doi ? normalizeDoi(paper.doi) : null;
+  if (doi) {
+    const m = /^10\.48550\/arxiv\.(.+)$/.exec(doi);
+    const fromDoi = m ? normalizeArxiv(m[1]) : null;
+    return fromDoi ? `arxiv:${fromDoi}` : `doi:${doi}`;
+  }
+  if (paper.pmid !== undefined && paper.pmid !== null && paper.pmid !== "") {
+    const p = String(paper.pmid).trim().toLowerCase().replace(/^pmid:?\s*/, "");
+    if (/^\d{1,9}$/.test(p)) return `pmid:${p}`;
+  }
+  const ax = paper.arxivId ? normalizeArxiv(paper.arxivId) : null;
+  if (ax) return `arxiv:${ax}`;
+
+  const title = normalizeTitleString(paper.title as string).slice(0, 50).trim();
+  const year = Number(paper.pubYear);
+  if (title.length >= 6 && Number.isInteger(year) && year >= 1500 && year <= 2200) {
+    const first = normalizeAuthorName(Array.isArray(paper.authors) && paper.authors.length ? paper.authors[0] : paper.authorName);
+    return `title:${title}-${first.slice(0, 40)}-${year}`;
+  }
+  return null;
+}
+
+/**
+ * Identity for LOCAL grouping and de-duplication only. When the fields do not identify a paper, the result is a
+ * deterministic `local:` key (not a backend identity; the backend rejects it). Use strictCanonicalPaperId for API calls.
  */
 export function resolveDeterministicCanonicalId(paper: {
   doi?: string;
@@ -54,34 +106,14 @@ export function resolveDeterministicCanonicalId(paper: {
   authors?: string[];
   pubYear?: number;
   venue?: string;
+  id?: string;
 }): string {
-  if (paper.doi && paper.doi.trim()) {
-    const cleanDoi = paper.doi.trim().toLowerCase().replace(/^https?:\/\/doi\.org\//, "");
-    return `doi:${cleanDoi.replace(/[^a-z0-9\/._\-]/gi, "")}`;
-  }
-
-  if (paper.pmid && paper.pmid.trim()) {
-    return `pmid:${paper.pmid.trim()}`;
-  }
-
-  if (paper.arxivId && paper.arxivId.trim()) {
-    const cleanArxiv = paper.arxivId.trim().toLowerCase().replace(/^arxiv:/, "");
-    return `arxiv:${cleanArxiv}`;
-  }
-
-  const cleanTitle = normalizeTitleString(paper.title);
-  const firstAuthor = normalizeAuthorName(paper.authors && paper.authors.length > 0 ? paper.authors[0] : undefined);
-  const year = paper.pubYear || 2026;
-
-  if (cleanTitle.length > 5) {
-    return `title:${cleanTitle.slice(0, 50)}-${firstAuthor}-${year}`;
-  }
-
-  return `id:${Math.random().toString(36).substring(2, 9)}`;
+  return strictCanonicalPaperId(paper) ?? `local:${paper.id ?? normalizeTitleString(paper.title)}`;
 }
 
-export function generateCanonicalPaperId(paper: { doi?: string; pmid?: string; arxivId?: string; title: string; authors?: string[]; pubYear?: number; authorName?: string }): string {
+export function generateCanonicalPaperId(paper: { id?: string; doi?: string; pmid?: string; arxivId?: string; title: string; authors?: string[]; pubYear?: number; authorName?: string }): string {
   return resolveDeterministicCanonicalId({
+    id: paper.id,
     doi: paper.doi,
     pmid: paper.pmid,
     arxivId: paper.arxivId,

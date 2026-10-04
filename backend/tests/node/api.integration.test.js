@@ -8,32 +8,21 @@ const assert = require("node:assert/strict");
 const fs = require("fs");
 const path = require("path");
 const http = require("http");
-const { startReplica, makeKeyPair, tokenFor, signJwt, firebasePayload, uniq, ipHeader, infraSkip, resetInfra, FAKE_ANTHROPIC_KEY, TEST_PROJECT_ID } = require("./helpers");
+const { modelStub, startReplica, makeKeyPair, tokenFor, signJwt, firebasePayload, uniq, ipHeader, infraSkip, resetInfra, FAKE_ANTHROPIC_KEY, TEST_PROJECT_ID } = require("./helpers");
 
 const skip = infraSkip();
 const keys = makeKeyPair("api-key");
 const tok = (uid, over) => tokenFor(keys, uid, over);
 
-const CHUNKS = (paperId) => [
-  { chunkId: "c1", paperId, section: "Methods", page: 2, text: "We randomised 120 participants to two arms and measured systolic blood pressure at 12 weeks." },
-  { chunkId: "c2", paperId, section: "Results", page: 5, text: "Mean systolic pressure fell by 8.1 mmHg in the treatment arm versus 2.3 mmHg in control." }
-];
-
-// A stub model client: counts calls, returns a well-formed Sonnet 5.5 style result. Never touches the network.
-function stubClient(text = "Systolic pressure fell more in the treatment arm [c2].") {
-  const calls = [];
-  return {
-    calls,
-    async callMessages(opts) {
-      calls.push(opts);
-      return { text, usage: { inputTokens: 700, outputTokens: 90, totalTokens: 790 }, stopReason: "end_turn", truncated: false, model: opts.model, latencyMs: 5, attempts: 1, requestId: "req_stub", costUsd: 0.0023, costStatus: "ESTIMATED" };
-    }
-  };
-}
+const fx = require("./paperFixtures");
+const PAPER = `doi:${fx.FIXTURE_DOI}`; // FULL_TEXT in the fixture web
+const PAPER_ABSTRACT_ONLY = `doi:${fx.DOI_ABSTRACT}`;
+const PAPER_META_ONLY = `doi:${fx.DOI_META}`;
+const PAPER_MISSING = `doi:${fx.DOI_MISSING}`;
 
 test("API (real runtime, real PostgreSQL + Redis)", { skip }, async (t) => {
   await resetInfra();
-  const client = stubClient();
+  const client = modelStub();
   const A = await startReplica({ keys, overrides: { client }, env: { ANTHROPIC_API_KEY: FAKE_ANTHROPIC_KEY, ADMIN_UIDS: "admin-1" } });
   t.after(() => A.close());
   const alice = uniq("alice-"), bob = uniq("bob-"), carol = uniq("carol-");
@@ -98,7 +87,7 @@ test("API (real runtime, real PostgreSQL + Redis)", { skip }, async (t) => {
     assert.match(p.projectId, /^prj_[0-9a-f]{18}$/);
     // non-member
     assert.equal((await A.call("GET", `/api/v1/projects/${p.projectId}`, { token: tok(bob), ...ip() })).status, 403);
-    const ask = (uid, body = { query: "What was measured?", paperId: "paper-1", evidenceChunks: CHUNKS("paper-1") }) => A.call("POST", "/api/v1/copilot/query", { token: tok(uid), body: { projectId: p.projectId, ...body }, ...ip() });
+    const ask = (uid, body = { query: "What was measured?", paperId: PAPER }) => A.call("POST", "/api/v1/copilot/query", { token: tok(uid), body: { projectId: p.projectId, ...body }, ...ip() });
     assert.equal((await ask(bob)).status, 403, "non-member cannot query the project");
     assert.equal((await ask(alice)).status, 200);
     // add bob as VIEWER; carol stays outside
@@ -106,7 +95,7 @@ test("API (real runtime, real PostgreSQL + Redis)", { skip }, async (t) => {
     assert.equal((await ask(bob)).status, 200, "viewer can query");
     assert.equal((await ask(carol)).status, 403);
     // viewer cannot create analysis jobs or change members
-    const create = (uid, body) => A.call("POST", "/api/v1/analysis", { token: tok(uid), body: { projectId: p.projectId, paperId: "paper-1", evidenceChunks: CHUNKS("paper-1"), ...body }, ...ip() });
+    const create = (uid, body) => A.call("POST", "/api/v1/analysis", { token: tok(uid), body: { projectId: p.projectId, paperId: PAPER, ...body }, ...ip() });
     assert.equal((await create(bob)).status, 403);
     assert.equal((await A.call("PUT", `/api/v1/projects/${p.projectId}/members/${carol}`, { token: tok(bob), body: { role: "VIEWER" }, ...ip() })).status, 403);
     // COMMENTER still cannot; EDITOR can create but still cannot manage members
@@ -144,7 +133,7 @@ test("API (real runtime, real PostgreSQL + Redis)", { skip }, async (t) => {
 
   await t.test("jobs are invisible across projects and tenants (404, not 403, so ids cannot be probed)", async () => {
     const p = await mkProject(alice, "Private");
-    const created = await A.call("POST", "/api/v1/analysis", { token: tok(alice), body: { projectId: p.projectId, paperId: "paper-9", evidenceChunks: CHUNKS("paper-9") }, ...ip() });
+    const created = await A.call("POST", "/api/v1/analysis", { token: tok(alice), body: { projectId: p.projectId, paperId: `doi:${fx.DOI_B}` }, ...ip() });
     assert.equal(created.status, 202);
     const id = created.json.jobId;
     assert.equal((await A.call("GET", `/api/v1/analysis/${id}`, { token: tok(alice), ...ip() })).status, 200);
@@ -181,12 +170,27 @@ test("API (real runtime, real PostgreSQL + Redis)", { skip }, async (t) => {
     assert.equal((await ask({ query: "q", paperId: "bad id with spaces" })).json.error, "INVALID_PAPER_ID");
     assert.equal((await ask({ query: "q", paperId: "p", projectId: { $ne: 1 } })).json.error, "INVALID_PROJECT_ID");
     assert.equal((await ask({ query: "q", paperId: "p", projectId: "x'; DROP TABLE projects;--" })).json.error, "INVALID_PROJECT_ID");
-    assert.equal((await ask({ query: "q", paperId: "p", evidenceChunks: [{ chunkId: "c", paperId: "OTHER", text: "t" }] })).json.error, "EVIDENCE_PAPER_MISMATCH");
-    const noContent = await A.call("POST", "/api/v1/analysis", { token: tok(alice), body: { projectId: p.projectId, paperId: "paper-1" }, ...ip() });
-    assert.equal(noContent.status, 422);
-    assert.equal(noContent.json.error, "NO_PAPER_CONTENT");
-    assert.equal((await A.call("POST", "/api/v1/analysis", { token: tok(alice), body: { paperId: "paper-1", evidenceChunks: CHUNKS("paper-1") }, ...ip() })).json.error, "INVALID_PROJECT_ID");
-    assert.equal((await A.call("POST", "/api/v1/analysis", { token: tok(alice), body: { projectId: p.projectId, paperId: "paper-1", evidenceChunks: CHUNKS("paper-1") }, headers: { "idempotency-key": "bad key!", ...ipHeader() } })).json.error, "INVALID_IDEMPOTENCY_KEY");
+    // evidence is never accepted from a client, in any key, on either route
+    for (const key of ["evidenceChunks", "chunks", "evidence", "sources", "context", "paperText", "text"]) {
+      const r = await ask({ query: "q", paperId: PAPER, [key]: [{ chunkId: "c", paperId: "OTHER", text: "t" }] });
+      assert.equal(r.status, 400, key);
+      assert.equal(r.json.error, "EVIDENCE_NOT_ACCEPTED", key);
+    }
+    assert.equal((await A.call("POST", "/api/v1/analysis", { token: tok(alice), body: { projectId: p.projectId, paperId: PAPER, evidenceChunks: [] }, ...ip() })).json.error, "EVIDENCE_NOT_ACCEPTED");
+    // chunk ids: malformed / foreign / unknown are refused before any model call
+    const callsBefore = client.calls.length;
+    assert.equal((await ask({ query: "q", paperId: PAPER, chunkIds: "c1" })).json.error, "INVALID_CHUNK_IDS");
+    assert.equal((await ask({ query: "q", paperId: PAPER, chunkIds: ["not a chunk id"] })).json.error, "MALFORMED_CHUNK_ID");
+    assert.equal((await ask({ query: "q", paperId: PAPER, chunkIds: [`doi:${fx.DOI_B}_chunk_1`] })).json.error, "EVIDENCE_PAPER_MISMATCH");
+    assert.equal((await ask({ query: "q", paperId: PAPER, chunkIds: [`${PAPER}_chunk_9999`] })).json.error, "UNKNOWN_CHUNK");
+    assert.equal((await ask({ query: "q", paperId: PAPER, chunkIds: Array.from({ length: 500 }, (_, i) => `${PAPER}_chunk_${i}`) })).json.error, "TOO_MANY_CHUNKS");
+    assert.equal(client.calls.length, callsBefore, "rejected evidence requests never reach the model");
+    const noContent = await A.call("POST", "/api/v1/analysis", { token: tok(alice), body: { projectId: p.projectId, paperId: "not a paper!" }, ...ip() });
+    assert.equal(noContent.status, 400);
+    assert.equal(noContent.json.error, "INVALID_PAPER_ID");
+    assert.equal((await A.call("POST", "/api/v1/analysis", { token: tok(alice), body: { projectId: p.projectId, paperId: PAPER, analysisDepth: "ULTRA" }, ...ip() })).json.error, "INVALID_ANALYSIS_DEPTH");
+    assert.equal((await A.call("POST", "/api/v1/analysis", { token: tok(alice), body: { paperId: PAPER }, ...ip() })).json.error, "INVALID_PROJECT_ID");
+    assert.equal((await A.call("POST", "/api/v1/analysis", { token: tok(alice), body: { projectId: p.projectId, paperId: PAPER }, headers: { "idempotency-key": "bad key!", ...ipHeader() } })).json.error, "INVALID_IDEMPOTENCY_KEY");
     assert.equal((await A.call("POST", "/api/v1/projects", { token: tok(alice), body: { name: "" }, ...ip() })).json.error, "INVALID_NAME");
     assert.equal((await A.call("POST", "/api/v1/projects", { token: tok(alice), body: { name: "x".repeat(121) }, ...ip() })).json.error, "INVALID_NAME");
     assert.equal((await A.call("GET", "/nope", ip())).status, 404);
@@ -235,7 +239,7 @@ test("API (real runtime, real PostgreSQL + Redis)", { skip }, async (t) => {
     await dead.close();
 
     const p = await mkProject(alice, "E");
-    const created = await A.call("POST", "/api/v1/analysis", { token: tok(alice), body: { projectId: p.projectId, paperId: "paper-1", evidenceChunks: CHUNKS("paper-1") }, ...ip() });
+    const created = await A.call("POST", "/api/v1/analysis", { token: tok(alice), body: { projectId: p.projectId, paperId: PAPER }, ...ip() });
     const original = A.runtime.jobStore.getJob;
     A.runtime.jobStore.getJob = async () => { throw new Error("SECRET-INTERNAL-DETAIL at /srv/app/db.js:12"); };
     const boom = await A.call("GET", `/api/v1/analysis/${created.json.jobId}`, { token: tok(alice), ...ip() });
@@ -275,5 +279,131 @@ test("API (real runtime, real PostgreSQL + Redis)", { skip }, async (t) => {
     const prodNone = await startReplica({ env: { CORS_ORIGINS: undefined } });
     assert.equal((await prodNone.call("GET", "/health", { headers: { origin: "https://shords.vercel.app", ...ipHeader() } })).status, 403);
     await prodNone.close();
+  });
+
+  await t.test("coverage gate over HTTP: CONTENT_UNAVAILABLE and METADATA_ONLY never call the model; ABSTRACT_ONLY says so; FULL_TEXT answers from server evidence", async () => {
+    const before = client.calls.length;
+    for (const [paper, cov] of [[PAPER_MISSING, "CONTENT_UNAVAILABLE"], [PAPER_META_ONLY, "METADATA_ONLY"]]) {
+      const r = await A.call("POST", "/api/v1/copilot/query", { token: tok(alice), body: { query: "What did they find?", paperId: paper }, ...ip() });
+      assert.equal(r.status, 200, cov);
+      assert.equal(r.json.contentCoverage, cov);
+      assert.equal(r.json.aiCalled, false);
+      assert.equal(r.json.verificationStatus, cov);
+      assert.equal(r.json.tokens.costStatus, "NO_AI_CALL");
+      assert.deepEqual(r.json.claims, []);
+      assert.ok(r.json.coverageNotice && r.json.coverageNotice.length > 20);
+    }
+    assert.equal(client.calls.length, before, "no model call for content that is not available");
+    const abs = await A.call("POST", "/api/v1/copilot/query", { token: tok(alice), body: { query: "What did they find?", paperId: PAPER_ABSTRACT_ONLY }, ...ip() });
+    assert.equal(abs.json.contentCoverage, "ABSTRACT_ONLY");
+    assert.match(abs.json.coverageNotice, /abstract/i);
+    assert.equal(client.calls.length, before + 1);
+    assert.match(client.calls.at(-1).user, /ABSTRACT/);
+    const full = await A.call("POST", "/api/v1/copilot/query", { token: tok(alice), body: { query: "How was training done?", paperId: PAPER }, ...ip() });
+    assert.equal(full.json.contentCoverage, "FULL_TEXT");
+    assert.equal(full.json.paper.paperId, PAPER);
+    assert.notEqual(full.json.verificationStatus, "VERIFIED", "mechanical checks never earn VERIFIED");
+    const sent = client.calls.at(-1).user;
+    assert.ok(sent.includes(`${PAPER}_chunk_`), "the model received the server's own chunks for this paper");
+    for (const c of full.json.evidence || []) assert.ok(String(c.chunkId).startsWith(`${PAPER}_chunk_`));
+  });
+
+  await t.test("analysis job for unavailable content fails truthfully and never calls the model", async () => {
+    const A2 = await startReplica({ keys, worker: true, overrides: { client }, env: { ANTHROPIC_API_KEY: FAKE_ANTHROPIC_KEY } });
+    A2.start();
+    const p = await mkProject(alice, "Gate");
+    const UNSEEN = "doi:10.9999/fixture.never.seen.2017"; // not in the fixture web and not yet in the paper store
+    const created = await A2.call("POST", "/api/v1/analysis", { token: tok(alice), body: { projectId: p.projectId, paperId: UNSEEN }, ...ip() });
+    assert.equal(created.status, 202);
+    let job;
+    for (let i = 0; i < 60; i++) {
+      job = (await A2.call("GET", `/api/v1/analysis/${created.json.jobId}`, { token: tok(alice), ...ip() })).json;
+      if (["FAILED", "COMPLETED"].includes(job.status)) break;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    assert.equal(job.status, "FAILED");
+    assert.equal(job.error.code, "CONTENT_UNAVAILABLE");
+    // (this worker also drains jobs queued by earlier subtests, so assert on this paper, not on the total)
+    assert.equal(client.calls.filter((c) => c.user.includes(UNSEEN)).length, 0, "no model call for the unavailable paper");
+    // once the store knows, a second request is refused up front (422) with no job
+    const again = await A2.call("POST", "/api/v1/analysis", { token: tok(alice), body: { projectId: p.projectId, paperId: UNSEEN }, ...ip() });
+    assert.equal(again.status, 422);
+    assert.equal(again.json.error, "CONTENT_UNAVAILABLE");
+    assert.equal(again.json.aiCalled, false);
+    await A2.close();
+  });
+
+  await t.test("paper routes: authentication, rate limits, canonical identity, abstract only (no chunk text)", async () => {
+    for (const [m, pth, body] of [["POST", "/api/v1/papers/resolve", {}], ["GET", `/api/v1/papers/${encodeURIComponent(PAPER)}`, undefined]]) {
+      assert.equal((await A.call(m, pth, { body, ...ip() })).status, 401, pth);
+    }
+    const r = await A.call("POST", "/api/v1/papers/resolve", { token: tok(alice), body: { paperId: fx.FIXTURE_DOI }, ...ip() });
+    assert.equal(r.status, 200);
+    assert.equal(r.json.paperId, PAPER, "a bare DOI resolves to the canonical id");
+    assert.equal(r.json.coverage, "FULL_TEXT");
+    assert.ok(!JSON.stringify(r.json).includes("_chunk_") || !("chunks" in r.json), "chunk text is not exposed by the paper route");
+    assert.equal((await A.call("GET", `/api/v1/papers/${encodeURIComponent(PAPER)}`, { token: tok(bob), ...ip() })).json.paperId, PAPER);
+    assert.equal((await A.call("POST", "/api/v1/papers/resolve", { token: tok(alice), body: { paperId: "not a paper" }, ...ip() })).json.error, "INVALID_PAPER_ID");
+    assert.equal((await A.call("POST", "/api/v1/papers/resolve", { token: tok(alice), body: {}, ...ip() })).json.error, "PAPER_ID_REQUIRED");
+    assert.equal((await A.call("GET", "/api/v1/papers/%E0%A4%A", { token: tok(alice), ...ip() })).json.error, "INVALID_PAPER_ID");
+    const lim = await startReplica({ keys, env: { RATE_LIMIT_RETRIEVAL_USER: "2/60" } });
+    const u = uniq("limited-");
+    const codes = [];
+    for (let i = 0; i < 3; i++) codes.push((await lim.call("POST", "/api/v1/papers/resolve", { token: tok(u), body: { paperId: PAPER }, headers: ipHeader() })).status);
+    assert.deepEqual(codes, [200, 200, 429]);
+    await lim.close();
+  });
+
+  await t.test("scholarly outage -> retryable 503 with Retry-After, nothing cached as 'unavailable'", async () => {
+    const fx2 = require("./paperFixtures");
+    const down = fx2.createFixtureHttp({ fail: () => true });
+    const R = await startReplica({ keys, overrides: { client, http: down } });
+    const OUTAGE = "doi:10.9999/fixture.outage.2016"; // never stored, so the provider outage is actually hit
+    const r = await R.call("POST", "/api/v1/copilot/query", { token: tok(alice), body: { query: "q", paperId: OUTAGE }, ...ip() });
+    assert.equal(r.status, 503);
+    assert.equal(r.json.error, "RETRIEVAL_UNAVAILABLE");
+    assert.ok(Number(r.headers["retry-after"]) > 0);
+    const stored = await R.runtime.pool.query("SELECT count(*)::int AS n FROM papers WHERE paper_id = $1", [OUTAGE]);
+    assert.equal(stored.rows[0].n, 0, "an outage is not recorded as 'no content'");
+    assert.equal(client.calls.filter((c) => c.user.includes(OUTAGE)).length, 0);
+    await R.close();
+  });
+
+  await t.test("usage ledger: one honest row per request (model call, cache hit, gated, rejected), no tokens/keys stored", async () => {
+    await A.runtime.pool.query("DELETE FROM ai_usage");
+    const L = await startReplica({ keys, overrides: { client: modelStub() }, env: { ANTHROPIC_API_KEY: FAKE_ANTHROPIC_KEY } });
+    const u = uniq("ledger-");
+    const q = (paperId, query = "What was the training setup?") => L.call("POST", "/api/v1/copilot/query", { token: tok(u), body: { query, paperId }, ...ip() });
+    const first = await q(PAPER);
+    const second = await q(PAPER);
+    await q(PAPER_MISSING);
+    await L.call("POST", "/api/v1/copilot/query", { token: tok(u), body: { query: "q", paperId: PAPER, text: "injected" }, ...ip() });
+    assert.equal(first.json.cache.status, "MISS");
+    assert.equal(second.json.cache.status, "HIT");
+    const rows = (await L.runtime.pool.query("SELECT * FROM ai_usage ORDER BY id")).rows;
+    assert.equal(rows.length, 3, "model call, cache hit and gated request are recorded; a request rejected before the AI path is not an AI request");
+    const [r1, r2, r3] = rows;
+    assert.equal(r1.provider, "anthropic");
+    assert.equal(r1.ai_called, true);
+    assert.equal(r1.cache_hit, false);
+    assert.equal(r1.input_tokens, 1200);
+    assert.equal(r1.output_tokens, 240);
+    assert.equal(r1.total_tokens, 1440);
+    assert.equal(r1.cost_usd, null, "no verified price in the stub => cost is not invented");
+    assert.equal(r1.cost_status, "NOT_MEASURED");
+    assert.equal(r1.paper_id, PAPER);
+    assert.ok(r1.request_id && r1.duration_ms !== null && r1.model);
+    assert.equal(r2.cache_hit, true);
+    assert.equal(r2.ai_called, false);
+    assert.equal(r2.input_tokens, null);
+    assert.equal(r2.cost_status, "NO_NEW_SPEND");
+    assert.equal(r3.ai_called, false);
+    assert.equal(r3.coverage, "CONTENT_UNAVAILABLE");
+    assert.equal(r3.cost_status, "NO_AI_CALL");
+    const dump = JSON.stringify(rows);
+    assert.ok(!dump.includes(FAKE_ANTHROPIC_KEY) && !dump.includes(tok(u).slice(0, 40)) && !dump.includes(u), "no key, token or raw uid in the ledger");
+    const m = await A.call("GET", "/api/v1/llm/metrics", { token: tok("admin-1"), ...ip() });
+    assert.ok(m.json.usage && Array.isArray(m.json.usage.rows));
+    await L.close();
   });
 });

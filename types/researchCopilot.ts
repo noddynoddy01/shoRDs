@@ -22,7 +22,12 @@ export type CopilotResponseStatus =
   | "INSUFFICIENT_EVIDENCE"
   | "CONTRADICTORY"
   | "NEEDS_CLARIFICATION"
-  | "FAILED";
+  | "FAILED"
+  // What the backend actually reports. The server's mechanical checks never earn VERIFIED, so real answers are UNVERIFIED.
+  | "UNVERIFIED"
+  | "FALLBACK"
+  | "CONTENT_UNAVAILABLE"
+  | "METADATA_ONLY";
 
 export type SuggestedActionType =
   | "VIEW_EVIDENCE"
@@ -67,12 +72,18 @@ export interface ResearchCopilotResponse {
   answer: string;
   claims: ResearchCopilotClaim[];
   sources: { paperId: string; title: string; authors: string[]; year: number; doi?: string }[];
-  evidence: { chunkId: string; paperId: string; section: string; page: number; text: string }[];
+  evidence: { chunkId: string; paperId: string; section: string; page: number | null; text: string }[];
   graphContext: { edgeId: string; relationType: string; source: string; target: string }[];
   suggestedActions: { type: SuggestedActionType; label: string; payload: Record<string, string> }[];
   uncertainty?: string;
   limitations: string[];
   createdAt: string;
+  /** FULL_TEXT | ABSTRACT_ONLY | METADATA_ONLY | CONTENT_UNAVAILABLE, as reported by the server. */
+  coverage?: string;
+  coverageNotice?: string;
+  aiCalled?: boolean;
+  model?: string;
+  cacheStatus?: string;
 }
 
 export interface ResearchContext {

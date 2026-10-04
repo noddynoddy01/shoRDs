@@ -140,10 +140,14 @@ async function startReplica({ env = {}, overrides = {}, keys = null, replicaId =
   };
   for (const [k, v] of Object.entries(fullEnv)) if (v === undefined) delete fullEnv[k];
   const verifier = keys ? createFirebaseVerifier({ projectId: TEST_PROJECT_ID, fetchJwks: async () => ({ keys: [keys.jwk], maxAgeSec: 3600 }) }) : undefined;
-  const runtime = createRuntime(fullEnv, { verifier, logger: silentLogger, logRequests: false, replicaId, ...overrides });
+  // Scholarly providers are ALWAYS a fixture in tests (hand-written, fictional, provider-shaped payloads); no test reaches the network.
+  const { createFixtureHttp } = require("./paperFixtures");
+  const http = overrides.http || (overrides.providers ? undefined : createFixtureHttp());
+  const runtime = createRuntime(fullEnv, { verifier, logger: silentLogger, logRequests: false, replicaId, ...overrides, ...(http ? { http } : {}) });
   const srv = await listen(runtime.handler);
   return {
     runtime,
+    http,
     base: srv.base,
     replicaId,
     call: (method, path, opts) => call(srv.base, method, path, opts),
@@ -155,7 +159,48 @@ async function startReplica({ env = {}, overrides = {}, keys = null, replicaId =
   };
 }
 
+
+/**
+ * A stub of the Anthropic client that behaves like a well-formed model: it reads the excerpts it is actually sent and answers
+ * from them with valid citations. `calls` records every request so tests can assert on what was (not) sent to the model.
+ * `mutate(kind, payload)` lets a test make the "model" misbehave (cite an unknown chunk, alter a number, ...).
+ */
+function modelStub({ requestId = "req_stub", mutate = null, delayMs = 0, truncated = false, usage = { inputTokens: 1200, outputTokens: 240, totalTokens: 1440 }, costUsd = null, costStatus = "NOT_MEASURED" } = {}) {
+  const calls = [];
+  const excerpts = (user) => [...user.matchAll(/<excerpt id="([^"]+)" section="([^"]*)"[^>]*>\n([\s\S]*?)\n<\/excerpt>/g)].map((m) => ({ id: m[1], section: m[2], text: m[3] }));
+  const firstSentence = (t) => (t.match(/^.{20,300}?[.!?](?:\s|$)/) || [t.slice(0, 200)])[0].trim();
+  return {
+    calls,
+    async callMessages(opts) {
+      calls.push(opts);
+      if (delayMs) await new Promise((r) => setTimeout(r, delayMs));
+      const ex = excerpts(opts.user);
+      const intel = /<paper_excerpts/.test(opts.user) && /Extract the structured intelligence/.test(opts.user);
+      let kind, payload;
+      if (intel) {
+        kind = "intelligence";
+        const by = (re) => ex.find((e) => re.test(e.section)) || ex[0];
+        const abs = by(/ABSTRACT/i), res = by(/RESULT/i);
+        payload = {
+          tldr: { text: firstSentence(abs.text), evidence: [abs.id], basis: "STATED" },
+          findings: { text: firstSentence(res.text), evidence: [res.id], basis: "STATED" },
+          contributions: [{ text: firstSentence(abs.text), evidence: [abs.id], basis: "STATED" }],
+          quantitativeResults: [],
+          keywords: ["sparse coding"]
+        };
+      } else {
+        kind = "question";
+        const e = ex[0];
+        payload = e ? `${firstSentence(e.text)} [${e.id}]` : "No excerpt.";
+      }
+      if (mutate) payload = mutate(kind, payload, ex) || payload;
+      const text = typeof payload === "string" ? payload : JSON.stringify(payload);
+      return { text, usage, stopReason: truncated ? "max_tokens" : "end_turn", truncated, model: opts.model, latencyMs: delayMs || 5, attempts: 1, requestId, costUsd, costStatus };
+    }
+  };
+}
+
 /** X-Forwarded-For as a trusted single proxy appends it: "<spoofed by client>, <real client ip>". Default: a fresh random IP. */
 const ipHeader = (ip = `198.51.100.${1 + Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 1e6)}`) => ({ "x-forwarded-for": `6.6.6.6, ${ip}` });
 
-module.exports = { HIGH_LIMITS, startReplica, ipHeader, TEST_PROJECT_ID, FAKE_ANTHROPIC_KEY, makeKeyPair, signJwt, firebasePayload, tokenFor, uniq, listen, call, silentLogger, INFRA, infraSkip, resetInfra };
+module.exports = { modelStub, HIGH_LIMITS, startReplica, ipHeader, TEST_PROJECT_ID, FAKE_ANTHROPIC_KEY, makeKeyPair, signJwt, firebasePayload, tokenFor, uniq, listen, call, silentLogger, INFRA, infraSkip, resetInfra };

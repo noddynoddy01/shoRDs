@@ -149,8 +149,8 @@ shoRDs consists of a **Mobile Native Application (Android APK via React Native &
 ### Q11: "How does the PDF Document upload work?"
 > *"In `upload.tsx`, I integrated `expo-document-picker` to select local `.pdf` files. The app reads the PDF metadata, auto-populates fallback titles, extracts abstract summaries, allows the user to select from 15+ domain pills or enter a custom domain, and saves the entry to `uploadedPapers.ts`."*
 
-### Q12: "What admin credentials and support details are built in?"
-> *"Admin login uses Email/Username `ABHINAV01` and Password `HELLO`. Single-channel academic support and contact is configured to `abhinavprakash0401@gmail.com`."*
+### Q12: "How is sign-in handled, and what support details are built in?"
+> *"Sign-in is Firebase Authentication only: the app signs the user in with Firebase, sends the Firebase ID token to the backend as a Bearer token, and the backend verifies it and checks project membership. There are no built-in or shared credentials, and no admin account exists in the client. Administrative operations are limited by Firebase user ids configured on the server (ADMIN_UIDS). Single-channel academic support and contact is configured to `abhinavprakash0401@gmail.com`."*
 
 ### Q13: "What is your funding plan for the ₹2.5 Lakhs seed grant?"
 > *"The ₹2.5 Lakhs allocation is deployed across 3 key milestones: 40% for local vector indexing infrastructure, 35% for open-access outreach across IIITs/IITs, and 25% for low-bandwidth mobile & PWA optimization."*

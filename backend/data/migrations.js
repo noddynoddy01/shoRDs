@@ -61,6 +61,80 @@ const MIGRATIONS = [
       CREATE INDEX analysis_jobs_status_idx ON analysis_jobs (status, updated_at);
       CREATE INDEX analysis_jobs_project_idx ON analysis_jobs (project_id, created_at DESC);
     `
+  },
+  {
+    version: 2,
+    name: "papers_chunks_ai_usage",
+    sql: `
+      -- Scholarly records are public content, not tenant data: one canonical row per paper, shared by every tenant.
+      -- Authorization to ANALYSE a paper is still per project (see app.js); authorization to see tenant results is per project.
+      CREATE TABLE papers (
+        paper_id          TEXT PRIMARY KEY,
+        title             TEXT NOT NULL,
+        authors           JSONB NOT NULL DEFAULT '[]',
+        pub_year          INTEGER,
+        venue             TEXT,
+        doi               TEXT,
+        pmid              TEXT,
+        pmcid             TEXT,
+        arxiv_id          TEXT,
+        abstract          TEXT,
+        coverage          TEXT NOT NULL CHECK (coverage IN ('FULL_TEXT','ABSTRACT_ONLY','METADATA_ONLY','CONTENT_UNAVAILABLE')),
+        coverage_reason   TEXT NOT NULL,
+        source            TEXT,
+        source_url        TEXT,
+        license           TEXT,
+        content_hash      TEXT NOT NULL,
+        chunk_count       INTEGER NOT NULL DEFAULT 0,
+        truncated         BOOLEAN NOT NULL DEFAULT FALSE,
+        extractor_version INTEGER NOT NULL,
+        providers         JSONB NOT NULL DEFAULT '[]',
+        retrieved_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+
+      CREATE TABLE paper_chunks (
+        paper_id    TEXT NOT NULL REFERENCES papers (paper_id) ON DELETE CASCADE,
+        ordinal     INTEGER NOT NULL,
+        chunk_id    TEXT NOT NULL,
+        section     TEXT NOT NULL,
+        heading     TEXT,
+        source_type TEXT NOT NULL,
+        text        TEXT NOT NULL,
+        text_hash   TEXT NOT NULL,
+        PRIMARY KEY (paper_id, ordinal),
+        UNIQUE (paper_id, chunk_id)
+      );
+
+      -- One row per AI-path request (including cache hits and requests that never reached the model), written by every replica.
+      CREATE TABLE ai_usage (
+        id              BIGSERIAL PRIMARY KEY,
+        created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+        request_id      TEXT NOT NULL,
+        job_id          TEXT,
+        tenant_id       TEXT,
+        project_id      TEXT,
+        user_hash       TEXT,
+        paper_id        TEXT,
+        mode            TEXT NOT NULL,
+        coverage        TEXT,
+        provider        TEXT NOT NULL,
+        model           TEXT,
+        ai_called       BOOLEAN NOT NULL,
+        cache_hit       BOOLEAN NOT NULL,
+        fallback        BOOLEAN NOT NULL,
+        fallback_reason TEXT,
+        input_tokens    INTEGER,
+        output_tokens   INTEGER,
+        total_tokens    INTEGER,
+        cost_usd        DOUBLE PRECISION,
+        cost_status     TEXT NOT NULL,
+        duration_ms     INTEGER,
+        replica_id      TEXT,
+        outcome         TEXT NOT NULL
+      );
+      CREATE INDEX ai_usage_created_idx ON ai_usage (created_at);
+      CREATE INDEX ai_usage_tenant_idx ON ai_usage (tenant_id, created_at);
+    `
   }
 ];
 

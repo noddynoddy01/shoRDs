@@ -12,14 +12,13 @@ const env = { ...process.env };
 const jwk = JSON.parse(env.TEST_JWK);
 const verifier = createFirebaseVerifier({ projectId: env.FIREBASE_PROJECT_ID, fetchJwks: async () => ({ keys: [jwk], maxAgeSec: 3600 }) });
 const delay = Number(env.TEST_MODEL_DELAY_MS || 0);
-const client = {
-  async callMessages(o) {
-    if (delay) await new Promise((r) => setTimeout(r, delay));
-    return { text: `answer from pid ${process.pid} [c1]`, usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15 }, stopReason: "end_turn", truncated: false, model: o.model, latencyMs: delay, attempts: 1, requestId: "r", costUsd: 0.0001, costStatus: "ESTIMATED" };
-  }
-};
+// Stand-ins for the two network dependencies: a well-behaved model stub and the fictional provider fixtures.
+// (The model's provider request id carries this process's pid, so tests can see which OS process made the call.)
+const { modelStub } = require("./helpers");
+const { createFixtureHttp } = require("./paperFixtures");
+const client = modelStub({ requestId: `stub-pid-${process.pid}`, delayMs: delay });
 const quiet = { log() {}, warn() {}, error() {}, info() {}, debug() {} };
-const runtime = createRuntime(env, { verifier, client, logger: quiet, logRequests: false });
+const runtime = createRuntime(env, { verifier, client, http: createFixtureHttp(), logger: quiet, logRequests: false });
 const server = http.createServer(runtime.handler);
 server.listen(Number(env.PORT), "127.0.0.1", () => {
   runtime.startBackground();

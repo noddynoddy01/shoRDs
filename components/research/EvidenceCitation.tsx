@@ -4,7 +4,7 @@ interface EvidenceCitationProps {
   chunkId: string;
   paperTitle: string;
   section: string;
-  page: number;
+  page: number | null;
   snippet: string;
 }
 
@@ -25,7 +25,7 @@ export const EvidenceCitation: React.FC<EvidenceCitationProps> = ({
       }}
     >
       <div style={{ fontSize: "12px", fontWeight: 600, color: "#334155" }}>
-        {paperTitle} — Section: {section}, Page {page}
+        {paperTitle} — Section: {section}{page !== null ? `, Page ${page}` : ""}
       </div>
       <div style={{ fontSize: "13px", color: "#475569", marginTop: "2px", fontStyle: "italic" }}>
         "{snippet}"

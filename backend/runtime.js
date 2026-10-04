@@ -21,6 +21,10 @@ const { createTelemetry } = require("./llm/telemetry");
 const { createJobStore } = require("./jobs/jobStore");
 const { createWorker } = require("./jobs/worker");
 const { createAnalysisProcessor } = require("./jobs/analysisProcessor");
+const { createProviders } = require("./papers/providers");
+const { createPaperService, PaperError } = require("./papers/paperService");
+const { createAiPipeline } = require("./llm/aiPipeline");
+const { createUsageLedger } = require("./llm/usageLedger");
 const { createReadinessChecker, createAiProbe } = require("./readiness");
 const { createApp } = require("./app");
 
@@ -49,7 +53,7 @@ function createRuntime(env = process.env, overrides = {}) {
   let redis = null;
   let redisError = null;
   try {
-    redis = overrides.redis || new RedisClient({ url: env.REDIS_URL });
+    redis = overrides.redis || new RedisClient({ url: env.REDIS_URL, tlsCa: env.REDIS_TLS_CA || undefined });
   } catch (e) {
     if (!(e instanceof RedisError)) throw e;
     redisError = e;
@@ -70,7 +74,22 @@ function createRuntime(env = process.env, overrides = {}) {
 
   const jobStore = createJobStore({ pool: appPool, redis: appRedis, logger });
   const workerEnabled = env.WORKER_ENABLED !== "false";
-  const processor = createAnalysisProcessor({ env, telemetry, replicaId, cache, client: overrides.client, logger });
+  const providers = overrides.providers || createProviders({ http: overrides.http, env, logger });
+  const paperService = createPaperService({
+    pool: appPool,
+    redis: appRedis,
+    providers,
+    logger,
+    now: overrides.now,
+    // One budget for calls to the scholarly providers, shared by every replica and user (they are third-party services).
+    beforeRetrieve: async () => {
+      const r = await rateLimiter.hit("RETRIEVAL_PROVIDERS", "global", "providers");
+      if (!r.allowed) throw new PaperError("RETRIEVAL_THROTTLED", "Paper retrieval is busy. Please retry shortly.", 503, true);
+    }
+  });
+  const ledger = createUsageLedger({ pool: appPool, logger });
+  const pipeline = createAiPipeline({ paperService, cache, ledger, telemetry, client: overrides.client, env, replicaId, logger, now: overrides.now });
+  const processor = createAnalysisProcessor({ pipeline });
   const worker = workerEnabled && pool && redis
     ? createWorker({
         store: jobStore,
@@ -107,6 +126,9 @@ function createRuntime(env = process.env, overrides = {}) {
     telemetry,
     jobStore,
     cache,
+    paperService,
+    pipeline,
+    ledger,
     readiness,
     workerStats: worker ? () => worker.stats() : null,
     client: overrides.client,
@@ -147,7 +169,7 @@ function createRuntime(env = process.env, overrides = {}) {
     if (pool) await pool.end();
   }
 
-  return { handler, replicaId, pool, redis, worker, jobStore, rateLimiter, cache, telemetry, verifier, corsConfig, readiness, startBackground, shutdown };
+  return { handler, replicaId, pool, redis, worker, jobStore, rateLimiter, cache, telemetry, verifier, corsConfig, readiness, paperService, pipeline, ledger, startBackground, shutdown };
 }
 
 module.exports = { createRuntime };

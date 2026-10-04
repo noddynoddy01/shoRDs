@@ -7,12 +7,16 @@
  * is unreachable, which makes "distributed" rate limits and locks per-replica without any signal. This client
  * never falls back: if Redis cannot answer, the call rejects with a categorised error and the caller decides.
  *
- * Supported: redis://[user]:[password]@host:port[/db]  (plain TCP; rediss:// is rejected, see below)
+ * Supported: redis://[user]:[password]@host:port[/db]   plain TCP (Railway private network and Railway's TCP proxy are plain TCP)
+ *            rediss://[user]:[password]@host:port[/db]  TLS, ALWAYS with certificate and host-name verification (system CAs,
+ *                                                       or the PEM in `tlsCa` / REDIS_TLS_CA for a private CA). There is deliberately
+ *                                                       no "skip verification" switch.
  * One connection per client, commands pipelined in FIFO order, per-command timeout, lazy (re)connect.
  * Use `duplicate()` for a dedicated connection when issuing blocking commands (BRPOP).
  */
 
 const net = require("net");
+const tls = require("tls");
 
 class RedisError extends Error {
   /** code: REDIS_NOT_CONFIGURED | REDIS_TLS_UNSUPPORTED | REDIS_CONNECT_FAILED | REDIS_AUTH_FAILED | REDIS_TIMEOUT |
@@ -40,10 +44,7 @@ function parseRedisUrl(url) {
   } catch (_) {
     throw new RedisError("REDIS_NOT_CONFIGURED", "REDIS_URL is not a valid URL");
   }
-  if (u.protocol === "rediss:") {
-    throw new RedisError("REDIS_TLS_UNSUPPORTED", "rediss:// (TLS) is not supported by this client; use the private-network redis:// URL");
-  }
-  if (u.protocol !== "redis:") throw new RedisError("REDIS_NOT_CONFIGURED", `unsupported scheme ${u.protocol}`);
+  if (u.protocol !== "redis:" && u.protocol !== "rediss:") throw new RedisError("REDIS_NOT_CONFIGURED", `unsupported scheme ${u.protocol}`);
   const db = u.pathname && u.pathname.length > 1 ? Number(u.pathname.slice(1)) : 0;
   if (!Number.isInteger(db) || db < 0) throw new RedisError("REDIS_NOT_CONFIGURED", "REDIS_URL database index is invalid");
   return {
@@ -51,7 +52,8 @@ function parseRedisUrl(url) {
     port: Number(u.port || 6379),
     username: u.username ? decodeURIComponent(u.username) : "",
     password: u.password ? decodeURIComponent(u.password) : "",
-    db
+    db,
+    tls: u.protocol === "rediss:"
   };
 }
 
@@ -176,7 +178,12 @@ class RedisClient {
   _connect() {
     return new Promise((resolve, reject) => {
       const { host, port } = this.target;
-      const sock = net.createConnection({ host, port });
+      const useTls = this.target.tls;
+      // TLS: verified against the system trust store (or REDIS_TLS_CA); the server name is checked unless the host is a bare IP
+      // (then the certificate must list that IP). rejectUnauthorized is never turned off.
+      const sock = useTls
+        ? tls.connect({ host, port, servername: net.isIP(host) ? undefined : host, rejectUnauthorized: true, ...(this.opts.tlsCa ? { ca: this.opts.tlsCa } : {}), minVersion: "TLSv1.2" })
+        : net.createConnection({ host, port });
       this.sock = sock;
       this.buf = Buffer.alloc(0);
       sock.setNoDelay(true);
@@ -208,7 +215,7 @@ class RedisClient {
         if (!settled) return fail(new RedisError("REDIS_CONNECT_FAILED", "connection closed during connect"));
         if (this.sock === sock) this._teardown(new RedisError("REDIS_CONNECTION_LOST", "connection closed"));
       });
-      sock.once("connect", async () => {
+      sock.once(useTls ? "secureConnect" : "connect", async () => {
         try {
           const { username, password, db } = this.target;
           if (password) {

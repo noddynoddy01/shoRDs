@@ -2,6 +2,7 @@ import React from "react";
 import {
   Alert,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,7 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTheme, ThemeType, themes, FontScaleType, fontScaleNames } from "../context/ThemeContext";
 import { colors as defaultColors, radius } from "../constants/theme";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { router } from "expo-router";
+import { useAuth } from "../context/AuthContext";
 import { Chip } from "./Chip";
 
 type SettingsTrayProps = {
@@ -48,20 +49,24 @@ export function SettingsTray({ visible, onClose, currentUserProfile, onProfileUp
   const { theme, colors, setTheme, fontScaleType, setFontScale, fontSizeScale } = useTheme();
 
   const styles = getStyles(colors, fontSizeScale);
+  const { logout } = useAuth();
 
-  async function handleLogout() {
+  // Signs out of Firebase; the auth state change clears the local profile and the route guard takes the user to /auth.
+  async function performLogout() {
+    await logout();
+    onClose();
+    if (onLogout) onLogout();
+  }
+
+  function handleLogout() {
+    // Alert.alert with buttons is a no-op on React Native Web, so the web build asks with the browser's own confirm.
+    if (Platform.OS === "web") {
+      if (typeof window !== "undefined" && window.confirm("Are you sure you want to log out?")) void performLogout();
+      return;
+    }
     Alert.alert("Logout", "Are you sure you want to log out?", [
       { text: "Cancel", style: "cancel" },
-      {
-        text: "Logout",
-        style: "destructive",
-        onPress: async () => {
-          await AsyncStorage.removeItem("shords.currentUser");
-          onClose();
-          if (onLogout) onLogout();
-          router.replace("/auth");
-        }
-      }
+      { text: "Logout", style: "destructive", onPress: () => void performLogout() }
     ]);
   }
 

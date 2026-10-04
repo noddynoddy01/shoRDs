@@ -2,21 +2,20 @@
 /** Redis result cache + single-flight de-duplication on the real copilot path, with regression tests for key isolation. */
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { startReplica, makeKeyPair, tokenFor, uniq, ipHeader, infraSkip, resetInfra, FAKE_ANTHROPIC_KEY } = require("./helpers");
+const fx = require("./paperFixtures");
+const { modelStub, startReplica, makeKeyPair, tokenFor, uniq, ipHeader, infraSkip, resetInfra, FAKE_ANTHROPIC_KEY } = require("./helpers");
 
 const skip = infraSkip();
 const keys = makeKeyPair("cache-key");
 const tok = (uid) => tokenFor(keys, uid);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const chunks = (paperId, text = "Treatment reduced systolic pressure by 8.1 mmHg versus 2.3 mmHg (n=120).") => [{ chunkId: "c1", paperId, section: "Results", page: 3, text }];
+const PAPER = `doi:${fx.FIXTURE_DOI}`;
+const PAPER_B = `doi:${fx.DOI_B}`;
+const PAPER_MISSING = `doi:${fx.DOI_MISSING}`;
 
-function countingClient({ delayMs = 0, truncated = false } = {}) {
-  const c = { calls: [] };
-  c.callMessages = async (o) => {
-    c.calls.push({ model: o.model, user: o.user });
-    if (delayMs) await sleep(delayMs);
-    return { text: `Answer #${c.calls.length} [c1]`, usage: { inputTokens: 500, outputTokens: 60, totalTokens: 560 }, stopReason: truncated ? "max_tokens" : "end_turn", truncated, model: o.model, latencyMs: delayMs, attempts: 1, requestId: `r${c.calls.length}`, costUsd: 0.002, costStatus: "ESTIMATED" };
-  };
+/** A model stub whose answers are numbered ("Answer #n"), so a cache hit is distinguishable from a fresh call. Cites real server chunk ids. */
+function countingClient(opts = {}) {
+  const c = modelStub({ ...opts, costUsd: 0.002, costStatus: "ESTIMATED", usage: { inputTokens: 500, outputTokens: 60, totalTokens: 560 }, mutate: (kind, payload) => (kind === "question" ? `Answer #${c.calls.length} ${payload}` : payload) });
   return c;
 }
 const env = { ANTHROPIC_API_KEY: FAKE_ANTHROPIC_KEY, AI_CACHE_ENABLED: "true" };
@@ -28,7 +27,7 @@ test("result cache and de-duplication (real Redis)", { skip }, async (t) => {
     const a = uniq("a-"), b = uniq("b-"), h = ipHeader();
     const pa = (await R.call("POST", "/api/v1/projects", { token: tok(a), body: { name: "A" }, headers: h })).json.projectId;
     const pb = (await R.call("POST", "/api/v1/projects", { token: tok(b), body: { name: "B" }, headers: h })).json.projectId;
-    const ask = (uid, projectId, body = {}) => R.call("POST", "/api/v1/copilot/query", { token: tok(uid), body: { projectId, query: "What was the effect on blood pressure?", paperId: "paper-1", evidenceChunks: chunks("paper-1"), ...body }, headers: ipHeader() });
+    const ask = (uid, projectId, body = {}) => R.call("POST", "/api/v1/copilot/query", { token: tok(uid), body: { projectId, query: "What was the effect on blood pressure?", paperId: PAPER, ...body }, headers: ipHeader() });
     return { a, b, pa, pb, ask };
   }
 
@@ -84,16 +83,24 @@ test("result cache and de-duplication (real Redis)", { skip }, async (t) => {
     const R = await startReplica({ keys, env, overrides: { client: model } });
     const { a, pa, ask } = await twoTenants(R);
     await ask(a, pa);
+    // "content changed": the stored chunks of the paper change (e.g. a re-retrieval found a corrected text) => different content hash
+    const changeContent = async () => {
+      await R.runtime.pool.query("UPDATE paper_chunks SET text = text || ' (corrected: the effect size was revised)', text_hash = 'changed' WHERE paper_id = $1 AND section = 'RESULTS'", [PAPER]);
+    };
     const variants = [
-      { paperId: "paper-2", evidenceChunks: chunks("paper-2") },
-      { evidenceChunks: chunks("paper-1", "Treatment reduced systolic pressure by 9.9 mmHg (a different text).") },
+      { paperId: PAPER_B },
       { query: "What were the limitations?" },
       { analysisDepth: "DEEP" }
     ];
     for (const v of variants) assert.equal((await ask(a, pa, v)).json.cache.status, "MISS", JSON.stringify(Object.keys(v)));
-    assert.equal(model.calls.length, 5);
+    assert.equal(model.calls.length, 4);
     for (const v of variants) assert.equal((await ask(a, pa, v)).json.cache.status, "HIT", "and each variant is cached under its own key");
+    assert.equal(model.calls.length, 4);
+    assert.equal((await ask(a, pa)).json.cache.status, "HIT", "the original is still its own entry");
+    await changeContent();
+    assert.equal((await ask(a, pa)).json.cache.status, "MISS", "changed paper content is a different entry");
     assert.equal(model.calls.length, 5);
+    assert.equal((await ask(a, pa)).json.cache.status, "HIT");
     await R.close();
   });
 
@@ -103,7 +110,7 @@ test("result cache and de-duplication (real Redis)", { skip }, async (t) => {
     const B = await startReplica({ keys, env: { ...env, ANTHROPIC_MODEL: "claude-opus-5-5" }, overrides: { client: model } });
     const { a, pa, ask } = await twoTenants(A);
     assert.equal((await ask(a, pa)).json.cache.status, "MISS");
-    const askB = (body = {}) => B.call("POST", "/api/v1/copilot/query", { token: tok(a), body: { projectId: pa, query: "What was the effect on blood pressure?", paperId: "paper-1", evidenceChunks: chunks("paper-1"), ...body }, headers: ipHeader() });
+    const askB = (body = {}) => B.call("POST", "/api/v1/copilot/query", { token: tok(a), body: { projectId: pa, query: "What was the effect on blood pressure?", paperId: PAPER, ...body }, headers: ipHeader() });
     const onB = await askB();
     assert.equal(onB.json.cache.status, "MISS");
     assert.equal(model.calls.map((c) => c.model).join(","), "claude-sonnet-5-5,claude-opus-5-5");
@@ -116,7 +123,7 @@ test("result cache and de-duplication (real Redis)", { skip }, async (t) => {
     const B = await startReplica({ keys, env, overrides: { client: model } });
     const { a, pa, ask } = await twoTenants(A);
     assert.equal((await ask(a, pa)).json.cache.status, "MISS");
-    const onB = await B.call("POST", "/api/v1/copilot/query", { token: tok(a), body: { projectId: pa, query: "What was the effect on blood pressure?", paperId: "paper-1", evidenceChunks: chunks("paper-1") }, headers: ipHeader() });
+    const onB = await B.call("POST", "/api/v1/copilot/query", { token: tok(a), body: { projectId: pa, query: "What was the effect on blood pressure?", paperId: PAPER }, headers: ipHeader() });
     assert.equal(onB.json.cache.status, "HIT");
     assert.equal(onB.json.replicaId, B.replicaId, "the response names the replica that served it");
     assert.equal(model.calls.length, 1);
@@ -143,7 +150,7 @@ test("result cache and de-duplication (real Redis)", { skip }, async (t) => {
     const A = await startReplica({ keys, env, overrides: { client: model } });
     const B = await startReplica({ keys, env, overrides: { client: model } });
     const { a, pa } = await twoTenants(A);
-    const body = { projectId: pa, query: "Cross-replica question?", paperId: "paper-1", evidenceChunks: chunks("paper-1") };
+    const body = { projectId: pa, query: "Cross-replica question?", paperId: PAPER };
     const rs = await Promise.all([A, B, A, B].map((R) => R.call("POST", "/api/v1/copilot/query", { token: tok(a), body, headers: ipHeader() })));
     assert.ok(rs.every((r) => r.status === 200));
     assert.equal(model.calls.length, 1);
@@ -159,7 +166,7 @@ test("result cache and de-duplication (real Redis)", { skip }, async (t) => {
     assert.equal(f1.json.cache.status, "BYPASS");
     assert.equal(f2.json.cache.status, "BYPASS");
     // no evidence -> CONTENT_UNAVAILABLE, never cached
-    const n = await ask(a, pa, { evidenceChunks: [] });
+    const n = await ask(a, pa, { paperId: PAPER_MISSING });
     assert.equal(n.json.verificationStatus, "CONTENT_UNAVAILABLE");
     assert.equal(n.json.cache.status, "BYPASS");
     await F.close();
@@ -168,7 +175,7 @@ test("result cache and de-duplication (real Redis)", { skip }, async (t) => {
     const T = await startReplica({ keys, env, overrides: { client: model } });
     const u = uniq("trunc-");
     const p = (await T.call("POST", "/api/v1/projects", { token: tok(u), body: { name: "T" }, headers: ipHeader() })).json.projectId;
-    const askT = () => T.call("POST", "/api/v1/copilot/query", { token: tok(u), body: { projectId: p, query: "q?", paperId: "paper-1", evidenceChunks: chunks("paper-1") }, headers: ipHeader() });
+    const askT = () => T.call("POST", "/api/v1/copilot/query", { token: tok(u), body: { projectId: p, query: "q?", paperId: PAPER }, headers: ipHeader() });
     const t1 = await askT();
     const t2 = await askT();
     assert.equal(t1.json.truncated, true);
@@ -200,7 +207,7 @@ test("result cache and de-duplication (real Redis)", { skip }, async (t) => {
     assert.equal((await ask(a, pa)).json.verificationStatus, "FALLBACK");
     const model = countingClient();
     const K = await startReplica({ keys, env, overrides: { client: model } });
-    const real = await K.call("POST", "/api/v1/copilot/query", { token: tok(a), body: { projectId: pa, query: "What was the effect on blood pressure?", paperId: "paper-1", evidenceChunks: chunks("paper-1") }, headers: ipHeader() });
+    const real = await K.call("POST", "/api/v1/copilot/query", { token: tok(a), body: { projectId: pa, query: "What was the effect on blood pressure?", paperId: PAPER }, headers: ipHeader() });
     assert.equal(real.json.modelMode, "EXTERNAL_CLAUDE");
     assert.equal(real.json.cache.status, "MISS");
     await F.close(); await K.close();

@@ -23,8 +23,6 @@ const story = [
   }
 ];
 
-import AsyncStorage from "@react-native-async-storage/async-storage";
-
 export default function SplashScreen() {
   const { colors, fontSizeScale } = useTheme();
   const opacity = useRef(new Animated.Value(0)).current;
@@ -45,13 +43,9 @@ export default function SplashScreen() {
     ]).start();
   }, [opacity, progress, storyFade, translateY]);
 
-  const handleEnterApp = async () => {
-    const user = await AsyncStorage.getItem("shords.currentUser");
-    if (user) {
-      router.replace("/(tabs)");
-    } else {
-      router.replace("/auth");
-    }
+  // The route guard sends signed-in users straight into the app; this button is only shown to signed-out visitors.
+  const handleEnterApp = () => {
+    router.replace("/auth");
   };
 
   return (

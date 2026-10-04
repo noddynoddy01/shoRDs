@@ -19,9 +19,10 @@ test("URL parsing: missing / malformed / unsupported configuration is categorise
   assert.throws(() => parsePgUrl("postgresql://u:p@h/db?sslmode=bogus"), (e) => e.code === "PG_NOT_CONFIGURED");
   assert.deepEqual(parsePgUrl("postgresql://us%40er:p%3Aw@h.example:6543/mydb?sslmode=require"), { host: "h.example", port: 6543, user: "us@er", password: "p:w", database: "mydb", sslmode: "require" });
   assert.throws(() => parseRedisUrl(""), (e) => e.code === "REDIS_NOT_CONFIGURED");
-  assert.throws(() => parseRedisUrl("rediss://h:6380"), (e) => e.code === "REDIS_TLS_UNSUPPORTED");
+  assert.equal(parseRedisUrl("rediss://u:p@h:6380/2").tls, true);
+  assert.equal(parseRedisUrl("redis://h:6380").tls, false);
   assert.throws(() => parseRedisUrl("http://h"), (e) => e.code === "REDIS_NOT_CONFIGURED");
-  assert.deepEqual(parseRedisUrl("redis://default:pa%20ss@h:6380/2"), { host: "h", port: 6380, username: "default", password: "pa ss", db: 2 });
+  assert.deepEqual(parseRedisUrl("redis://default:pa%20ss@h:6380/2"), { host: "h", port: 6380, username: "default", password: "pa ss", db: 2, tls: false });
 });
 
 test("RESP codec round-trips binary-safe values and partial frames", () => {

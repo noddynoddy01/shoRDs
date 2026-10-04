@@ -17,6 +17,8 @@ services:
       - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:8081}
       - ADMIN_UIDS=${ADMIN_UIDS:-}
       - TRUST_PROXY=${TRUST_PROXY:-false}
+      - TRUST_PROXY_HOPS=${TRUST_PROXY_HOPS:-1}
+      - CONTACT_EMAIL=${CONTACT_EMAIL:-}
       - REQUIRE_AI_PROVIDER=${REQUIRE_AI_PROVIDER:-false}
       - LLM_PROVIDER=${LLM_PROVIDER:-anthropic}
       - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-claude-sonnet-5-5}

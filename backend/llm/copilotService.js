@@ -3,8 +3,9 @@
  * /api/v1/copilot/query logic for the production entrypoint, separated from HTTP so it can be tested.
  *
  * Hard rules enforced here:
- *  1. The model is only called when the request carries actual paper text (`evidenceChunks`). With no paper
- *     content there is nothing to ground an answer in, so no tokens are spent and no analysis is invented.
+ *  1. The model is only called when there is actual paper text. With no paper content there is nothing to ground an
+ *     answer in, so no tokens are spent and no analysis is invented. (On the HTTP path the evidence is read from the
+ *     server's own paper store by backend/llm/aiPipeline.js; a client can never supply evidence text.)
  *  2. Evidence chunks must belong to the requested paper (no cross-paper contamination).
  *  3. A response is never labelled VERIFIED here: claim-to-evidence verification is not part of this path yet.
  *     Model output is UNVERIFIED, local output is FALLBACK, and missing content is CONTENT_UNAVAILABLE.
@@ -13,6 +14,7 @@
  */
 
 const { callMessages, resolveApiKey, resolveModelConfig, resolveProfile } = require("./anthropicClient");
+const { isCanonicalPaperId, parseChunkId } = require("../papers/identity");
 
 const LOCAL_MODEL_ID = "local-deterministic-v1";
 const PROMPT_VERSION = "2026.2";
@@ -24,6 +26,8 @@ const MAX_CHUNK_CHARS = 8000;
 const MAX_TOTAL_CONTEXT_CHARS = 80000;
 const EVIDENCE_PREVIEW_CHARS = 400;
 const ID_PATTERN = /^[\w.:\-/]{1,200}$/;
+const validId = (id) => typeof id === "string" && (ID_PATTERN.test(id) || isCanonicalPaperId(id)); // canonical title ids contain spaces
+const validChunkId = (id) => typeof id === "string" && (ID_PATTERN.test(id) || parseChunkId(id) !== null);
 
 const SYSTEM_PROMPT = [
   "You are shoRDs Research Intelligence Copilot, a careful scientific research assistant.",
@@ -39,7 +43,10 @@ function fail(error, message) {
   return { ok: false, error, message };
 }
 
-function validateRequest(body) {
+const DEFAULT_LIMITS = { maxChunks: MAX_CHUNKS, maxTotalChars: MAX_TOTAL_CONTEXT_CHARS };
+
+/** `limits` lets the server-side evidence path (chunks read from the paper store) carry more text than a raw client request would. */
+function validateRequest(body, limits = DEFAULT_LIMITS) {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     return fail("INVALID_REQUEST", "Request body must be a JSON object.");
   }
@@ -51,25 +58,25 @@ function validateRequest(body) {
   if (typeof body.paperId === "string") paperId = body.paperId.trim();
   else if (Array.isArray(body.paperIds) && typeof body.paperIds[0] === "string") paperId = body.paperIds[0].trim();
   if (!paperId) return fail("PAPER_ID_REQUIRED", "`paperId` is required.");
-  if (!ID_PATTERN.test(paperId)) return fail("INVALID_PAPER_ID", "`paperId` contains unsupported characters or is too long.");
+  if (!validId(paperId)) return fail("INVALID_PAPER_ID", "`paperId` contains unsupported characters or is too long.");
 
   const rawChunks = body.evidenceChunks === undefined ? [] : body.evidenceChunks;
   if (!Array.isArray(rawChunks)) return fail("INVALID_EVIDENCE", "`evidenceChunks` must be an array.");
-  if (rawChunks.length > MAX_CHUNKS) return fail("TOO_MANY_CHUNKS", `At most ${MAX_CHUNKS} evidence chunks are accepted.`);
+  if (rawChunks.length > limits.maxChunks) return fail("TOO_MANY_CHUNKS", `At most ${limits.maxChunks} evidence chunks are accepted.`);
 
   const seen = new Set();
   const chunks = [];
   let total = 0;
   for (const c of rawChunks) {
     if (!c || typeof c !== "object") return fail("INVALID_EVIDENCE", "Each evidence chunk must be an object.");
-    if (typeof c.chunkId !== "string" || !ID_PATTERN.test(c.chunkId)) return fail("INVALID_EVIDENCE", "Each evidence chunk needs a valid `chunkId`.");
+    if (!validChunkId(c.chunkId)) return fail("INVALID_EVIDENCE", "Each evidence chunk needs a valid `chunkId`.");
     if (seen.has(c.chunkId)) return fail("INVALID_EVIDENCE", `Duplicate chunkId: ${c.chunkId}`);
     seen.add(c.chunkId);
     if (c.paperId !== paperId) return fail("EVIDENCE_PAPER_MISMATCH", `Chunk ${c.chunkId} does not belong to paper ${paperId}.`);
     if (typeof c.text !== "string" || !c.text.trim()) return fail("INVALID_EVIDENCE", `Chunk ${c.chunkId} has no text.`);
     if (c.text.length > MAX_CHUNK_CHARS) return fail("CHUNK_TOO_LARGE", `Chunk ${c.chunkId} exceeds ${MAX_CHUNK_CHARS} characters.`);
     total += c.text.length;
-    if (total > MAX_TOTAL_CONTEXT_CHARS) return fail("CONTEXT_TOO_LARGE", `Total evidence text exceeds ${MAX_TOTAL_CONTEXT_CHARS} characters.`);
+    if (total > limits.maxTotalChars) return fail("CONTEXT_TOO_LARGE", `Total evidence text exceeds ${limits.maxTotalChars} characters.`);
     const section = typeof c.section === "string" ? c.section.replace(/[^\w .,&()\-/]/g, "").slice(0, 100) : "";
     const page = Number.isInteger(c.page) && c.page >= 0 ? c.page : null;
     chunks.push({ chunkId: c.chunkId, paperId, section, page, text: c.text });
@@ -122,7 +129,7 @@ function buildLocalFallback({ query, paperId, chunks }) {
 function extractCitedChunkIds(answer, chunks) {
   const known = new Set(chunks.map((c) => c.chunkId));
   const cited = [];
-  const re = /\[([^\[\]\s]{1,200})\]/g;
+  const re = /\[([^\[\]\n]{1,200})\]/g;
   let m;
   while ((m = re.exec(answer)) !== null) {
     if (known.has(m[1]) && !cited.includes(m[1])) cited.push(m[1]);
@@ -153,7 +160,7 @@ async function handleCopilotQuery(rawBody, deps = {}) {
   const requestId = deps.requestId || makeRequestId(now);
   const started = now();
 
-  const validated = validateRequest(rawBody);
+  const validated = validateRequest(rawBody, deps.limits || DEFAULT_LIMITS);
   if (!validated.ok) return { httpStatus: 400, body: { error: validated.error, message: validated.message, requestId } };
   const { query, paperId, chunks, depth } = validated.value;
 
@@ -205,7 +212,10 @@ async function handleCopilotQuery(rawBody, deps = {}) {
     analysisDepth: profile.name,
     replicaId,
     requestedModel: modelCfg.model,
-    contentCoverage: chunks.length > 0 ? "CHUNKS_SUPPLIED" : "CONTENT_UNAVAILABLE",
+    contentCoverage: deps.coverage || (chunks.length > 0 ? "CHUNKS_SUPPLIED" : "CONTENT_UNAVAILABLE"),
+    ...(deps.coverageNotice ? { coverageNotice: deps.coverageNotice } : {}),
+    ...(deps.paper ? { paper: deps.paper } : {}),
+    ...(deps.context ? { context: deps.context } : {}),
     claims: []
   };
 

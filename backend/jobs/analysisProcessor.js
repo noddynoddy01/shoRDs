@@ -1,15 +1,21 @@
 "use strict";
 /**
- * What a worker does with one claimed analysis job: run the stored, already-validated request through the same grounded
- * copilot pipeline the synchronous route uses (runCopilot: cache -> single-flight -> Claude Sonnet 5.5 | labelled local
- * fallback). It never upgrades a result to VERIFIED: claim-to-evidence verification does not exist yet.
+ * What a worker does with one claimed analysis job: run structured paper intelligence through the same pipeline the HTTP
+ * routes use (aiPipeline.analyzePaper: resolve paper -> coverage gate -> server-side evidence -> cache -> Claude Sonnet 5.5 |
+ * labelled local fallback -> usage ledger).
+ *
+ * The job stores only `{paperId, depth}`. Paper text is never part of a job: the worker reads it from the shared paper store
+ * (any replica can run any job). It never upgrades a result to VERIFIED.
+ *
+ * Outcomes:
+ *   result UNVERIFIED | FALLBACK                  -> COMPLETED (the result says which, and which model/provider produced it)
+ *   CONTENT_UNAVAILABLE | METADATA_ONLY coverage  -> FAILED with that code and a plain explanation (no model call, no cost)
+ *   scholarly sources down                         -> retryable failure (re-queued up to max_attempts)
+ *   model output unusable                          -> FAILED (not retried: a retry would pay for the same failure again)
  */
 
-const { runCopilot } = require("../llm/runCopilot");
-
-const ANALYSIS_QUESTION =
-  "Give a structured analysis of this paper using only the supplied excerpts: the research question, the methods, the key findings, " +
-  "the stated limitations, and which excerpt supports each point. Say explicitly where the excerpts do not cover something.";
+const { PaperError } = require("../papers/paperService");
+const { PipelineError } = require("../llm/aiPipeline");
 
 class ProcessingError extends Error {
   constructor(code, message, retryable) {
@@ -19,25 +25,32 @@ class ProcessingError extends Error {
   }
 }
 
-function createAnalysisProcessor(deps) {
+function createAnalysisProcessor({ pipeline }) {
   return {
     async process(job) {
-      const req = job.request; // { query, paperId, chunks, depth } as validated at creation
-      if (!req || !Array.isArray(req.chunks) || req.chunks.length === 0) {
-        throw new ProcessingError("NO_PAPER_CONTENT", "job has no evidence chunks to analyse", false);
+      const req = job.request; // { paperId, depth } as validated at creation
+      if (!req || typeof req.paperId !== "string") throw new ProcessingError("INVALID_JOB", "job has no paper to analyse", false);
+      let out;
+      try {
+        out = await pipeline.analyzePaper({ paperId: req.paperId, analysisDepth: req.depth }, { scope: { tenantId: job.tenant_id, projectId: job.project_id }, uid: job.user_id, jobId: job.job_id });
+      } catch (e) {
+        if (e instanceof PaperError) throw new ProcessingError(e.code, e.message, e.retryable);
+        if (e instanceof PipelineError) throw new ProcessingError(e.code, e.message, false);
+        throw e;
       }
-      const body = { query: req.query || ANALYSIS_QUESTION, paperId: req.paperId, evidenceChunks: req.chunks, analysisDepth: req.depth };
-      const out = await runCopilot(body, { tenantId: job.tenant_id, projectId: job.project_id }, deps);
       if (out.httpStatus !== 200) {
-        // validation failures are deterministic: retrying cannot help
-        throw new ProcessingError(out.body.error || "ANALYSIS_REJECTED", out.body.message || "analysis request rejected", false);
+        throw new ProcessingError(out.body.error || "ANALYSIS_REJECTED", out.body.message || "analysis could not be completed", false);
       }
-      if (out.body.verificationStatus === "VERIFIED") {
-        throw new ProcessingError("UNEARNED_VERIFIED", "VERIFIED may only be produced by the verification pipeline", false);
+      const status = out.body.verificationStatus;
+      if (status === "CONTENT_UNAVAILABLE" || status === "METADATA_ONLY") {
+        throw new ProcessingError(status, out.body.coverageNotice || "no paper content is available to analyse", false);
+      }
+      if (status === "VERIFIED") {
+        throw new ProcessingError("UNEARNED_VERIFIED", "VERIFIED may only be produced by a verification pipeline that proves entailment", false);
       }
       return out.body;
     }
   };
 }
 
-module.exports = { createAnalysisProcessor, ProcessingError, ANALYSIS_QUESTION };
+module.exports = { createAnalysisProcessor, ProcessingError };

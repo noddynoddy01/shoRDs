@@ -18,10 +18,13 @@ const { AuthError, authenticateRequest } = require("./security/auth");
 const { evaluateCors } = require("./security/cors");
 const { clientIp, rateLimitHeaders, RateLimiterUnavailable } = require("./security/rateLimit");
 const projects = require("./security/projects");
-const { validateRequest, buildLlmHealth, PROMPT_VERSION } = require("./llm/copilotService");
-const { runCopilot } = require("./llm/runCopilot");
+const { buildLlmHealth, PROMPT_VERSION } = require("./llm/copilotService");
+const { INTEL_PROMPT_VERSION } = require("./llm/intelligence");
+const { PipelineError, assertNoClientEvidence } = require("./llm/aiPipeline");
+const { EvidenceError } = require("./llm/evidence");
+const { PaperError } = require("./papers/paperService");
+const { parsePaperRef } = require("./papers/identity");
 const { toView } = require("./jobs/jobStore");
-const { ANALYSIS_QUESTION } = require("./jobs/analysisProcessor");
 
 const JSON_HEADERS = { "Content-Type": "application/json; charset=utf-8" };
 const UID_RE = /^[A-Za-z0-9_-]{1,128}$/;
@@ -40,6 +43,9 @@ function createApp(deps) {
     telemetry,
     jobStore,
     cache = null,
+    paperService,
+    pipeline,
+    ledger = null,
     readiness,
     workerStats = null,
     client,
@@ -222,10 +228,18 @@ function createApp(deps) {
     } catch (_) {
       jobs = null; // not measured rather than guessed
     }
+    let usage = null;
+    try {
+      usage = ledger ? await ledger.summary(24) : null;
+    } catch (_) {
+      usage = null; // not measured rather than guessed
+    }
     send(ctx, 200, {
       activeProvider: health.activeProvider,
       activeModel: health.anthropic.model,
       promptVersion: PROMPT_VERSION,
+      intelligencePromptVersion: INTEL_PROMPT_VERSION,
+      usage,
       ...telemetry.snapshot(),
       http: { scope: "REPLICA_LOCAL", ...JSON.parse(JSON.stringify(httpStats)) },
       jobs: jobs ? { scope: "ALL_REPLICAS", counts: jobs } : null,
@@ -276,6 +290,7 @@ function createApp(deps) {
     if (!(await limit(ctx, "COPILOT_USER", "user", ctx.principal.uid))) return;
     const body = await readBody(ctx);
     if (!body) return;
+    assertNoClientEvidence(body); // evidence text is never accepted from a client
 
     let scope;
     if (body.projectId !== undefined) {
@@ -292,7 +307,7 @@ function createApp(deps) {
     if (!(await limit(ctx, "COPILOT_USER_DAILY", "user", ctx.principal.uid))) return;
     if (!(await limit(ctx, "COPILOT_TENANT_DAILY", "tenant", scope.tenantId))) return;
 
-    const result = await runCopilot(body, scope, { env, telemetry, replicaId, cache, client, logger, now });
+    const result = await pipeline.answerQuestion(body, { scope, uid: ctx.principal.uid });
     send(ctx, result.httpStatus, result.body);
   }
 
@@ -300,6 +315,7 @@ function createApp(deps) {
     if (!(await limit(ctx, "ANALYSIS_USER", "user", ctx.principal.uid))) return;
     const body = await readBody(ctx);
     if (!body) return;
+    assertNoClientEvidence(body);
 
     if (typeof body.projectId !== "string" || !projects.ID_RE.test(body.projectId)) return fail(ctx, 400, "INVALID_PROJECT_ID", "`projectId` is required.");
     const idemRaw = ctx.req.headers["idempotency-key"];
@@ -308,12 +324,10 @@ function createApp(deps) {
       if (typeof idemRaw !== "string" || !IDEMPOTENCY_RE.test(idemRaw)) return fail(ctx, 400, "INVALID_IDEMPOTENCY_KEY", "Idempotency-Key must be 1-128 characters of [A-Za-z0-9_.:-].");
       idempotencyKey = idemRaw;
     }
-
-    const validated = validateRequest({ query: typeof body.query === "string" && body.query.trim() ? body.query : ANALYSIS_QUESTION, paperId: body.paperId, paperIds: body.paperIds, evidenceChunks: body.evidenceChunks, analysisDepth: body.analysisDepth });
-    if (!validated.ok) return fail(ctx, 400, validated.error, validated.message);
-    if (validated.value.chunks.length === 0) {
-      return fail(ctx, 422, "NO_PAPER_CONTENT", "No paper content was supplied. Supply `evidenceChunks`; retrieval by paperId alone is not available yet.");
-    }
+    const ref = typeof body.paperId === "string" ? parsePaperRef(body.paperId) : null;
+    if (!ref) return fail(ctx, 400, "INVALID_PAPER_ID", "`paperId` must be a DOI, PMID, arXiv id or a canonical id (doi:..., pmid:..., arxiv:..., title:...).");
+    const depth = body.analysisDepth === undefined ? undefined : typeof body.analysisDepth === "string" && /^(quick|standard|deep)$/i.test(body.analysisDepth) ? body.analysisDepth.toUpperCase() : null;
+    if (depth === null) return fail(ctx, 400, "INVALID_ANALYSIS_DEPTH", "`analysisDepth` must be QUICK, STANDARD or DEEP.");
 
     const m = await authorize(ctx, body.projectId, "EDITOR");
     if (!m) return;
@@ -321,17 +335,48 @@ function createApp(deps) {
     if (!(await limit(ctx, "ANALYSIS_USER_DAILY", "user", ctx.principal.uid))) return;
     if (!(await limit(ctx, "ANALYSIS_TENANT_DAILY", "tenant", m.tenantId))) return;
 
+    // Cheap pre-check against FRESH stored data only: if we already know there is nothing to analyse, say so now (no job, no cost).
+    const known = await paperService.peekFresh(ref.canonicalId);
+    if (known && (known.coverage === "CONTENT_UNAVAILABLE" || known.coverage === "METADATA_ONLY")) {
+      return send(ctx, 422, { error: known.coverage, message: known.coverageNotice, contentCoverage: known.coverage, paper: { paperId: known.paperId, title: known.title, authors: known.authors, year: known.year, doi: known.doi }, aiCalled: false, requestId: ctx.requestId });
+    }
+
     const { job, created, enqueued } = await jobStore.createJob({
       projectId: m.projectId,
       tenantId: m.tenantId,
       userId: ctx.principal.uid,
-      paperId: validated.value.paperId,
-      request: validated.value,
+      paperId: ref.canonicalId,
+      request: { paperId: ref.canonicalId, depth: depth || null },
       idempotencyKey,
       replicaId
     });
     const extra = created ? {} : { "Idempotent-Replay": "true" };
     send(ctx, created ? 202 : 200, { ...job, result: undefined, pollUrl: `/api/v1/analysis/${job.jobId}`, replicaId, queue: created ? { enqueued } : undefined, idempotentReplay: created ? undefined : true, requestId: ctx.requestId }, extra);
+  }
+
+  // ---- papers (public scholarly content; any authenticated user may resolve a paper, results stay project-scoped) ----
+  async function resolvePaperRoute(ctx, rawRef) {
+    if (!(await limit(ctx, "READ_USER", "user", ctx.principal.uid))) return;
+    if (!(await limit(ctx, "RETRIEVAL_USER", "user", ctx.principal.uid))) return;
+    if (!(await limit(ctx, "RETRIEVAL_USER_DAILY", "user", ctx.principal.uid))) return;
+    const { paper, source } = await paperService.resolve(rawRef);
+    // The abstract is returned; chunk text is not (evidence is shown through analysis results, with citations).
+    send(ctx, 200, { ...paper, servedFrom: source, requestId: ctx.requestId });
+  }
+  async function getPaper(ctx, seg) {
+    let ref;
+    try {
+      ref = decodeURIComponent(seg);
+    } catch (_) {
+      return fail(ctx, 400, "INVALID_PAPER_ID", "`paperId` is not valid.");
+    }
+    return resolvePaperRoute(ctx, ref);
+  }
+  async function postPaperResolve(ctx) {
+    const body = await readBody(ctx);
+    if (!body) return;
+    if (typeof body.paperId !== "string") return fail(ctx, 400, "PAPER_ID_REQUIRED", "`paperId` is required.");
+    return resolvePaperRoute(ctx, body.paperId);
   }
 
   async function loadJobFor(ctx, jobId, minRole) {
@@ -378,6 +423,8 @@ function createApp(deps) {
     if (method === "GET" && is("api", "v1", "projects")) return { name: "project_list", run: listMyProjects };
     if (method === "GET" && is("api", "v1", "projects", "*")) return { name: "project_get", run: (c) => getProject(c, seg[3]) };
     if (method === "PUT" && is("api", "v1", "projects", "*", "members", "*")) return { name: "project_member_set", post: true, run: (c) => putMember(c, seg[3], seg[5]) };
+    if (method === "POST" && is("api", "v1", "papers", "resolve")) return { name: "paper_resolve", post: true, run: postPaperResolve };
+    if (method === "GET" && is("api", "v1", "papers", "*")) return { name: "paper_get", run: (c) => getPaper(c, seg[3]) };
     if (method === "POST" && is("api", "v1", "copilot", "query")) return { name: "copilot_query", post: true, run: postCopilot };
     if (method === "POST" && is("api", "v1", "analysis")) return { name: "analysis_create", post: true, run: postAnalysis };
     if (method === "GET" && is("api", "v1", "analysis", "*")) return { name: "analysis_get", run: (c) => getAnalysis(c, seg[3]) };
@@ -430,6 +477,10 @@ function createApp(deps) {
       if (!r.public && !(await authenticate(ctx))) return;
       await r.run(ctx);
     } catch (err) {
+      if ((err instanceof PaperError || err instanceof PipelineError || err instanceof EvidenceError) && !res.headersSent) {
+        // these carry client-safe messages by construction
+        return fail(ctx, err.httpStatus, err.code, err.message, err.httpStatus === 503 ? { "Retry-After": "10" } : undefined);
+      }
       const category = err && err.code ? err.code : "UNEXPECTED";
       const dependency = err && /^(PG_|REDIS_)/.test(String(err.code || ""));
       logger.error(`[API] ${routeName} failed: category=${category} ${dependency ? "" : String((err && err.message) || err).slice(0, 200)}`);

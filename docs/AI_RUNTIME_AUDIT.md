@@ -20,7 +20,8 @@ Anything that was not run is listed under "Not verified".
 | `data/pgClient.js`, `data/redisClient.js` | PostgreSQL wire-protocol client (SCRAM-SHA-256) and RESP2 client (AUTH). No silent fallback. |
 | `data/migrations.js` | Schema, advisory-lock serialised across replicas |
 | `jobs/jobStore.js`, `jobs/worker.js`, `jobs/analysisProcessor.js` | Persistent analysis jobs |
-| `llm/runCopilot.js` -> `llm/resultCache.js`, `llm/copilotService.js`, `llm/anthropicClient.js` | The single AI execution path |
+| `papers/*` (`identity`, `providers`, `extract`, `chunker`, `paperService`) | Paper retrieval, coverage and chunk storage (added in Phase 7) |
+| `llm/aiPipeline.js` -> `llm/evidence.js`, `llm/resultCache.js`, `llm/copilotService.js`, `llm/anthropicClient.js`, `llm/intelligence.js`, `llm/usageLedger.js` | The single AI execution path, shared by the routes and the worker |
 | `readiness.js` | Honest `/ready` |
 
 The TypeScript AI gateway, cache, deduplicator and adapters under `services/` are **not** on this path (decision in section 9).
@@ -180,9 +181,7 @@ Run on 2026-10-02 against real PostgreSQL 16.13 and real Redis 7 (one open, one 
 ## 12. Open items and decisions for the owner
 
 - **Confirm Firebase ID tokens as the identity provider** (assumed; swappable behind the verifier interface).
-- **Set on Railway** (nothing was changed on the live deployment): `FIREBASE_PROJECT_ID`, `CORS_ORIGINS`, `ADMIN_UIDS`, `TRUST_PROXY=true` (verify `TRUST_PROXY_HOPS`), and ensure `DATABASE_URL`/`REDIS_URL` use plain `postgres://`/`redis://` private-network URLs (the in-repo Redis client does not speak `rediss://`). `ANTHROPIC_API_KEY` stays unset until the owner decides.
-- **Phase 7 prerequisite:** the frontend must sign in through Firebase and send `Authorization: Bearer <ID token>`; it sends nothing today, so every protected route (correctly) returns 401 to the current app. `EXPO_PUBLIC_*` Firebase variables must be set on Vercel.
-- Remove or rotate the hardcoded admin credential in `app/auth.tsx` (section 2).
-- Paper retrieval/grounding and claim-to-evidence verification are not implemented (jobs and copilot rely on caller-supplied `evidenceChunks`). `VERIFIED` is therefore never emitted.
+- **Set on Railway** (nothing was changed on the live deployment): see `docs/PHASE7_VERIFICATION.md` section 6 for the full list. Railway's Postgres/Redis URLs are plain `postgresql://` / `redis://`; the in-repo Redis client also speaks `rediss://` (verified TLS) for external providers.
+- **Phase 7 status:** the frontend now signs in through Firebase and sends `Authorization: Bearer <ID token>`; the hardcoded credential is removed; paper retrieval, grounding and structured intelligence exist. What could not be run here is listed in `docs/PHASE7_VERIFICATION.md` section 4.
 - Revocation checks and refresh-token handling are out of scope of the verifier (section 3).
 - Daily caps and limits are starting points to tune from real usage.
