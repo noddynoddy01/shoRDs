@@ -9,6 +9,7 @@ const assert = require("node:assert/strict");
 const {
   DEFAULT_MODEL,
   RETIRED_MODELS,
+  ANALYSIS_PROFILES,
   ClientError,
   resolveApiKey,
   resolveModelConfig,
@@ -78,9 +79,18 @@ test("request body for Sonnet 5.5 has exactly the supported keys and no sampling
   assert.equal(body.model, "claude-sonnet-5-5");
   assert.deepEqual(body.output_config, { effort: "high" });
   assert.deepEqual(body.messages, [{ role: "user", content: "u" }]);
-  for (const forbidden of ["temperature", "top_p", "top_k", "thinking"]) {
+  for (const forbidden of ["temperature", "top_p", "top_k", "thinking", "tool_choice", "tools"]) {
     assert.equal(forbidden in body, false, `${forbidden} must not be sent to Sonnet 5.5`);
   }
+  assert.equal(body.messages[body.messages.length - 1].role, "user", "no assistant prefill: the conversation must end with a user message");
+  for (const level of ["low", "medium", "high", "xhigh", "max"]) assert.deepEqual(buildRequestBody({ model: "claude-sonnet-5-5", user: "u", maxTokens: 100, effort: level }).output_config, { effort: level });
+  for (const p of Object.values(ANALYSIS_PROFILES)) assert.ok(["low", "medium", "high", "xhigh", "max"].includes(p.effort) && Number.isInteger(p.maxTokens) && p.timeoutMs > 0);
+});
+
+test("a stop_reason of model_context_window_exceeded is incomplete output, never a finished answer", () => {
+  const cut = parseMessageResponse({ content: [{ type: "thinking", thinking: "" }, { type: "text", text: "{\"tldr\": \"half" }], stop_reason: "model_context_window_exceeded", usage: { input_tokens: 5, output_tokens: 7 }, model: "claude-sonnet-5-5" }, "claude-sonnet-5-5");
+  assert.equal(cut.truncated, true);
+  assert.throws(() => parseMessageResponse({ content: [{ type: "thinking", thinking: "" }], stop_reason: "model_context_window_exceeded" }, "claude-sonnet-5-5"), (e) => e.category === "TRUNCATED_NO_TEXT");
 });
 
 test("the request that goes over the wire has the right headers and body", async () => {

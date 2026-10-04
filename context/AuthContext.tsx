@@ -12,6 +12,7 @@ import {
   subscribeSession
 } from "../services/auth/firebaseSession";
 import { profileFromSession } from "../services/auth/session";
+import { purgeLegacyBrowserAiKeys } from "../services/auth/legacy";
 import type { AuthIssue, AuthStatus, SessionUser } from "../services/auth/session";
 
 /** Local, non-authoritative cache of the signed-in user's display profile (name, interests, ...). Never an identity or privilege. */
@@ -45,6 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     startSession();
+    void purgeLegacyBrowserAiKeys(AsyncStorage); // delete AI keys / self-declared subscription kept by earlier builds
   }, []);
 
   useEffect(() => {

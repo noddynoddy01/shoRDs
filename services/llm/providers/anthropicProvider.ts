@@ -12,6 +12,7 @@
  */
 
 import { LLMProvider, LLMRequest, LLMResponse, LLMCapabilities, LLMHealthStatus, LLMProviderType, LLMErrorCategory } from "../../../types/llmGateway";
+import { assertServerRuntime } from "./serverOnly";
 import {
   ANTHROPIC_PRICING_PER_MTOK,
   AnthropicEffort,
@@ -30,6 +31,7 @@ export class AnthropicProvider implements LLMProvider {
   private lastOutcome: { ok: boolean; at: string; category?: LLMErrorCategory } | null = null;
 
   constructor(apiKey?: string) {
+    assertServerRuntime("AnthropicProvider");
     const provider = (process.env.LLM_PROVIDER || "").trim().toLowerCase();
     const genericKey = provider === "" || provider === "anthropic" ? process.env.LLM_API_KEY : undefined;
     this.apiKey = apiKey || process.env.ANTHROPIC_API_KEY || genericKey;

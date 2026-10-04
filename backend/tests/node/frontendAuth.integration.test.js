@@ -171,3 +171,39 @@ test("frontend client <-> real backend", { skip }, async (t) => {
     assert.equal(bad.headers["access-control-allow-origin"], undefined);
   });
 });
+
+test("client-side privilege claims (isPro / premium / plan / paymentVerified) change nothing on the server", { skip }, async (t) => {
+  await resetInfra();
+  const R = await startReplica({ keys, env: { RATE_LIMIT_READ_USER: "3/60", RATE_LIMIT_WRITE_USER: "2/60", ADMIN_UIDS: "admin-uid" } });
+  t.after(() => R.close());
+  const CLAIMS = { isPro: true, isPremium: true, premium: true, plan: "pro", tier: "enterprise", subscriptionActive: true, paymentVerified: true, admin: true, role: "admin", roles: ["admin"] };
+  const hit = (token, path, extra = {}) => fetch(R.base + path, { headers: { authorization: `Bearer ${token}`, ...ipHeader(), ...extra } }).then((r) => r.status);
+
+  const plain = uniq("plain-"), claimant = uniq("claimant-");
+  const plainTok = tokenFor(keys, plain);
+  const claimTok = tokenFor(keys, claimant, CLAIMS); // a validly signed token carrying every kind of privilege claim
+  const hdr = { "x-plan": "pro", "x-is-pro": "true", "x-subscription": "active", "x-payment-verified": "true", "x-admin": "true" };
+
+  const plainStatuses = [];
+  const claimStatuses = [];
+  for (let i = 0; i < 4; i++) {
+    plainStatuses.push(await hit(plainTok, "/api/v1/projects"));
+    claimStatuses.push(await hit(claimTok, "/api/v1/projects", hdr));
+  }
+  assert.deepEqual(plainStatuses, [200, 200, 200, 429], "control: the read limit is 3 per window");
+  assert.deepEqual(claimStatuses, plainStatuses, "claims in the token and in headers buy no extra quota");
+
+  // Body claims on a write are ignored too: the project is created at the normal role, and the write limit (2) still applies.
+  const post = (token, body) => fetch(R.base + "/api/v1/projects", { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json", ...ipHeader() }, body: JSON.stringify(body) });
+  const writer = uniq("writer-");
+  const wTok = tokenFor(keys, writer, CLAIMS);
+  const first = await post(wTok, { name: "P1", isPro: true, plan: "pro", paymentVerified: true, role: "OWNER", quota: 1e9 });
+  assert.equal(first.status, 201);
+  assert.ok(!("isPro" in (await first.json())), "no echo of a privilege field");
+  assert.equal((await post(wTok, { name: "P2", isPro: true })).status, 201);
+  assert.equal((await post(wTok, { name: "P3", isPro: true })).status, 429, "write limit unchanged by claims");
+
+  // An 'admin' claim is not admin: only ADMIN_UIDS is.
+  assert.equal(await hit(claimTok, "/api/v1/llm/metrics"), 403);
+  assert.equal(await hit(tokenFor(keys, "admin-uid"), "/api/v1/llm/metrics"), 200);
+});

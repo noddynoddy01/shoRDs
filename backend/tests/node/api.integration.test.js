@@ -58,14 +58,34 @@ test("API (real runtime, real PostgreSQL + Redis)", { skip }, async (t) => {
     assert.deepEqual(r.json.projects, []);
   });
 
-  await t.test("authentication throttling: repeated failures from one IP are refused (429), other IPs unaffected", async () => {
+  await t.test("authentication throttling: forged-token floods from one IP are refused (429) without locking out a legitimate user behind the same IP", async () => {
     const R = await startReplica({ keys, env: { RATE_LIMIT_AUTH_FAIL_IP: "3/60" } });
     const badIp = ipHeader();
     for (let i = 0; i < 3; i++) assert.equal((await R.call("GET", "/api/v1/projects", { headers: { ...badIp, authorization: "Bearer nope.nope.nope" } })).status, 401);
-    const blocked = await R.call("GET", "/api/v1/projects", { token: tok(alice), headers: badIp });
-    assert.equal(blocked.status, 429, "even a valid token is refused from an IP that is brute-forcing");
+    const blocked = await R.call("GET", "/api/v1/projects", { headers: { ...badIp, authorization: "Bearer nope.nope.nope" } });
+    assert.equal(blocked.status, 429, "the flood is refused");
     assert.ok(Number(blocked.headers["retry-after"]) > 0);
+    assert.equal((await R.call("GET", "/api/v1/projects", { headers: badIp })).status, 429, "no credential at all from a flooding IP is refused too");
+    // A real user behind the same (shared / NAT) address is not collateral damage: a valid token is still accepted.
+    assert.equal((await R.call("GET", "/api/v1/projects", { token: tok(alice), headers: badIp })).status, 200);
     assert.equal((await R.call("GET", "/api/v1/projects", { token: tok(alice), headers: ipHeader() })).status, 200);
+    await R.close();
+  });
+
+  await t.test("authentication throttling: expired tokens and missing headers are not counted as guessing", async () => {
+    const R = await startReplica({ keys, env: { RATE_LIMIT_AUTH_FAIL_IP: "3/60" } });
+    const ip = ipHeader();
+    const now = Date.now();
+    const expired = tokenFor(keys, alice, { iat: Math.floor(now / 1000) - 7200, exp: Math.floor(now / 1000) - 3600 }, now);
+    for (let i = 0; i < 6; i++) {
+      assert.equal((await R.call("GET", "/api/v1/projects", { headers: { ...ip, authorization: `Bearer ${expired}` } })).status, 401, `expired #${i}`);
+      assert.equal((await R.call("GET", "/api/v1/projects", { headers: ip })).status, 401, `missing #${i}`);
+    }
+    assert.equal((await R.call("GET", "/api/v1/projects", { token: tok(alice), headers: ip })).status, 200, "still not blocked");
+    // wrong-audience tokens (another Firebase project) ARE counted
+    const other = tokenFor(keys, alice, { aud: "another-project", iss: "https://securetoken.google.com/another-project" }, now);
+    for (let i = 0; i < 3; i++) assert.equal((await R.call("GET", "/api/v1/projects", { headers: { ...ip, authorization: `Bearer ${other}` } })).status, 401);
+    assert.equal((await R.call("GET", "/api/v1/projects", { headers: { ...ip, authorization: `Bearer ${other}` } })).status, 429);
     await R.close();
   });
 

@@ -167,6 +167,6 @@ export function profileFromSession(user: SessionUser, stored: Record<string, unk
     phoneNumber: keep("phoneNumber", undefined),
     country: keep("country", undefined),
     language: keep("language", "English"),
-    subscription: keep("subscription", undefined)
+    subscription: undefined // never carried from device storage: entitlement is a server matter
   };
 }

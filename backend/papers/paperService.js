@@ -293,7 +293,8 @@ function createPaperService({ pool, redis = null, providers, beforeRetrieve = nu
     return r.rows.map((x) => ({ chunkId: x.chunk_id, paperId, ordinal: x.ordinal, section: x.section, heading: x.heading, sourceType: x.source_type, text: x.text, textHash: x.text_hash, page: null }));
   }
 
-  return { resolve, peek, peekFresh, loadChunks };
+  // `build` fetches and extracts without touching storage; scripts/verify_retrieval_live.js uses it so the live check runs the SAME logic.
+  return { resolve, peek, peekFresh, loadChunks, build };
 }
 
 module.exports = { createPaperService, PaperError, EXTRACTOR_VERSION, TTL_MS, NOTICES, rowToView, MIN_FULLTEXT_BODY_CHARS };

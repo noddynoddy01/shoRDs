@@ -4,6 +4,7 @@
  */
 
 import { LLMProvider, LLMRequest, LLMResponse, LLMCapabilities, LLMHealthStatus, LLMProviderType, LLMErrorCategory } from "../../../types/llmGateway";
+import { assertServerRuntime } from "./serverOnly";
 
 export class OpenAIProvider implements LLMProvider {
   name = "OpenAI GPT";
@@ -12,6 +13,7 @@ export class OpenAIProvider implements LLMProvider {
   private defaultModel = "gpt-4o";
 
   constructor(apiKey?: string) {
+    assertServerRuntime("OpenAIProvider");
     this.apiKey = apiKey || process.env.OPENAI_API_KEY || process.env.LLM_API_KEY;
   }
 

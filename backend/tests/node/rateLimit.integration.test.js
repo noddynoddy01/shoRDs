@@ -80,6 +80,57 @@ test("rate limiting (real Redis)", { skip }, async (t) => {
     await R.close();
   });
 
+  await t.test("many users behind ONE client IP: each keeps their own per-user budget; one exhausting theirs does not trigger another's limit", async () => {
+    const R = await startReplica({ keys, overrides: { client: stub() }, env: { ...baseEnv, RATE_LIMIT_COPILOT_USER: "2/60" } });
+    const sharedIp = { "x-forwarded-for": "203.0.113.77" }; // a campus / office NAT: one address, many people
+    const ask = (uid) => R.call("POST", "/api/v1/copilot/query", { token: tok(uid), body: ASK, headers: sharedIp });
+    const [a, b, c] = [uniq("nat-a-"), uniq("nat-b-"), uniq("nat-c-")];
+    assert.deepEqual([(await ask(a)).status, (await ask(a)).status, (await ask(a)).status], [200, 200, 429]);
+    assert.equal((await ask(b)).status, 200, "B shares A's IP but not A's budget");
+    assert.equal((await ask(c)).status, 200);
+    assert.equal((await ask(b)).status, 200);
+    assert.equal((await ask(b)).status, 429, "B's own budget is the thing that ended");
+    assert.equal((await ask(c)).status, 200, "and C is still unaffected by A and B");
+    await R.close();
+  });
+
+  await t.test("X-Forwarded-For: only the entry `hops` from the right is trusted; a client-written prefix cannot choose its bucket", async () => {
+    const mk = (env) => startReplica({ keys, highLimits: false, env: { ...baseEnv, RATE_LIMIT_GLOBAL_IP: "3/60", ...env } });
+    const one = await mk({ TRUST_PROXY: "true", TRUST_PROXY_HOPS: "1" });
+    const hit = (R, xff) => R.call("GET", "/api/v1/replica", { headers: { "x-forwarded-for": xff } }).then((r) => r.status);
+    const real = `198.51.100.${Math.floor(Math.random() * 200) + 1}`;
+    // hops=1: the LAST entry (appended by the trusted proxy) is the client; the rotating spoofed prefix changes nothing
+    assert.deepEqual([await hit(one, `1.1.1.1, ${real}`), await hit(one, `2.2.2.2, ${real}`), await hit(one, `3.3.3.3, ${real}`), await hit(one, `4.4.4.4, ${real}`)], [200, 200, 200, 429]);
+    await one.close();
+    // TRUST_PROXY=false: X-Forwarded-For is ignored entirely (every caller is the socket address), so spoofing buys nothing either
+    const none = await mk({ TRUST_PROXY: "false" });
+    assert.deepEqual([await hit(none, "9.9.9.1"), await hit(none, "9.9.9.2"), await hit(none, "9.9.9.3"), await hit(none, "9.9.9.4")], [200, 200, 200, 429]);
+    await none.close();
+    // hops=2 (two trusted proxies): the second entry from the right is the client
+    const two = await mk({ TRUST_PROXY: "true", TRUST_PROXY_HOPS: "2" });
+    const real2 = `198.51.100.${Math.floor(Math.random() * 200) + 1}`;
+    assert.deepEqual([await hit(two, `${real2}, 10.0.0.1`), await hit(two, `${real2}, 10.0.0.2`), await hit(two, `${real2}, 10.0.0.3`), await hit(two, `${real2}, 10.0.0.4`)], [200, 200, 200, 429]);
+    await two.close();
+  });
+
+  await t.test("network diagnostics are off by default and, when enabled, expose only hashed tags of the caller's own forwarding chain", async () => {
+    const crypto = require("crypto");
+    const tag = (ip) => crypto.createHash("sha256").update(ip).digest("hex").slice(0, 12);
+    const off = await startReplica({ keys, env: { TRUST_PROXY: "true", TRUST_PROXY_HOPS: "1" } });
+    const r0 = await off.call("GET", "/api/v1/replica", { headers: { "x-forwarded-for": "198.51.100.1, 203.0.113.9" } });
+    assert.equal(r0.status, 200);
+    assert.equal("network" in r0.json, false);
+    await off.close();
+    const on = await startReplica({ keys, env: { TRUST_PROXY: "true", TRUST_PROXY_HOPS: "1", NETWORK_DIAGNOSTICS: "true" } });
+    const r1 = await on.call("GET", "/api/v1/replica", { headers: { "x-forwarded-for": "6.6.6.6, 198.51.100.1, 203.0.113.9" } });
+    const n = r1.json.network;
+    assert.deepEqual([n.trustProxy, n.trustProxyHops, n.forwardedForEntries], [true, 1, 3]);
+    assert.equal(n.resolvedClientIpTag, tag("203.0.113.9"));
+    assert.deepEqual(n.fromRightTags, [{ fromRight: 1, tag: tag("203.0.113.9") }, { fromRight: 2, tag: tag("198.51.100.1") }, { fromRight: 3, tag: tag("6.6.6.6") }]);
+    assert.doesNotMatch(JSON.stringify(r1.json), /203\.0\.113\.9|198\.51\.100\.1|6\.6\.6\.6/, "no raw address is returned");
+    await on.close();
+  });
+
   await t.test("analysis creation: per-user limit and daily budget", async () => {
     const R = await startReplica({ keys, env: { ...baseEnv, RATE_LIMIT_ANALYSIS_USER: "2/60", RATE_LIMIT_ANALYSIS_USER_DAILY: "100/86400" } });
     const u = uniq("u-"), ip = ipHeader();

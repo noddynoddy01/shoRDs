@@ -4,6 +4,7 @@
  */
 
 import { LLMProvider, LLMRequest, LLMResponse, LLMCapabilities, LLMHealthStatus, LLMProviderType, LLMErrorCategory } from "../../../types/llmGateway";
+import { assertServerRuntime } from "./serverOnly";
 
 export class GeminiProvider implements LLMProvider {
   name = "Google Gemini";
@@ -12,6 +13,7 @@ export class GeminiProvider implements LLMProvider {
   private defaultModel = "gemini-1.5-pro";
 
   constructor(apiKey?: string) {
+    assertServerRuntime("GeminiProvider");
     this.apiKey = apiKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.LLM_API_KEY;
   }
 

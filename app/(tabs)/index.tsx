@@ -223,7 +223,7 @@ export default function HomeScreen() {
             <Pressable style={styles.subBadgeBtn} onPress={() => setSubscriptionVisible(true)}>
               <Ionicons name="star" size={14} color="#F59E0B" />
               <Text style={styles.subBadgeText}>
-                {subscription?.plan === "pro" ? "PRO PASS" : "FREE • UPGRADE"}
+                {subscription?.isPro ? "PRO PASS" : "FREE • UPGRADE"}
               </Text>
             </Pressable>
 

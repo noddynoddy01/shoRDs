@@ -120,47 +120,13 @@ export default function ChatScreen() {
     }, 1800);
   }
 
+  /**
+   * The mentor chat has no browser-side AI path: nothing here contacts Anthropic, OpenAI, Gemini or any user-configured server
+   * (earlier builds could, with an API key kept in browser storage). Paper-grounded AI runs only through the authenticated
+   * backend (POST /api/v1/copilot/query, see app/research/copilot.tsx). These replies are fixed, rule-based tips.
+   */
   async function queryAIMentor(userText: string): Promise<string> {
-    const aiSource = await AsyncStorage.getItem("shords.aiSource") || "heuristic";
-    if (aiSource === "self-hosted") {
-      const serverUrl = await AsyncStorage.getItem("shords.serverUrl") || "http://192.168.1.100:8000";
-      const endpoint = `${serverUrl.replace(/\/$/, "")}/chat`;
-      try {
-        const response = await fetch(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            messages: [{ role: "user", content: userText }]
-          })
-        });
-        if (response.ok) {
-          const data = await response.json();
-          return data.text;
-        }
-      } catch (e) {
-        console.warn("Self-hosted connection fail:", e);
-      }
-    } else if (aiSource === "gemini") {
-      const geminiKey = await AsyncStorage.getItem("shords.geminiKey");
-      if (geminiKey) {
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`;
-        try {
-          const context = `You are the AI Bot inside shoRDs. User query: "${userText}". Speak in 2 concise sentences.`;
-          const response = await fetch(endpoint, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ contents: [{ parts: [{ text: context }] }] })
-          });
-          if (response.ok) {
-            const data = await response.json();
-            return data.candidates?.[0]?.content?.parts?.[0]?.text || getHeuristicResponse(userText);
-          }
-        } catch (e) {
-          console.warn("Gemini connection fail:", e);
-        }
-      }
-    }
-    return getHeuristicResponse(userText);
+    return `${getHeuristicResponse(userText)}\n\n(Automated tip: this chat is not connected to an AI model. For answers grounded in a paper, use the Research Copilot.)`;
   }
 
   function getHeuristicResponse(userText: string): string {

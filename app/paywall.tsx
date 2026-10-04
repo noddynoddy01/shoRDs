@@ -30,16 +30,12 @@ export default function PaywallScreen() {
 
   async function handlePurchase() {
     setLoading(true);
-    const updated = await purchaseSubscription(selectedPlan);
+    const result = await purchaseSubscription(selectedPlan);
     setLoading(false);
-    if (updated) {
-      Alert.alert(
-        "Subscription Activated!",
-        `You are now a shoRDs Premium member. Welcome to full academic access!`,
-        [{ text: "Awesome", onPress: () => router.replace("/(tabs)") }]
-      );
+    if (result.ok) {
+      router.replace("/(tabs)");
     } else {
-      Alert.alert("Error", "Could not complete purchase. Please log in first.");
+      Alert.alert("Not available yet", result.message);
     }
   }
 
@@ -134,7 +130,7 @@ export default function PaywallScreen() {
         </View>
 
         <GlassButton
-          title={loading ? "Verifying Transaction..." : "Upgrade Now"}
+          title={loading ? "Please wait" : "Upgrade Now"}
           icon="shield-checkmark-outline"
           onPress={handlePurchase}
           disabled={loading}

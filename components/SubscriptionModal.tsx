@@ -20,10 +20,13 @@ export function SubscriptionModal({ visible, onClose }: SubscriptionModalProps) 
     }
   }, [visible]);
 
+  const [notice, setNotice] = useState<string | null>(null);
+
   const handleUpgrade = async () => {
-    const updated = await upgradeToProAsync();
-    setSub(updated);
-    onClose();
+    const result = await upgradeToProAsync();
+    // There is no payment provider yet: nothing is upgraded on the device. Say so instead of closing as if it worked.
+    if (!result.ok) setNotice(result.message);
+    else onClose();
   };
 
   const styles = getStyles(colors, fontSizeScale || 1);
@@ -41,9 +44,7 @@ export function SubscriptionModal({ visible, onClose }: SubscriptionModalProps) 
           </View>
 
           <Text style={styles.subtitle}>
-            {sub?.plan === "pro" 
-              ? "Your Pro Research Pass is Active! Enjoy Unlimited AI Stacks."
-              : `Free Plan Quota: ${sub?.usageCount || 0} / ${sub?.monthlyLimit || 5} Monthly AI Stacks Used.`}
+            {sub?.isPro ? "Your Pro plan is active." : "You are on the Free plan."}
           </Text>
 
           <View style={styles.benefitList}>
@@ -65,7 +66,9 @@ export function SubscriptionModal({ visible, onClose }: SubscriptionModalProps) 
             </View>
           </View>
 
-          {sub?.plan !== "pro" && (
+          {notice && <Text style={styles.subtitle}>{notice}</Text>}
+
+          {!sub?.isPro && (
             <Pressable style={styles.upgradeBtn} onPress={handleUpgrade}>
               <Text style={styles.upgradeBtnText}>Upgrade to Pro Pass • $9.99 / Mo</Text>
             </Pressable>

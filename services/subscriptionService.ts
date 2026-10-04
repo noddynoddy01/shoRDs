@@ -1,10 +1,17 @@
 /**
- * Server-Authoritative Subscription & Payment State Machine for shoRDs Research Intelligence OS
- * Manages subscription lifecycle, payment verification, feature gating, and payment tokenization security.
+ * Subscription state for the shoRDs client.
+ *
+ * THE CLIENT IS NOT AUTHORITATIVE. There is no payment provider and no entitlement endpoint on the backend yet, so this module
+ * can only ever report FREE. In particular:
+ *   - nothing stored on the device (AsyncStorage, the local profile) is read as an entitlement,
+ *   - no transaction id, token prefix or "success" callback produced on the device can move a user to ACTIVE,
+ *   - nothing here changes server-side limits: the backend rate-limits and gates by the verified Firebase uid and the project
+ *     role, and ignores any plan / pro / premium claim in a request (asserted by tests).
+ * When billing exists, entitlement must come from an authenticated backend response (and be enforced there); the UI may only
+ * display it.
  */
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { analyticsService } from "./analyticsService";
 
 export type SubscriptionState =
   | "FREE"
@@ -19,111 +26,15 @@ export type SubscriptionState =
   | "EXPIRED"
   | "REFUNDED";
 
-export interface SubscriptionRecord {
-  userId: string;
-  state: SubscriptionState;
-  planId: "shords_scholar_monthly" | "shords_scholar_annual";
-  priceUsd: number;
-  paymentProvider: "stripe" | "google_play_billing" | "apple_iap";
-  transactionId?: string;
-  activatedAt?: string;
-  expiresAt?: string;
-  isServerVerified: boolean;
-}
+/** Set to true only when a real payment provider and a server-side entitlement endpoint exist. */
+export const PURCHASES_AVAILABLE = false;
 
-const SUBSCRIPTION_STORAGE_KEY = "shords_user_subscription_state";
+export const PAYMENTS_UNAVAILABLE_MESSAGE =
+  "Paid plans are not available yet. No payment was taken and your account was not changed.";
 
-export class SubscriptionService {
-  private static currentState: SubscriptionRecord = {
-    userId: "anon_user",
-    state: "FREE",
-    planId: "shords_scholar_monthly",
-    priceUsd: 9.99,
-    paymentProvider: "stripe",
-    isServerVerified: false
-  };
-
-  static async getSubscriptionStateAsync(): Promise<SubscriptionRecord> {
-    try {
-      const stored = await AsyncStorage.getItem(SUBSCRIPTION_STORAGE_KEY);
-      if (stored) {
-        this.currentState = JSON.parse(stored);
-      }
-    } catch {}
-    return this.currentState;
-  }
-
-  /**
-   * Initiates payment checkout transition.
-   */
-  static async startCheckoutAsync(
-    planId: "shords_scholar_monthly" | "shords_scholar_annual" = "shords_scholar_monthly",
-    priceUsd: number = 9.99
-  ): Promise<SubscriptionRecord> {
-    this.currentState = {
-      ...this.currentState,
-      state: "CHECKOUT_STARTED",
-      planId,
-      priceUsd,
-      isServerVerified: false
-    };
-
-    await AsyncStorage.setItem(SUBSCRIPTION_STORAGE_KEY, JSON.stringify(this.currentState));
-    await analyticsService.trackEventAsync("checkout_started", { planId, priceUsd });
-
-    return this.currentState;
-  }
-
-  /**
-   * Server-authoritative payment verification.
-   * Premium access is NEVER granted solely because client reports success!
-   */
-  static async verifyPaymentConfirmationAsync(
-    transactionId: string,
-    paymentProvider: "stripe" | "google_play_billing" | "apple_iap" = "stripe"
-  ): Promise<SubscriptionRecord> {
-    // Simulate server verification check against Payment Gateway API Webhook token
-    const isValidToken = transactionId && transactionId.startsWith("txn_");
-
-    if (!isValidToken) {
-      this.currentState = {
-        ...this.currentState,
-        state: "PAYMENT_FAILED",
-        isServerVerified: false
-      };
-      await AsyncStorage.setItem(SUBSCRIPTION_STORAGE_KEY, JSON.stringify(this.currentState));
-      await analyticsService.trackEventAsync("payment_failed", { transactionId });
-      return this.currentState;
-    }
-
-    const now = new Date();
-    const expires = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 Days
-
-    this.currentState = {
-      ...this.currentState,
-      state: "ACTIVE",
-      transactionId,
-      paymentProvider,
-      activatedAt: now.toISOString(),
-      expiresAt: expires.toISOString(),
-      isServerVerified: true
-    };
-
-    await AsyncStorage.setItem(SUBSCRIPTION_STORAGE_KEY, JSON.stringify(this.currentState));
-    await analyticsService.trackEventAsync("payment_captured", { transactionId, planId: this.currentState.planId });
-    await analyticsService.trackEventAsync("subscription_activated", { transactionId });
-
-    return this.currentState;
-  }
-
-  /**
-   * Authoritative feature access gate: Checks if user has server-verified active subscription.
-   */
-  static isPremiumAccessGranted(record?: SubscriptionRecord): boolean {
-    const sub = record || this.currentState;
-    return (sub.state === "ACTIVE" || sub.state === "RENEWED") && sub.isServerVerified;
-  }
-}
+/** Key used by earlier builds to store a self-declared subscription. It is deleted, never read. */
+const LEGACY_SUBSCRIPTION_KEY = "shords_user_subscription_state";
+const PROFILE_KEY = "shords.currentUser"; // display-only cache of the Firebase profile (see context/AuthContext.tsx)
 
 export interface UserSubscription {
   isPro: boolean;
@@ -131,9 +42,6 @@ export interface UserSubscription {
   planId?: string;
   plan?: string;
   expiresAt?: string;
-  freeViewsRemaining?: number;
-  usageCount?: number;
-  monthlyLimit?: number;
 }
 
 export const PRICING_PLANS: Record<string, any> = {
@@ -149,51 +57,51 @@ export const PRICING_PLANS: Record<string, any> = {
   yearly: { id: "shords_scholar_annual", name: "Scholar Annual", price: "$79.99", interval: "year" }
 };
 
+async function dropLegacyClaim(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(LEGACY_SUBSCRIPTION_KEY);
+  } catch {
+    /* best effort */
+  }
+}
+
+/** Always FREE until a backend entitlement endpoint exists. Never reads device storage. No usage figures are invented. */
 export async function getUserSubscriptionAsync(): Promise<UserSubscription> {
-  const state = await SubscriptionService.getSubscriptionStateAsync();
-  return {
-    isPro: SubscriptionService.isPremiumAccessGranted(state),
-    status: state.state,
-    planId: state.planId,
-    plan: state.planId,
-    expiresAt: state.expiresAt,
-    freeViewsRemaining: 5,
-    usageCount: 12,
-    monthlyLimit: 100
-  };
+  await dropLegacyClaim();
+  return { isPro: false, status: "FREE" };
 }
 
+/** The signed-in user's display profile (the cache synced from Firebase by AuthContext), or null when signed out. */
 export async function getCurrentUser(): Promise<any> {
-  const sub = await getUserSubscriptionAsync();
-  return {
-    id: "user-1",
-    name: "Scholar User",
-    email: "user@shords.app",
-    phoneNumber: "+15550199",
-    country: "US",
-    bio: "Academic Researcher",
-    interests: ["AI", "Quantum"],
-    profileImage: "https://images.unsplash.com/photo-1534528741775-53994a69daeb",
-    subscription: sub
-  };
+  try {
+    const raw = await AsyncStorage.getItem(PROFILE_KEY);
+    if (!raw) return null;
+    const profile = JSON.parse(raw);
+    return profile && typeof profile === "object" ? { ...profile, subscription: await getUserSubscriptionAsync() } : null;
+  } catch {
+    return null;
+  }
 }
 
-export async function purchaseSubscription(planId: any = "shords_scholar_monthly") {
-  const targetPlan = planId === "yearly" || planId === "shords_scholar_annual" ? "shords_scholar_annual" : "shords_scholar_monthly";
-  await SubscriptionService.startCheckoutAsync(targetPlan, targetPlan === "shords_scholar_annual" ? 79.99 : 9.99);
-  return SubscriptionService.verifyPaymentConfirmationAsync("txn_demo_verification_token");
+export type PurchaseResult =
+  | { ok: true }
+  | { ok: false; reason: "PAYMENTS_UNAVAILABLE"; message: string };
+
+/** There is no payment provider: this never upgrades anyone. */
+export async function purchaseSubscription(_planId?: any): Promise<PurchaseResult> {
+  return { ok: false, reason: "PAYMENTS_UNAVAILABLE", message: PAYMENTS_UNAVAILABLE_MESSAGE };
 }
 
-export async function upgradeToProAsync(planId: any = "shords_scholar_monthly"): Promise<UserSubscription> {
-  await purchaseSubscription(planId);
-  return getUserSubscriptionAsync();
+export async function upgradeToProAsync(planId: any = "shords_scholar_monthly"): Promise<PurchaseResult> {
+  return purchaseSubscription(planId);
 }
 
-export function isSubscribed(user?: any): boolean {
-  return SubscriptionService.isPremiumAccessGranted();
+/** UI hint only. Never a security control: the server decides what a user may do. */
+export function isSubscribed(_user?: any): boolean {
+  return false;
 }
 
-export function hasFreeViewsRemaining(user?: any): boolean {
+/** The free-view counter is not enforced anywhere; public paper cards are not locked. */
+export function hasFreeViewsRemaining(_user?: any): boolean {
   return true;
 }
-

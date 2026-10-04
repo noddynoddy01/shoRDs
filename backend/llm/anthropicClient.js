@@ -159,7 +159,13 @@ function parseMessageResponse(json, requestedModel) {
     .map((b) => b.text)
     .join("");
 
+  // Output that stopped because it hit the output budget OR the context window is incomplete, whichever the provider calls it.
+  const cutOff = stopReason === "max_tokens" || stopReason === "model_context_window_exceeded";
+
   if (!text.trim()) {
+    if (stopReason === "model_context_window_exceeded") {
+      throw new ClientError("TRUNCATED_NO_TEXT", "the context window was exhausted before any text was produced; send less paper text");
+    }
     if (stopReason === "max_tokens") {
       throw new ClientError(
         "TRUNCATED_NO_TEXT",
@@ -179,7 +185,7 @@ function parseMessageResponse(json, requestedModel) {
     text,
     usage,
     stopReason,
-    truncated: stopReason === "max_tokens",
+    truncated: cutOff,
     model: typeof json.model === "string" && json.model ? json.model : requestedModel,
     blockTypes
   };

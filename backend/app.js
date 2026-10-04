@@ -146,15 +146,15 @@ function createApp(deps) {
     return true;
   }
 
+  // Failures that look like guessing or forging. An expired token has a valid signature (a real user whose token lapsed), and a
+  // missing header is not a credential attempt, so neither counts: many people behind one NAT must not lock each other out.
+  const COUNTED_AUTH_FAILURES = new Set(["AUTH_MALFORMED", "AUTH_INVALID_SIGNATURE", "AUTH_UNKNOWN_KEY", "AUTH_INVALID_CLAIMS"]);
+
   async function authenticate(ctx) {
     const ip = ctx.ip;
+    let ipBlocked = false;
     try {
-      const blocked = await rateLimiter.peek("AUTH_FAIL_IP", "ip", ip);
-      if (!blocked.allowed) {
-        ctx.closeAfter = true;
-        fail(ctx, 429, "RATE_LIMITED", "Too many failed authentication attempts.", { "Retry-After": "60" });
-        return false;
-      }
+      ipBlocked = !(await rateLimiter.peek("AUTH_FAIL_IP", "ip", ip)).allowed;
     } catch (e) {
       if (e instanceof RateLimiterUnavailable) {
         fail(ctx, 503, "RATE_LIMITER_UNAVAILABLE", "Service temporarily unavailable. Please retry shortly.", { "Retry-After": "5" });
@@ -163,13 +163,21 @@ function createApp(deps) {
       throw e;
     }
     try {
+      // The token is always checked. An IP that has been failing is refused only if THIS request also fails to authenticate:
+      // a valid Firebase token is a credential, and refusing it would let one bad client lock out everyone behind a shared IP.
+      // (The per-user, per-tenant and global per-IP limits still apply to the request.)
       ctx.principal = await authenticateRequest(ctx.req.headers, verifier);
       return true;
     } catch (e) {
       if (!(e instanceof AuthError)) throw e;
-      if (e.httpStatus === 401) {
+      if (ipBlocked && e.httpStatus === 401) {
+        ctx.closeAfter = true;
+        fail(ctx, 429, "RATE_LIMITED", "Too many failed authentication attempts.", { "Retry-After": "60" });
+        return false;
+      }
+      if (e.httpStatus === 401 && COUNTED_AUTH_FAILURES.has(e.code)) {
         try {
-          await rateLimiter.hit("AUTH_FAIL_IP", "ip", ip); // only genuine credential failures count
+          await rateLimiter.hit("AUTH_FAIL_IP", "ip", ip);
         } catch (_) {
           /* counting failure must not turn a 401 into a 500 */
         }
@@ -210,8 +218,30 @@ function createApp(deps) {
     send(ctx, r.ready ? 200 : 503, r);
   }
 
+  const ipTag = (ip) => crypto.createHash("sha256").update(String(ip)).digest("hex").slice(0, 12);
+
+  /**
+   * Off by default. With NETWORK_DIAGNOSTICS=true (turn it on only while verifying the proxy hop count, then remove it) the
+   * public replica endpoint also says how many X-Forwarded-For entries reached this server and which client IP the rate limiter
+   * resolved, as 12-hex SHA-256 tags (never the addresses), so the caller can compare them with its own IP. Only the caller's
+   * own forwarding chain is described.
+   */
+  function networkDiagnostics(req) {
+    const xff = String(req.headers["x-forwarded-for"] || "").split(",").map((x) => x.trim()).filter(Boolean);
+    return {
+      trustProxy,
+      trustProxyHops: proxyHops,
+      forwardedForEntries: xff.length,
+      resolvedClientIpTag: ipTag(clientIp(req, { trustProxy, hops: proxyHops })),
+      fromRightTags: xff.slice(-5).reverse().map((ip, i) => ({ fromRight: i + 1, tag: ipTag(ip) })),
+      xRealIpPresent: Boolean(req.headers["x-real-ip"])
+    };
+  }
+
   async function getReplica(ctx) {
-    send(ctx, 200, { replicaId, environment: env.RAILWAY_ENVIRONMENT_NAME || env.NODE_ENV || "development", uptimeSeconds: Math.floor(process.uptime()), timestamp: new Date(now()).toISOString() });
+    const body = { replicaId, environment: env.RAILWAY_ENVIRONMENT_NAME || env.NODE_ENV || "development", uptimeSeconds: Math.floor(process.uptime()), timestamp: new Date(now()).toISOString() };
+    if (env.NETWORK_DIAGNOSTICS === "true") body.network = networkDiagnostics(ctx.req);
+    send(ctx, 200, body);
   }
 
   async function getLlmHealth(ctx) {
