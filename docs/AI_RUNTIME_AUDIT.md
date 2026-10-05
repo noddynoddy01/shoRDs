@@ -99,6 +99,8 @@ Open sign-up means per-user limits alone do not bound spend (accounts are free t
 | auth | `FIREBASE_PROJECT_ID` set and signing keys loadable | yes |
 | aiProvider | key set and a token-free `GET /v1/models/{model}` succeeds (cached 60 s). Other states: `NOT_CONFIGURED` (no key), `UNREACHABLE` (network/timeout/5xx), `REJECTED` (401/403/404: key or model unusable) | only when `REQUIRE_AI_PROVIDER=true`; otherwise the replica is `DEGRADED` (ready, serving the labelled local fallback) |
 
+`REACHABLE` means the provider answered the token-free model lookup with the configured credential. It does not prove the account has credits: billing problems (for example `PROVIDER_INSUFFICIENT_CREDITS`) appear only on an actual request, as a labelled fallback.
+
 The old `/ready` reported `aiGateway: true` unconditionally and reported database/Redis alive when their URLs were unset.
 
 ## 5. Analysis jobs
