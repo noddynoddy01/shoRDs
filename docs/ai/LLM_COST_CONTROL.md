@@ -1,3 +1,6 @@
+> **CORRECTION (2026-10-06): this document describes intended behaviour, not what the code does.**
+> An audit of the code found no per-plan spend caps, no daily or monthly spend ceiling, no kill switch, and no circuit breaker. The pricing table below is also not what the code uses (the code prices only `claude-sonnet-5-5`). What exists is request-rate limiting, a result cache, a context-size cap, an output-token cap, and an after-the-fact cost ledger. See `docs/architecture/AI_COST_CONTROL_DESIGN.md` for the audited state and the proposed design.
+
 # shoRDs LLM Cost Control & Token Budgeting Guide
 
 ## 1. Token Budget & Spending Limits

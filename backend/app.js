@@ -53,7 +53,12 @@ function createApp(deps) {
     now = Date.now
   } = deps;
 
-  const maxBodyBytes = Number(deps.maxBodyBytes || env.MAX_REQUEST_BODY_BYTES || 524288);
+  // A malformed value (e.g. "512KB") would become NaN, and every `size > NaN` check is false: the cap would silently vanish.
+  // Anything that is not a positive integer therefore falls back to the default.
+  const DEFAULT_MAX_BODY_BYTES = 524288;
+  const positiveInt = (v) => { const n = Number(v); return Number.isInteger(n) && n > 0 ? n : null; };
+  const maxBodyBytes = positiveInt(deps.maxBodyBytes) || positiveInt(env.MAX_REQUEST_BODY_BYTES) || DEFAULT_MAX_BODY_BYTES;
+  if (env.MAX_REQUEST_BODY_BYTES && !positiveInt(env.MAX_REQUEST_BODY_BYTES) && logger && logger.warn) logger.warn(`[config] MAX_REQUEST_BODY_BYTES is not a positive integer; using ${DEFAULT_MAX_BODY_BYTES}.`);
   const trustProxy = deps.trustProxy !== undefined ? deps.trustProxy : env.TRUST_PROXY === "true";
   const proxyHops = Number(deps.proxyHops || env.TRUST_PROXY_HOPS || 1);
   const adminUids = new Set(String(env.ADMIN_UIDS || "").split(",").map((s) => s.trim()).filter(Boolean));
@@ -283,6 +288,7 @@ function createApp(deps) {
     if (!body) return;
     const name = typeof body.name === "string" ? body.name.trim() : "";
     if (!name || name.length > 120) return fail(ctx, 400, "INVALID_NAME", "`name` is required (1-120 characters).");
+    if (/[\u0000-\u001f\u007f]/.test(name)) return fail(ctx, 400, "INVALID_NAME", "`name` must not contain control characters."); // a NUL byte would otherwise reach PostgreSQL and surface as a 503
     const project = await projects.createProject(pool, { name, userId: ctx.principal.uid });
     send(ctx, 201, { ...project, requestId: ctx.requestId });
   }
