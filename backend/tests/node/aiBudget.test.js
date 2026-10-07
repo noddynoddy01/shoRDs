@@ -274,7 +274,7 @@ test("a reservation is held BEFORE the call: concurrent calls cannot jointly ove
 });
 
 test("concurrency limits: a third simultaneous call for one user is refused, and slots free up when calls finish", async () => {
-  const { gate } = setup(); // user max concurrent = 2 by default
+  const { gate } = setup({ env: { AI_CONCURRENCY_WAIT_MS: "0" } }); // user max concurrent = 2 by default; refuse immediately
   const client = makeClient({ hold: true });
   const p1 = run(gate, client, ctx(), opts({ user: "c1".padEnd(1000, "a") }));
   const p2 = run(gate, client, ctx(), opts({ user: "c2".padEnd(1000, "a") }));
@@ -285,6 +285,41 @@ test("concurrency limits: a third simultaneous call for one user is refused, and
   client.release();
   await Promise.all([p1, p2]);
   await run(gate, makeClient(), ctx(), opts({ user: "c5".padEnd(1000, "a") }));
+});
+
+test("concurrency limits: a call that cannot get a slot waits briefly and proceeds when one frees; it is refused when none frees in time", async () => {
+  const { gate } = setup({ env: { AI_CONCURRENCY_WAIT_MS: "3000" } });
+  const client = makeClient({ hold: true });
+  const p1 = run(gate, client, ctx(), opts({ user: "w1".padEnd(1000, "a") }));
+  const p2 = run(gate, client, ctx(), opts({ user: "w2".padEnd(1000, "a") }));
+  await new Promise((r) => setImmediate(r));
+  assert.equal(client.calls.length, 2);
+  const waiting = makeClient();
+  const p3 = run(gate, waiting, ctx(), opts({ user: "w3".padEnd(1000, "a") }));
+  await new Promise((r) => setTimeout(r, 300));
+  assert.equal(waiting.calls.length, 0, "no provider call while it waits for a slot");
+  client.release(); // frees two slots
+  await Promise.all([p1, p2]);
+  await p3;
+  assert.equal(waiting.calls.length, 1, "it proceeded once a slot freed");
+
+  const tight = setup({ env: { AI_CONCURRENCY_WAIT_MS: "400" } }).gate;
+  const held = makeClient({ hold: true });
+  const h1 = run(tight, held, ctx(), opts({ user: "x1".padEnd(1000, "a") }));
+  const h2 = run(tight, held, ctx(), opts({ user: "x2".padEnd(1000, "a") }));
+  await new Promise((r) => setImmediate(r));
+  const t0 = Date.now();
+  await denied(run(tight, makeClient(), ctx(), opts({ user: "x3".padEnd(1000, "a") })), DENY.CONCURRENCY_LIMIT);
+  assert.ok(Date.now() - t0 >= 350, "it waited before refusing");
+  held.release();
+  await Promise.all([h1, h2]);
+});
+
+test("budget refusals are never waited for", async () => {
+  const { gate } = setup({ env: { AI_CONCURRENCY_WAIT_MS: "5000", AI_BUDGET_USER_DAILY_USD: "0.0001" } });
+  const t0 = Date.now();
+  await denied(run(gate, makeClient(), ctx(), opts({ user: "b1".padEnd(1000, "a") })), DENY.BUDGET_EXCEEDED);
+  assert.ok(Date.now() - t0 < 1000);
 });
 
 test("optional daily call counts per scope", async () => {

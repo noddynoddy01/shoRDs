@@ -12,7 +12,7 @@ calls Claude: all behaviour is covered by tests that use a stub provider.
 4. **Circuit breaker**: after `AI_BREAKER_FAILURES` consecutive provider failures the provider is not called for `AI_BREAKER_COOLDOWN_SEC`
    (credential errors: `AI_BREAKER_CREDENTIAL_COOLDOWN_SEC`); one probe at a time recovers it.
 5. **Duplicate lock**: an identical in-flight request is not paid twice.
-6. **Reservation** against global, tenant, project and user daily budgets (UTC day) and concurrency caps, atomically in Redis (Lua).
+6. **Reservation** (a concurrency-only refusal waits up to `AI_CONCURRENCY_WAIT_MS` for a slot; found when two workers for one user exceeded the per-user cap of 2 and a job finished with a fallback answer instead of waiting) against global, tenant, project and user daily budgets (UTC day) and concurrency caps, atomically in Redis (Lua).
    Day counters are seeded from the Postgres ledger, so a Redis flush or a new replica does not reset the day.
 7. **Settle** with provider-reported usage, or **release** the reservation when no call was made / the call failed before the provider billed.
 8. Provider retries are capped by `AI_MAX_PROVIDER_RETRIES` (default 1; was 2).
@@ -33,6 +33,7 @@ Defaults below are **engineering placeholders chosen to be safe, not business de
 | `AI_BUDGET_REQUEST_MAX_USD` | 1.25 | worst-case cost of one request |
 | `AI_BUDGET_{GLOBAL,TENANT,PROJECT,USER}_DAILY_CALLS` | unset (no cap) | optional call-count caps |
 | `AI_BUDGET_{GLOBAL,TENANT,USER,PROJECT}_MAX_CONCURRENT` | 16 / 6 / 2 / unset | concurrent paid calls |
+| `AI_CONCURRENCY_WAIT_MS` | 10000 | how long a call waits for a free concurrency slot before it is refused (`0` = refuse at once). Budget and call-count refusals never wait |
 | `AI_REQUEST_MAX_OUTPUT_TOKENS` | 32000 | upper bound used in the worst-case estimate |
 | `AI_REQUEST_MAX_INPUT_TOKENS_BOUND` | 600000 | upper bound used in the worst-case estimate |
 | `AI_MAX_PROVIDER_RETRIES` | 1 | integer 0-3 |

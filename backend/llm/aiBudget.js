@@ -115,6 +115,9 @@ function loadBudgetConfig(env = process.env) {
     mode,
     maxRetries,
     requestMaxMicro: parseUsd(env, "AI_BUDGET_REQUEST_MAX_USD", 1_250_000),
+    // A concurrency refusal is transient (a slot frees when a running call ends), so wait this long for a slot before refusing.
+    // Budget and call-count refusals are never waited for. 0 refuses immediately.
+    concurrencyWaitMs: num("AI_CONCURRENCY_WAIT_MS", 10000, 0),
     maxOutputTokens: num("AI_REQUEST_MAX_OUTPUT_TOKENS", 32000),
     maxInputTokensBound: num("AI_REQUEST_MAX_INPUT_TOKENS_BOUND", 600000),
     scopes: {
@@ -502,6 +505,12 @@ function createAiBudget({ store, seedFromLedger = null, env = process.env, logge
         reservationId = `${t0.toString(36)}-${crypto.randomBytes(6).toString("hex")}`;
         const expiresAtMs = t0 + (Number(options.timeoutMs) || 180000) * attempts + RESERVATION_MARGIN_MS;
         let r = await reserveAll(scopes, est.reservationMicro, reservationId, expiresAtMs, t0);
+        // concurrency-only refusals queue briefly (jittered polling on the real clock); a refused try holds nothing (atomic)
+        const waitUntil = Date.now() + cfg.concurrencyWaitMs;
+        while (!r.ok && r.reason === "CONCURRENCY" && cfg.mode !== "observe" && Date.now() < waitUntil) {
+          await new Promise((resolve) => setTimeout(resolve, 100 + Math.floor(Math.random() * 150)));
+          r = await reserveAll(scopes, est.reservationMicro, reservationId, expiresAtMs, now());
+        }
         if (!r.ok) {
           const scope = scopes[r.scopeIndex];
           const category = r.reason === "CONCURRENCY" ? DENY.CONCURRENCY_LIMIT : r.reason === "CALLS" ? DENY.CALL_LIMIT : DENY.BUDGET_EXCEEDED;

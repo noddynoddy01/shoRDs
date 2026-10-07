@@ -304,7 +304,7 @@ test("AI spend safety: stores, Postgres authority and the HTTP API (real Redis +
     const inner = countingClient();
     let started = 0;
     const slow = { calls: inner.calls, async callMessages(o) { started += 1; await gate; return inner.callMessages(o); } };
-    const env = { ...baseEnv, AI_BUDGET_USER_MAX_CONCURRENT: "1" };
+    const env = { ...baseEnv, AI_BUDGET_USER_MAX_CONCURRENT: "1", AI_CONCURRENCY_WAIT_MS: "0" }; // refuse immediately: the waiting behaviour is covered in aiBudget.test.js
     const A = await startReplica({ keys, env, overrides: { client: slow } });
     const B = await startReplica({ keys, env, overrides: { client: inner } });
     const wa = await world(A);
