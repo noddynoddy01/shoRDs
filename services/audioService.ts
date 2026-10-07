@@ -1,7 +1,6 @@
 /**
- * Conversational Human Research Voice Engine for shoRDs Research Intelligence OS
- * Generates natural, warm, conversational spoken narration scripts (2-3 minutes duration)
- * from structured Research Briefs with prosody metadata and handles expressive audio playback.
+ * Read-aloud for shoRDs: speaks the research brief that is shown on screen using the device's built-in text-to-speech.
+ * It is not a recording and not a human voice, and it says nothing that is not already on the screen.
  */
 
 import * as Speech from "expo-speech";
@@ -37,88 +36,41 @@ export interface NarrationScriptPayload {
 }
 
 /**
- * Formats technical notation, numbers, and mathematical symbols into spoken natural English.
- * E.g., "94.2%" -> "ninety-four point two percent", "3.1x" -> "three point one times".
+ * Light text clean-up so device text-to-speech reads symbols naturally. Generic only: no figure, percentage or phrase is
+ * rewritten into specific wording (the previous version hard-coded "18.4%", "94.2%", "3.1x" and "142").
  */
 export function formatTechnicalPronunciation(text: string): string {
   if (!text) return "";
-
   return text
-    .replace(/\+18\.4%/g, "plus eighteen point four percent")
-    .replace(/94\.2%/g, "ninety-four point two percent")
-    .replace(/3\.1x/gi, "three point one times")
-    .replace(/\b142\b/g, "one hundred and forty-two")
-    .replace(/E\[\|\|x - x_hat\|\|\^2\] <= delta/gi, "estimation error bounds decrease asymptotically")
     .replace(/%/g, " percent")
-    .replace(/\bvs\b/gi, "versus")
+    .replace(/\bvs\b\.?/gi, "versus")
     .replace(/\bSOTA\b/g, "state of the art");
 }
 
+/** Speech rate assumed for the duration estimate at 1.0x (words per minute). An estimate, shown as such. */
+const SPEECH_WORDS_PER_MINUTE = 150;
+
 /**
- * Converts a structured Research Brief into a natural, conversational speech script with prosody metadata.
- * Translates dense equations and numerical metrics into warm, spoken plain English.
+ * Builds the read-aloud script from the brief that is ON SCREEN: each section's own title and text, in order, and nothing else.
+ * It never adds an introduction, statistics, a summary, or any wording that is not in the displayed brief. A brief with no
+ * readable section (for example metadata only) yields no chapters, and the player is not shown.
+ *
+ * (The previous version ignored the paper and read the same invented script to everyone: "an 18.4 percent accuracy boost",
+ * "142 independent benchmark trials", "peak accuracy of 94.2 percent".)
  */
-export function generateNarrationScript(
-  brief: GroundedResearchBrief,
-  authorsName: string = "Academic Scholar"
-): NarrationScriptPayload {
-  const title = brief.title;
-  const cleanAuthors = authorsName || brief.authors.join(", ");
-
-  const chapters: AudioChapter[] = [
-    {
-      id: "ch1_hook",
-      title: "01 · Spoken Hook & 30-Second Overview",
-      spokenScript: `Hi there. Welcome to shoRDs Research Intelligence. Today we're diving into an interesting paper titled "${title}", authored by ${cleanAuthors}. Here's the key takeaway in 30 seconds: This research tackles major performance bottlenecks in the domain. The team introduced a novel pipeline that achieves an 18.4 percent accuracy boost over standard baselines, while cutting computational latency by over 3 times.`,
-      segments: [
-        { text: `Hi there. Welcome to shoRDs Research Intelligence.`, section: "01 · Hook", emphasis: "normal", pauseAfterMs: 300 },
-        { text: `Today we're diving into an interesting paper titled "${title}".`, section: "01 · Hook", emphasis: "normal", pauseAfterMs: 400 },
-        { text: `The team introduced a novel pipeline that achieves an 18.4 percent accuracy boost while cutting computational latency by over 3 times.`, section: "01 · Hook", emphasis: "result", pauseAfterMs: 500 }
-      ]
-    },
-    {
-      id: "ch2_problem",
-      title: "02 · The Problem & Motivation",
-      spokenScript: `Let's break down the underlying problem. Traditional approaches in this space face severe signal distortion and performance drop-offs when scaled to complex real-world environments. Existing methods rely on heavy matrix calculations that quickly become computational bottlenecks. The authors set out to build a far more resilient, low-latency framework.`,
-      segments: [
-        { text: `Traditional approaches in this space face severe signal distortion and performance drop-offs.`, section: "02 · Problem", emphasis: "important", pauseAfterMs: 400 },
-        { text: `The authors set out to build a far more resilient, low-latency framework.`, section: "02 · Problem", emphasis: "normal", pauseAfterMs: 500 }
-      ]
-    },
-    {
-      id: "ch3_approach",
-      title: "03 · The Approach & Mechanism",
-      spokenScript: `So how did they do it? The researchers designed a 4-step architecture. First, they preprocess incoming vectors to strip out noise. Next, they extract sparse representations to isolate critical spatial features. Then, they apply dynamic channel weighting. Mathematically, they prove that as sample sizes grow, estimation error bounds decrease asymptotically, guaranteeing high precision under all operational noise conditions.`,
-      segments: [
-        { text: `First, they preprocess incoming vectors to strip out noise.`, section: "03 · Approach", emphasis: "normal", pauseAfterMs: 300 },
-        { text: `Mathematically, they prove that as sample sizes grow, estimation error bounds decrease asymptotically.`, section: "03 · Approach", emphasis: "important", pauseAfterMs: 500 }
-      ]
-    },
-    {
-      id: "ch4_evidence",
-      title: "04 · Evidence & Key Numbers",
-      spokenScript: `Now let me share the key results. Across 142 independent benchmark trials, the framework reached a peak accuracy of 94.2 percent. Looking at the main original results plot, the system maintains steady memory usage even under elevated noise levels, outperforming 4 competing baseline models.`,
-      segments: [
-        { text: `Across 142 independent benchmark trials, the framework reached a peak accuracy of 94.2 percent.`, section: "04 · Evidence", emphasis: "result", pauseAfterMs: 400 },
-        { text: `Outperforming 4 competing baseline models.`, section: "04 · Evidence", emphasis: "result", pauseAfterMs: 500 }
-      ]
-    },
-    {
-      id: "ch5_takeaway",
-      title: "05 · Why It Matters & Key Takeaways",
-      spokenScript: `Why does this matter for your work? By delivering top-tier accuracy while reducing computational load by 3.1 times, this method enables real-time edge execution on power-constrained hardware. The main thing to keep in mind is that performance requires a clean calibration set under extreme Doppler conditions. Overall, it's a major step forward for high-efficiency system design.`,
-      segments: [
-        { text: `Enables real-time edge execution on power-constrained hardware.`, section: "05 · Takeaways", emphasis: "important", pauseAfterMs: 400 },
-        { text: `Overall, it's a major step forward for high-efficiency system design.`, section: "05 · Takeaways", emphasis: "normal", pauseAfterMs: 600 }
-      ]
-    }
-  ];
-
+export function generateNarrationScript(brief: GroundedResearchBrief): NarrationScriptPayload {
+  const readable = brief.summaryMode === "METADATA_ONLY" ? [] : brief.sections.filter((s) => s.content && s.content.trim().length > 0);
+  const chapters: AudioChapter[] = readable.map((s, i) => ({
+    id: `ch${i + 1}_${s.sectionId}`,
+    title: s.title,
+    spokenScript: `${s.title.replace(/^\d+\s*·\s*/, "")}. ${formatTechnicalPronunciation(s.content)}`
+  }));
+  const words = chapters.reduce((n, c) => n + c.spokenScript.split(/\s+/).filter(Boolean).length, 0);
   return {
-    paperTitle: title,
+    paperTitle: brief.title,
     paperCanonicalId: brief.paperCanonicalId,
     totalChapters: chapters.length,
-    estimatedDurationMinutes: 3,
+    estimatedDurationMinutes: Math.max(1, Math.ceil(words / SPEECH_WORDS_PER_MINUTE)),
     chapters
   };
 }

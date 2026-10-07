@@ -38,19 +38,15 @@ export async function processSinglePaperStack(
   onProgress?.(`[Worker] Extracting metadata for "${paper.title.slice(0, 30)}..."`, 30);
   await new Promise(r => setTimeout(r, 100));
 
-  onProgress?.(`[Worker] Building authentic 18-part scientific stack...`, 70);
+  onProgress?.(`[Worker] Preparing the summary from the paper's own text...`, 70);
   await new Promise(r => setTimeout(r, 100));
 
   onProgress?.(`[Worker] Finalizing shoRDs Stack...`, 100);
 
   const structuredSummary = buildStructuredSummaryFromPaper(paper);
 
-  const roadmapPhases = [
-    `Phase 1: Conceptual Foundations of ${paper.domain}`,
-    `Phase 2: Data Environment Setup for "${paper.title.slice(0, 25)}..."`,
-    `Phase 3: Core Algorithm Implementation & Tuning`,
-    `Phase 4: Benchmark Deployment & Edge Optimization`
-  ];
+  // There is no implementation roadmap: nothing computes one, and the earlier fixed four-phase list was filler, not analysis.
+  const roadmapPhases: string[] = [];
 
   const synthesizedPaper: Paper = {
     ...paper,
@@ -58,9 +54,13 @@ export async function processSinglePaperStack(
     title: paper.title,
     domain: paper.domain,
     summary: structuredSummary.quickBrief.what,
-    fullExplanation: `${structuredSummary.quickBrief.what}\n\n[Why Written]\n${structuredSummary.quickBrief.why}\n\n[Main Contribution]\n${structuredSummary.quickBrief.mainContribution}\n\n[Why Care]\n${structuredSummary.quickBrief.whyCare}`,
-    doi: paper.doi || `10.48550/${paper.id}`,
-    insights: [structuredSummary.quickBrief.mainContribution],
+    fullExplanation: [
+      structuredSummary.quickBrief.what,
+      structuredSummary.quickBrief.why && structuredSummary.quickBrief.why !== structuredSummary.quickBrief.what ? `[Why Written]\n${structuredSummary.quickBrief.why}` : "",
+      structuredSummary.quickBrief.mainContribution && structuredSummary.quickBrief.mainContribution !== structuredSummary.quickBrief.what ? `[Main Contribution]\n${structuredSummary.quickBrief.mainContribution}` : ""
+    ].filter(Boolean).join("\n\n"),
+    doi: paper.doi, // never a made-up DOI
+    insights: structuredSummary.quickBrief.mainContribution ? [structuredSummary.quickBrief.mainContribution] : [],
     pdfUri: paper.pdfUri,
     originalLink: paper.originalLink
   };
@@ -117,7 +117,8 @@ export function compareSelectedPapers(papers: Paper[]): PaperComparisonMatrix {
     const evaluations: Record<string, string> = {};
     papers.forEach(paper => {
       const summary = buildStructuredSummaryFromPaper(paper);
-      evaluations[paper.id] = (summary as any)[aspect.key] || "Extraction Failed";
+      const value = (summary as any)[aspect.key];
+      evaluations[paper.id] = (Array.isArray(value) ? value.join("; ") : value) || "Not found in the available text";
     });
     return {
       aspectName: aspect.name,

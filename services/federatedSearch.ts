@@ -69,29 +69,26 @@ export async function executeLiveFederatedSearch(
         id: p.id,
         title: p.title || "Untitled Paper",
         domain: p.research_field || "Science",
-        summary: p.abstract || `Indexed by ${p.source}.`,
-        fullExplanation: p.abstract || `Detailed metadata record for ${p.title}.`,
+        summary: p.abstract || "",
+        fullExplanation: p.abstract || "",
         authorId: "federated-author",
-        authorName: Array.isArray(p.authors) ? p.authors.join(", ") : (p.authors || "Academic Scholar"),
-        authorRole: "Researcher",
-        originalLink: p.html_url || p.pdf_url || (p.doi ? `https://doi.org/${p.doi}` : "https://shords.app"),
+        authorName: Array.isArray(p.authors) ? p.authors.join(", ") : (p.authors || ""),
+        authorRole: "",
+        originalLink: p.html_url || p.pdf_url || (p.doi ? `https://doi.org/${p.doi}` : ""),
         pdfUri: p.pdf_url,
-        tags: [p.source.toLowerCase(), "peer-reviewed"],
-        readingTime: "5 min read",
+        tags: [String(p.source || "").toLowerCase()].filter(Boolean),
+        readingTime: "",
         savedCount: p.citation_count || 0,
         createdAt: new Date(),
         organization: p.institution || p.publication || p.source,
-        pubYear: p.year || 2026,
+        pubYear: typeof p.year === "number" ? p.year : undefined,
         doi: p.doi,
         sourceTag: `[${(p.source || "OpenAlex").split(",")[0].trim()}]` as any,
         citationCount: p.citation_count || 0,
         publication: p.publication,
         publisher: p.publisher,
         is_open_access: p.is_open_access,
-        insights: [
-          `Cited ${p.citation_count || 0} times in literature.`,
-          `Published in ${p.publication || p.source} (${p.year || 2026}).`
-        ]
+        insights: []
       }));
 
       await registerPaperBatch(mapped as any);
@@ -133,14 +130,14 @@ async function fallbackClientSearch(
       const doi = work.doi ? work.doi.replace("https://doi.org/", "") : undefined;
       
       const authorNames = (work.authorships || []).map((a: any) => a.author?.display_name).filter(Boolean);
-      const authorName = authorNames.length > 0 ? authorNames.slice(0, 3).join(", ") : "Academic Scholar";
+      const authorName = authorNames.length > 0 ? authorNames.slice(0, 3).join(", ") : ""; // unknown stays unknown
       
-      const org = work.host_venue?.display_name || "OpenAlex Journal";
-      const pubYear = work.publication_year || 2026;
+      const org = work.host_venue?.display_name || work.primary_location?.source?.display_name || "";
+      const pubYear = typeof work.publication_year === "number" ? work.publication_year : undefined;
       const citationCount = work.cited_by_count || 0;
       const pdfUri = work.open_access?.oa_url || (work.doi ? work.doi : undefined);
 
-      const fullAbstract = work.abstract || reconstructOpenAlexAbstract(work.abstract_inverted_index) || `Indexed by OpenAlex in ${org}. Cited by ${citationCount} publications.`;
+      const fullAbstract = work.abstract || reconstructOpenAlexAbstract(work.abstract_inverted_index) || "";
 
       return {
         id: `openalex-${work.id?.split("/").pop() || idx}`,
@@ -150,11 +147,11 @@ async function fallbackClientSearch(
         fullExplanation: fullAbstract,
         authorId: "openalex-author",
         authorName,
-        authorRole: "OpenAlex Researcher",
-        originalLink: work.doi || work.id || "https://openalex.org",
+        authorRole: "",
+        originalLink: work.doi || work.id || "",
         pdfUri,
-        tags: ["openalex", "peer-reviewed"],
-        readingTime: "5 min read",
+        tags: ["openalex"],
+        readingTime: "",
         savedCount: citationCount,
         createdAt: new Date(),
         organization: org,
@@ -164,10 +161,7 @@ async function fallbackClientSearch(
         citationCount,
         publication: org,
         is_open_access: work.open_access?.is_oa || false,
-        insights: [
-          `Cited ${citationCount} times in peer-reviewed literature.`,
-          `Published in ${org} (${pubYear}).`
-        ]
+        insights: []
       };
     });
 

@@ -10,7 +10,8 @@ export interface FullTextResolution {
   url?: string;
   source?: string;
   license?: string;
-  verifiedAt: string;
+  /** Set only when a check really ran. This module makes no network call, so it never sets it. */
+  verifiedAt?: string;
 }
 
 /**
@@ -43,9 +44,11 @@ export function validateHtmlScholarlyContent(htmlContent: string): { isFullTextH
 }
 
 /**
- * Resolves full-text availability and performs content verification:
- * Checks HTTP success, valid PDF/HTML content-type, non-empty response, and extractable text.
- * Never marks FULL_TEXT_PDF simply because a URL ends in .pdf!
+ * Says what the record itself contains. It does NOT fetch or verify anything: a link ending in ".pdf" proves nothing about
+ * what is behind it, so a URL never makes a record "full text", and no licence or verification time is claimed.
+ * Real full text exists only when text was actually retrieved and extracted (the backend does that: POST /api/v1/papers/resolve).
+ * (An earlier version returned FULL_TEXT_PDF with a "CC-BY" licence for any URL ending in .pdf, and contained test hooks such as
+ * "fake_pdf_returning_html" in production code.)
  */
 export async function verifyAndResolveFullTextAsync(paper: {
   pdfUri?: string;
@@ -55,81 +58,11 @@ export async function verifyAndResolveFullTextAsync(paper: {
   source?: string;
   htmlBodyText?: string;
 }): Promise<FullTextResolution> {
-  const now = new Date().toISOString();
-
-  // 1. Verify PDF URL
-  if (paper.pdfUri && paper.pdfUri.trim()) {
-    const url = paper.pdfUri.trim();
-    
-    // Check for broken links
-    if (url.includes("broken") || url.includes("404")) {
-      return { status: "UNAVAILABLE", verifiedAt: now, source: paper.source };
-    }
-
-    // PDF URL returning an HTML landing page
-    if (paper.htmlBodyText || url.includes("fake_pdf_returning_html") || url.includes("landing_page")) {
-      const htmlCheck = validateHtmlScholarlyContent(paper.htmlBodyText || "Abstract Download PDF Purchase Login Citation");
-      if (htmlCheck.isFullTextHtml) {
-        return { status: "FULL_TEXT_HTML", url, verifiedAt: now, source: paper.source || "Publisher Web Page" };
-      }
-      return {
-        status: htmlCheck.hasAbstract ? "ABSTRACT_ONLY" : "METADATA_ONLY",
-        url,
-        verifiedAt: now,
-        source: paper.source || "Publisher Landing Page"
-      };
-    }
-
-    if (url.endsWith(".pdf") || url.includes("/pdf/") || url.includes("arxiv.org/pdf")) {
-      return {
-        status: "FULL_TEXT_PDF",
-        url,
-        source: paper.source || "Open Access Repository",
-        license: "CC-BY",
-        verifiedAt: now
-      };
-    }
-  }
-
-  // 2. Verify HTML URL
-  if (paper.htmlUri && paper.htmlUri.trim() && !paper.htmlUri.includes("broken")) {
-    const htmlCheck = validateHtmlScholarlyContent(paper.htmlBodyText || "Introduction Methods Results Discussion Full Article Text...");
-    if (htmlCheck.isFullTextHtml) {
-      return {
-        status: "FULL_TEXT_HTML",
-        url: paper.htmlUri.trim(),
-        source: paper.source || "Publisher Web Page",
-        verifiedAt: now
-      };
-    }
-    return {
-      status: htmlCheck.hasAbstract ? "ABSTRACT_ONLY" : "METADATA_ONLY",
-      url: paper.htmlUri.trim(),
-      verifiedAt: now,
-      source: paper.source || "Publisher Landing Page"
-    };
-  }
-
-  // 3. Verify Abstract availability
   if (paper.abstract && paper.abstract.trim().length > 30) {
-    return {
-      status: "ABSTRACT_ONLY",
-      verifiedAt: now,
-      source: paper.source || "Metadata API"
-    };
+    return { status: "ABSTRACT_ONLY", source: paper.source };
   }
-
-  // 4. Metadata only check
   if (paper.doi || paper.source) {
-    return {
-      status: "METADATA_ONLY",
-      verifiedAt: now,
-      source: paper.source || "Metadata API"
-    };
+    return { status: "METADATA_ONLY", source: paper.source };
   }
-
-  return {
-    status: "UNAVAILABLE",
-    verifiedAt: now
-  };
+  return { status: "UNAVAILABLE" };
 }

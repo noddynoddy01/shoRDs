@@ -44,19 +44,6 @@ export interface UserSubscription {
   expiresAt?: string;
 }
 
-export const PRICING_PLANS: Record<string, any> = {
-  USD: {
-    monthly: { id: "shords_scholar_monthly", name: "Scholar Monthly", price: "$9.99", interval: "month" },
-    yearly: { id: "shords_scholar_annual", name: "Scholar Annual", price: "$79.99", interval: "year" }
-  },
-  INR: {
-    monthly: { id: "shords_scholar_monthly_inr", name: "Scholar Monthly", price: "₹799", interval: "month" },
-    yearly: { id: "shords_scholar_annual_inr", name: "Scholar Annual", price: "₹6,499", interval: "year" }
-  },
-  monthly: { id: "shords_scholar_monthly", name: "Scholar Monthly", price: "$9.99", interval: "month" },
-  yearly: { id: "shords_scholar_annual", name: "Scholar Annual", price: "$79.99", interval: "year" }
-};
-
 async function dropLegacyClaim(): Promise<void> {
   try {
     await AsyncStorage.removeItem(LEGACY_SUBSCRIPTION_KEY);

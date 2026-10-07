@@ -1,7 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Paper } from "@/types/models";
-import { evaluateSummaryReadiness } from "./summaryReadinessService";
-import { generateEducationalStack } from "./paperSummarizer";
 import { generateCanonicalPaperId, deduplicatePaperList } from "./deduplication";
 import { verifyAndResolveFullTextAsync } from "./fullTextResolver";
 import { determinePaperEligibility } from "./dataValidation";
@@ -12,6 +10,7 @@ import {
   logPaperInteractionAsync
 } from "./paperHistoryService";
 import { providerHealthService } from "./providerHealth";
+import { reconstructOpenAlexAbstract } from "./federatedSearch";
 
 export interface FeedGenerationTelemetry {
   feedGenerationId: string;
@@ -70,8 +69,8 @@ export function rankCandidatesMultiSignal(
   const normInterests = userInterests.map(i => i.toLowerCase());
 
   return [...papers].sort((a, b) => {
-    const recencyA = Math.max(0, ((a.pubYear || 2026) - 2000) / 26);
-    const recencyB = Math.max(0, ((b.pubYear || 2026) - 2000) / 26);
+    const recencyA = Math.max(0, ((a.pubYear || 2000) - 2000) / 26);
+    const recencyB = Math.max(0, ((b.pubYear || 2000) - 2000) / 26);
 
     const citA = Math.min(1.0, (a.savedCount || (a as any).citationCount || 0) / 500);
     const citB = Math.min(1.0, (b.savedCount || (b as any).citationCount || 0) / 500);
@@ -145,12 +144,13 @@ export async function generateBackendFeedBatchAsync(
         const title = work.title || `Manuscript ${work.id?.split("/").pop() || idx}`;
         const doi = work.doi ? work.doi.replace("https://doi.org/", "") : undefined;
         const authorNames = (work.authorships || []).map((a: any) => a.author?.display_name).filter(Boolean);
-        const authorName = authorNames.length > 0 ? authorNames.slice(0, 3).join(", ") : "Academic Scholar";
-        const org = work.host_venue?.display_name || "Peer-Reviewed Venue";
-        const pubYear = work.publication_year || 2026;
+        const authorName = authorNames.length > 0 ? authorNames.slice(0, 3).join(", ") : ""; // unknown stays unknown
+        const org = work.host_venue?.display_name || work.primary_location?.source?.display_name || "";
+        const pubYear = typeof work.publication_year === "number" ? work.publication_year : undefined;
         const citationCount = work.cited_by_count || 0;
         const pdfUri = work.open_access?.oa_url || (work.doi ? work.doi : undefined);
-        const abstract = work.abstract || `Indexed in ${org}. Cited by ${citationCount} publications.`;
+        // OpenAlex sends abstracts as an inverted index. No abstract means an empty one, never a made-up sentence.
+        const abstract = work.abstract || reconstructOpenAlexAbstract(work.abstract_inverted_index) || "";
 
         return {
           id: `openalex-${work.id?.split("/").pop() || idx}`,
@@ -160,11 +160,11 @@ export async function generateBackendFeedBatchAsync(
           fullExplanation: abstract,
           authorId: "openalex-author",
           authorName,
-          authorRole: "Researcher",
-          originalLink: work.doi || work.id || "https://openalex.org",
+          authorRole: "",
+          originalLink: work.doi || work.id || "",
           pdfUri,
-          tags: ["openalex", "peer-reviewed"],
-          readingTime: "5 min read",
+          tags: ["openalex"], // OpenAlex does not say a work is peer reviewed, so neither do we
+          readingTime: "",
           savedCount: citationCount,
           createdAt: new Date(),
           organization: org,
@@ -204,10 +204,9 @@ export async function generateBackendFeedBatchAsync(
 
     const eligibility = determinePaperEligibility(ftRes.status);
     if (eligibility === "FULL_ANALYSIS" || eligibility === "ABSTRACT_ANALYSIS") {
-      // Phase 8 Summary Readiness Quality Gate
-      const brief = generateEducationalStack(paper) as any;
-      const readiness = evaluateSummaryReadiness(paper, brief);
-      if (readiness.state === "SUMMARY_READY") {
+      // A paper is shown only if it has real abstract text to summarize. There is no computed "quality score": the earlier gate
+      // hard-coded claim verification at 100 and rated source quality from whether a link existed.
+      if ((paper.summary || "").trim().length > 30) {
         validEligible.push(paper);
       } else {
         invalidCount += 1;

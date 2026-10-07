@@ -1,11 +1,7 @@
 /**
- * Original Figure & Table Extraction Service for shoRDs Research Intelligence OS
- * Discovers, extracts, normalizes, ranks, and caches actual figures, tables, and diagrams
- * from original research paper sources (HTML, JATS XML, arXiv, Europe PMC, PDF).
+ * Figure & table types and helpers. Extraction itself is NOT IMPLEMENTED (see retrieveOriginalFiguresAsync): no figure is shown
+ * unless it was really taken from the paper.
  */
-
-import { isSafeExternalUrl } from "./securityService";
-import { generateCanonicalPaperId } from "./deduplication";
 
 export type VisualSourceType =
   | "ORIGINAL_PAPER_FIGURE"
@@ -40,13 +36,19 @@ export interface ResearchFigure {
   };
 }
 
-// Global In-Memory Figure Cache (keyed by canonicalId + figureNumber)
-const figureCache: Map<string, ResearchFigure[]> = new Map();
-
 /**
- * Extracts and retrieves original figures & tables for a canonical paper.
+ * Original figures and tables of a paper.
+ *
+ * NOT IMPLEMENTED: no component of shoRDs extracts figures from a paper today (the production backend returns text chunks
+ * only), so this returns an empty list. It previously built entries from guessed image addresses, invented captions and
+ * explanations, and, for papers with a DOI, a stock photograph labelled "Figure 3: Core Experimental Results" with
+ * `originalFigure: true`. That presented invented content as the paper's own figures and has been removed.
+ *
+ * When real extraction exists (server-side, with the figure's own caption and a link to the source), implement it here and
+ * keep two rules: `originalFigure` is true only for an image that was actually taken from the paper, and every caption is the
+ * paper's own text.
  */
-export async function retrieveOriginalFiguresAsync(paper: {
+export async function retrieveOriginalFiguresAsync(_paper: {
   id: string;
   title: string;
   pdfUri?: string;
@@ -54,122 +56,7 @@ export async function retrieveOriginalFiguresAsync(paper: {
   htmlUri?: string;
   domain?: string;
 }): Promise<ResearchFigure[]> {
-  const canonicalId = generateCanonicalPaperId(paper);
-  
-  if (figureCache.has(canonicalId)) {
-    return figureCache.get(canonicalId)!;
-  }
-
-  const retrievedAt = new Date().toISOString();
-  const provider = paper.pdfUri?.includes("arxiv")
-    ? "arXiv Gateway"
-    : paper.doi
-    ? "Europe PMC / Crossref"
-    : "OpenAlex OA Gateway";
-
-  const extractedFigures: ResearchFigure[] = [];
-
-  // Strategy 1: arXiv Figure & HTML Representation
-  if (paper.pdfUri && paper.pdfUri.includes("arxiv.org")) {
-    const arxivId = paper.pdfUri.split("/pdf/")[1]?.replace(".pdf", "") || "arxiv-id";
-    const figure1Url = `https://arxiv.org/html/${arxivId}/x1.png`;
-    const figure2Url = `https://arxiv.org/html/${arxivId}/x2.png`;
-
-    if (isSafeExternalUrl(figure1Url)) {
-      extractedFigures.push({
-        id: `fig_${canonicalId}_1`,
-        paperId: paper.id,
-        figureNumber: "Figure 1",
-        title: "Proposed System Architecture & Workflow",
-        caption: "Overall pipeline of the proposed model illustrating the feature extraction, attention mapping, and classification stages.",
-        imageUrl: figure1Url,
-        sourceUrl: `https://arxiv.org/abs/${arxivId}`,
-        sourceType: "HTML",
-        visualSource: "ORIGINAL_PAPER_FIGURE",
-        pageNumber: 3,
-        section: "METHODOLOGY",
-        originalFigure: true,
-        provenance: {
-          doi: paper.doi,
-          canonicalId,
-          provider: "arXiv HTML Gateway",
-          retrievedAt
-        },
-        relevanceScore: 95,
-        explanation: {
-          whatItShows: "This figure illustrates the complete multi-stage pipeline connecting the raw data input to the final prediction layer.",
-          whyItMatters: "It demonstrates how the feature extraction stage directly feeds into the attention mechanism before final evaluation."
-        }
-      });
-    }
-
-    if (isSafeExternalUrl(figure2Url)) {
-      extractedFigures.push({
-        id: `fig_${canonicalId}_2`,
-        paperId: paper.id,
-        figureNumber: "Figure 2",
-        title: "Empirical Performance Comparison",
-        caption: "Accuracy vs computational latency comparison against state-of-the-art baseline models across benchmark datasets.",
-        imageUrl: figure2Url,
-        sourceUrl: `https://arxiv.org/abs/${arxivId}`,
-        sourceType: "HTML",
-        visualSource: "ORIGINAL_PAPER_FIGURE",
-        pageNumber: 7,
-        section: "RESULTS",
-        originalFigure: true,
-        provenance: {
-          doi: paper.doi,
-          canonicalId,
-          provider: "arXiv HTML Gateway",
-          retrievedAt
-        },
-        relevanceScore: 92,
-        explanation: {
-          whatItShows: "The plot compares accuracy improvement (Y-axis) against inference speedup (X-axis) across baseline architectures.",
-          whyItMatters: "It confirms that the proposed method achieves superior accuracy while reducing computational latency by over 3x."
-        }
-      });
-    }
-  }
-
-  // Strategy 2: High-Quality Structured DOI / Europe PMC / JATS XML Figures
-  if (extractedFigures.length === 0 && paper.doi) {
-    const figUrl = `https://api.crossref.org/v1/works/${encodeURIComponent(paper.doi)}/transform/image`;
-    
-    extractedFigures.push({
-      id: `fig_${canonicalId}_doi_1`,
-      paperId: paper.id,
-      figureNumber: "Figure 3",
-      title: "Core Experimental Results & Benchmark Evaluation",
-      caption: `Quantitative evaluation and convergence comparison for ${paper.title}.`,
-      imageUrl: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=800&auto=format&fit=crop", // Safe fallback demonstration visual
-      sourceUrl: `https://doi.org/${paper.doi}`,
-      sourceType: "XML",
-      visualSource: "ORIGINAL_PAPER_FIGURE",
-      pageNumber: 5,
-      section: "RESULTS",
-      originalFigure: true,
-      provenance: {
-        doi: paper.doi,
-        canonicalId,
-        provider,
-        retrievedAt
-      },
-      relevanceScore: 90,
-      explanation: {
-        whatItShows: "Key performance convergence metric recorded over 100 evaluation trials.",
-        whyItMatters: "Validates the statistical stability and repeatability of the reported accuracy gains."
-      }
-    });
-  }
-
-  // Strategy 3: Selection Intelligence (Filter & Rank Top 1-3 Figures)
-  const topFigures = selectTopInformativeFigures(extractedFigures);
-
-  // Store in cache
-  figureCache.set(canonicalId, topFigures);
-
-  return topFigures;
+  return [];
 }
 
 /**

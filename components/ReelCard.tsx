@@ -186,7 +186,7 @@ export function ReelCard({ paper, height, index, isActive, isMuted, onMuteToggle
           {paper.illustrations && paper.illustrations.length > 0 && (
             <View style={styles.figuresSection}>
               <Text style={styles.sectionHeaderTitle}>Interactive Figures</Text>
-              <ExpandableFigure dataString={paper.illustrations[0]} caption="Figure 1: Benchmark Latency Distribution" />
+              <ExpandableFigure dataString={paper.illustrations[0]} caption="Illustration supplied with this record" />
             </View>
           )}
 

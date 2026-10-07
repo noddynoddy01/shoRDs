@@ -56,7 +56,7 @@ export function extractDocumentContent(
   fullTextStatus: FullTextStatus,
   rawSourceText: string,
   abstractText?: string,
-  authors: string[] = ["Academic Scholar"]
+  authors: string[] = []
 ): ExtractedDocument {
   const cleanText = (rawSourceText || "").trim();
   const textLength = cleanText.length;

@@ -49,7 +49,7 @@ export const SourceQualityCard: React.FC<SourceQualityCardProps> = ({
             <Text style={styles.value}>{venue}</Text>
           </View>
           <View style={styles.metaRow}>
-            <Text style={styles.label}>Academic Publisher:</Text>
+            <Text style={styles.label}>Publisher:</Text>
             <Text style={styles.value}>{publisher}</Text>
           </View>
           <View style={styles.metaRow}>

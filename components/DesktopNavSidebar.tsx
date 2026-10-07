@@ -35,7 +35,6 @@ export function DesktopNavSidebar({
   const navItems = [
     { label: "Feed", icon: "newspaper-outline" as const, route: "/(tabs)" },
     { label: "Explore", icon: "compass-outline" as const, route: "/(tabs)/explore" },
-    { label: "Review Mode", icon: "git-compare-outline" as const, route: "/review-mode" },
     { label: "Search", icon: "search-outline" as const, route: "/search" },
     { label: "Profile", icon: "person-outline" as const, route: "/(tabs)/profile" }
   ];

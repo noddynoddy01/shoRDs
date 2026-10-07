@@ -1,9 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { radius, spacing } from "@/constants/theme";
 import { useTheme } from "@/context/ThemeContext";
-import { getUserSubscriptionAsync, upgradeToProAsync, UserSubscription } from "@/services/subscriptionService";
 
 type SubscriptionModalProps = {
   visible: boolean;
@@ -12,23 +11,6 @@ type SubscriptionModalProps = {
 
 export function SubscriptionModal({ visible, onClose }: SubscriptionModalProps) {
   const { colors, fontSizeScale } = useTheme();
-  const [sub, setSub] = useState<UserSubscription | null>(null);
-
-  useEffect(() => {
-    if (visible) {
-      getUserSubscriptionAsync().then(setSub);
-    }
-  }, [visible]);
-
-  const [notice, setNotice] = useState<string | null>(null);
-
-  const handleUpgrade = async () => {
-    const result = await upgradeToProAsync();
-    // There is no payment provider yet: nothing is upgraded on the device. Say so instead of closing as if it worked.
-    if (!result.ok) setNotice(result.message);
-    else onClose();
-  };
-
   const styles = getStyles(colors, fontSizeScale || 1);
 
   return (
@@ -37,42 +19,20 @@ export function SubscriptionModal({ visible, onClose }: SubscriptionModalProps) 
         <View style={styles.sheet}>
           <View style={styles.header}>
             <Ionicons name="sparkles" size={24} color={colors.primary} />
-            <Text style={styles.title}>shoRDs Pro Research Operating System</Text>
+            <Text style={styles.title}>Plans</Text>
             <Pressable onPress={onClose} style={styles.closeBtn}>
               <Ionicons name="close" size={20} color={colors.muted} />
             </Pressable>
           </View>
 
           <Text style={styles.subtitle}>
-            {sub?.isPro ? "Your Pro plan is active." : "You are on the Free plan."}
+            You are on the Free plan.
           </Text>
 
-          <View style={styles.benefitList}>
-            <View style={styles.benefitRow}>
-              <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
-              <Text style={styles.benefitText}>Unlimited 18-Part Scientific AI Stacks & Deep Summaries</Text>
-            </View>
-            <View style={styles.benefitRow}>
-              <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
-              <Text style={styles.benefitText}>Multi-Provider Gateway: OpenAlex, Crossref, arXiv, CORE, Europe PMC</Text>
-            </View>
-            <View style={styles.benefitRow}>
-              <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
-              <Text style={styles.benefitText}>Full PDF Layout Parsing & Equation Derivation Engines</Text>
-            </View>
-            <View style={styles.benefitRow}>
-              <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
-              <Text style={styles.benefitText}>Audio Narrator & 10-Scene Explainer Video Generator</Text>
-            </View>
-          </View>
+          <Text style={styles.subtitle}>
+            Paid plans are not available yet. No payment can be taken and your account is not changed.
+          </Text>
 
-          {notice && <Text style={styles.subtitle}>{notice}</Text>}
-
-          {!sub?.isPro && (
-            <Pressable style={styles.upgradeBtn} onPress={handleUpgrade}>
-              <Text style={styles.upgradeBtnText}>Upgrade to Pro Pass • $9.99 / Mo</Text>
-            </Pressable>
-          )}
         </View>
       </View>
     </Modal>

@@ -1,6 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Domain, Paper } from "@/types/models";
-import { samplePapers } from "@/data/samplePapers";
 import { fetchLiveFeedCandidatesAsync, markPaperAsSeenAsync } from "./feedEngine";
 import { deduplicatePaperList } from "./deduplication";
 
@@ -8,7 +7,8 @@ const STORAGE_KEY = "shords_saved_papers";
 let cachedPapersList: Paper[] = [];
 
 export function getAllPapers(): Paper[] {
-  return cachedPapersList.length > 0 ? cachedPapersList : samplePapers;
+  // Only papers that were really retrieved (or that the user added). The hand-written sample papers are never shown as real research.
+  return cachedPapersList;
 }
 
 export function cacheDynamicPaper(paper: Paper) {
@@ -73,8 +73,10 @@ export function parsePaperSections(paperOrExplanation?: any, title?: string, sum
 
   // 3. Fallback to extracting from paragraphs / summary / insights if still missing
   const cleanSummary = paperObj?.summary || summary || rawText.slice(0, 300);
+  // Fallbacks may only reuse the paper's own text. When the text has nothing for a section, that section stays empty
+  // (it used to be filled with sentences such as "demonstrates measurable empirical advancements in <domain>").
   if (!context) {
-    context = cleanSummary || `Research addressing critical challenges in ${paperDomain}.`;
+    context = cleanSummary || "";
   }
 
   if (!methodology) {
@@ -85,8 +87,6 @@ export function parsePaperSections(paperOrExplanation?: any, title?: string, sum
       const actionSentences = (rawText || cleanSummary).match(/[^.!?]+(?:propose|introduce|develop|design|evaluate|leverage|utilize|apply)[^.!?]+[.!?]/gi);
       if (actionSentences && actionSentences.length > 0) {
         methodology = actionSentences[0].trim();
-      } else {
-        methodology = `Investigates ${paperTitle} using domain-specific empirical methodologies within ${paperDomain}.`;
       }
     }
   }
@@ -101,8 +101,6 @@ export function parsePaperSections(paperOrExplanation?: any, title?: string, sum
       const resultSentences = (rawText || cleanSummary).match(/[^.!?]+(?:\d+%|achieve|outperform|exceed|reduce|improve|result|show|demonstrate)[^.!?]+[.!?]/gi);
       if (resultSentences && resultSentences.length > 0) {
         results = resultSentences[0].trim();
-      } else {
-        results = `The investigation into ${paperTitle} demonstrates measurable empirical advancements in ${paperDomain}.`;
       }
     }
   }
@@ -113,8 +111,6 @@ export function parsePaperSections(paperOrExplanation?: any, title?: string, sum
       futureScope = futureInsight;
     } else if (insights.length > 2) {
       futureScope = insights[2];
-    } else {
-      futureScope = `Further research involves extending this framework for broader application in ${paperDomain}.`;
     }
   }
 
@@ -133,11 +129,8 @@ export async function fetchLivePapersFromOpenAlexAsync(query: string = "artifici
 export async function getPapersAsync(domain?: Domain | string): Promise<Paper[]> {
   if (cachedPapersList.length === 0) {
     const liveItems = await fetchLiveFeedCandidatesAsync(domain ? String(domain) : undefined, false);
-    if (liveItems.length > 0) {
-      cachedPapersList = deduplicatePaperList([...liveItems, ...samplePapers]);
-    } else {
-      cachedPapersList = deduplicatePaperList([...samplePapers]);
-    }
+    // If the live sources return nothing, the feed is empty and the screen says so. It is not padded with invented papers.
+    cachedPapersList = deduplicatePaperList([...liveItems]);
   }
 
   if (domain && String(domain) !== "All Discoveries") {

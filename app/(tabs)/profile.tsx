@@ -7,7 +7,6 @@ import { ProfileHeader } from "@/components/ProfileHeader";
 import { ResearchCard } from "@/components/ResearchCard";
 import { Screen } from "@/components/Screen";
 import { colors as defaultColors, radius, spacing } from "@/constants/theme";
-import { currentUser as fallbackUser } from "@/data/samplePapers";
 import { useFeedMetrics } from "@/hooks/useFeedMetrics";
 import { getAllPapers } from "@/services/papersStore";
 import { getSavedPaperIds } from "@/services/savedPapers";
@@ -17,12 +16,15 @@ import { Paper, UserProfile } from "@/types/models";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { GlassButton } from "@/components/GlassButton";
 
+/** Shown when nobody is signed in: a neutral placeholder, not a made-up person. */
+const SIGNED_OUT_PROFILE: UserProfile = { id: "", name: "Not signed in", email: "", bio: "", interests: [], profileImage: "", role: "user" };
+
 export default function ProfileScreen() {
   const { colors, fontSizeScale, theme } = useTheme();
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [uploadCount, setUploadCount] = useState(0);
   const [papers, setPapers] = useState<Paper[]>([]);
-  const [userProfile, setUserProfile] = useState<UserProfile>(fallbackUser);
+  const [userProfile, setUserProfile] = useState<UserProfile>(SIGNED_OUT_PROFILE);
   const { contentBottomPadding } = useFeedMetrics();
 
   const styles = getStyles(colors, fontSizeScale, theme);
@@ -35,7 +37,7 @@ export default function ProfileScreen() {
       if (val) {
         setUserProfile(JSON.parse(val));
       } else {
-        setUserProfile(fallbackUser);
+        setUserProfile(SIGNED_OUT_PROFILE);
       }
     });
   }, []);
@@ -56,13 +58,6 @@ export default function ProfileScreen() {
     [papers, userProfile.id]
   );
 
-  // Timeline nodes
-  const timelineEvents = [
-    { year: "2026", label: "Published 2 Briefs on arXiv", type: "pub" },
-    { year: "2025", label: "Achieved 14-Day Research Streak", type: "streak" },
-    { year: "2025", label: "Joined shoRDs Research OS", type: "join" }
-  ];
-
   return (
     <Screen>
       <ScrollView
@@ -72,38 +67,15 @@ export default function ProfileScreen() {
         {/* Profile Header */}
         <ProfileHeader profile={userProfile} />
 
-        {/* Research Identity Scoreboard */}
+        {/* Counts of what is actually on this device. No scores or streaks: none are computed anywhere. */}
         <View style={styles.statsGrid}>
           <View style={styles.statCell}>
-            <Text style={styles.statVal}>94.2</Text>
-            <Text style={styles.statLbl}>CONTRIBUTION SCORE</Text>
-          </View>
-          <View style={styles.statCell}>
-            <Text style={styles.statVal}>14</Text>
-            <Text style={styles.statLbl}>STREAK DAYS</Text>
+            <Text style={styles.statVal}>{savedPapers.length}</Text>
+            <Text style={styles.statLbl}>SAVED PAPERS</Text>
           </View>
           <View style={styles.statCell}>
             <Text style={styles.statVal}>{uploadCount}</Text>
-            <Text style={styles.statLbl}>PUBLISHED BRIEFS</Text>
-          </View>
-        </View>
-
-        {/* Publication Timeline */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionHeaderTitle}>Publication & Activity Timeline</Text>
-          <View style={styles.timelineBox}>
-            {timelineEvents.map((ev, idx) => (
-              <View key={idx} style={styles.timelineRow}>
-                <View style={styles.nodePoint}>
-                  <Ionicons name="git-commit-outline" size={14} color={colors.primary} />
-                </View>
-                <View style={styles.nodeTextContent}>
-                  <Text style={styles.nodeYearText}>{ev.year}</Text>
-
-                  <Text style={styles.nodeLabelText}>{ev.label}</Text>
-                </View>
-              </View>
-            ))}
+            <Text style={styles.statLbl}>ADDED BY YOU</Text>
           </View>
         </View>
 
@@ -120,7 +92,7 @@ export default function ProfileScreen() {
         {/* Published Briefs */}
         <View style={styles.sectionContainer}>
           <View style={styles.listHeaderRow}>
-            <Text style={styles.sectionHeaderTitle}>My Published Briefs</Text>
+            <Text style={styles.sectionHeaderTitle}>Briefs You Added</Text>
             <Text style={styles.listBadge}>{uploadedPapers.length}</Text>
           </View>
           {uploadedPapers.length ? (

@@ -1,7 +1,9 @@
 /**
  * Redesigned Research Brief & Reading Experience Screen for shoRDs Research Intelligence OS
- * Delivers a structured 2-3 minute research brief (450-700 words), original figure retrieval,
- * verified key numbers grid, 9 structured editorial sections, and human voice narration.
+ * Shows the on-device brief built from the paper record's own text, with its text basis stated plainly
+ * (full text / abstract only / metadata only), and a device text-to-speech read-aloud of exactly that brief.
+ * It never invents a paper: an unknown id shows "not found". Nothing here is labelled "verified" unless a
+ * verification step actually ran.
  */
 
 import React, { useState, useEffect } from "react";
@@ -48,41 +50,35 @@ export default function PaperDetailScreen() {
   const [selectedSection, setSelectedSection] = useState<{ title: string; content: string } | null>(null);
   const [inspectorVisible, setInspectorVisible] = useState(false);
 
-  const targetId = id || "alphaqubit-decoder";
-  const foundPaper = papers.find((p: Paper) => p.id === targetId);
-  const paper = foundPaper || ({
-    id: targetId,
-    title: "Scientific Research Investigation",
-    authorName: "Research Author",
-    pubYear: 2026,
-    domain: "Science & Engineering",
-    summary: "Empirical investigation into foundational methodologies.",
-    fullExplanation: "Empirical investigation into foundational methodologies.",
-    pdfUri: "",
-    organization: "Research Archive",
-    savedCount: 10
-  } as unknown as Paper);
+  // An id that is not in the store is "not found". A made-up placeholder paper must never be shown as real.
+  const paper: Paper | null = id ? papers.find((p: Paper) => p.id === id) || null : null;
 
-  const isSaved = isPaperSaved(paper.id);
+  const isSaved = paper ? isPaperSaved(paper.id) : false;
 
-  const cleanTitle = (paper.title || "Academic Manuscript")
+  const cleanTitle = (paper?.title || "Untitled record")
     .replace(/\.pdf$/i, "")
     .replace(/[:.,;\-–—]$/, "")
     .trim();
 
   useEffect(() => {
+    if (!paper) {
+      setLoading(false);
+      return;
+    }
     async function loadResearchBrief() {
+      if (!paper) return;
       setLoading(true);
       try {
-        const hasFullText = Boolean(paper.pdfUri || (paper as any).fullTextRaw || (paper as any).fullExplanation);
+        // A PDF link is not text, and "fullExplanation" is a summary. Only real paper text (fullTextRaw) makes a full-text brief.
+        const hasFullText = Boolean((paper as any).fullTextRaw);
         const fullTextStatus = hasFullText ? "FULL_TEXT_PDF" : "ABSTRACT_ONLY";
         const briefData = await generateGroundedResearchBriefAsync({
           id: paper.id,
           title: cleanTitle,
-          authors: [paper.authorName || "Academic Scholar"],
+          authors: paper.authorName ? [paper.authorName] : [],
           fullTextStatus,
           summary: paper.summary,
-          fullTextRaw: (paper as any).fullTextRaw || (paper as any).fullExplanation,
+          fullTextRaw: (paper as any).fullTextRaw,
           pdfUri: paper.pdfUri,
           htmlUri: (paper as any).originalLink,
           doi: (paper as any).doi,
@@ -90,7 +86,8 @@ export default function PaperDetailScreen() {
         });
 
         setBrief(briefData);
-        setNarration(generateNarrationScript(briefData, paper.authorName));
+        const script = generateNarrationScript(briefData);
+        setNarration(script.chapters.length > 0 ? script : null);
       } catch (err) {
         console.error("Error generating grounded research brief:", err);
       } finally {
@@ -98,10 +95,12 @@ export default function PaperDetailScreen() {
       }
     }
     loadResearchBrief();
-  }, [paper.id, paper.pdfUri]);
+  }, [paper?.id, paper?.pdfUri]);
 
   const handleOpenOriginalPaper = () => {
-    const targetUrl = paper.pdfUri || (paper as any).originalLink || `https://doi.org/${(paper as any).doi || ""}`;
+    if (!paper) return;
+    const doi = (paper as any).doi;
+    const targetUrl = paper.pdfUri || (paper as any).originalLink || (doi ? `https://doi.org/${doi}` : "");
     if (targetUrl && targetUrl.startsWith("http")) {
       Linking.openURL(targetUrl).catch(() => Alert.alert("Error", "Could not open original paper URL."));
     } else {
@@ -119,7 +118,18 @@ export default function PaperDetailScreen() {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Extracting Full Text & Preparing 2-3 Min Research Brief...</Text>
+        <Text style={styles.loadingText}>Preparing the brief...</Text>
+      </View>
+    );
+  }
+
+  if (!paper) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.loadingText}>This paper was not found in your library.</Text>
+        <Pressable style={[styles.primaryActionBtn, { marginTop: spacing.lg }]} onPress={() => router.back()}>
+          <Text style={styles.primaryActionBtnText}>Go back</Text>
+        </Pressable>
       </View>
     );
   }
@@ -161,27 +171,32 @@ export default function PaperDetailScreen() {
         <View style={styles.card}>
           <View style={styles.badgeRow}>
             <View style={styles.provenanceBadge}>
-              <Ionicons name="checkmark-circle" size={12} color="#10B981" />
+              <Ionicons name="information-circle-outline" size={12} color={colors.muted} />
               <Text style={styles.provenanceBadgeText}>
-                {paper.pdfUri ? "FULL TEXT VERIFIED (Repository PDF)" : "SOURCE VERIFIED (OpenAlex + Crossref)"}
+                {isMetadataOnly
+                  ? "BASED ON: METADATA ONLY"
+                  : isAbstractOnly
+                    ? "BASED ON: ABSTRACT ONLY"
+                    : "BASED ON: FULL TEXT SUPPLIED WITH THIS RECORD"}
               </Text>
             </View>
             <View style={styles.readingTimeChip}>
               <Ionicons name="time-outline" size={12} color={colors.muted} />
-              <Text style={styles.readingTimeText}>{brief?.readingTimeMinutes || 3} MIN READ</Text>
+              <Text style={styles.readingTimeText}>{brief ? `${brief.readingTimeMinutes} MIN READ` : ""}</Text>
             </View>
           </View>
 
-          <Text style={styles.domainTag}>[{paper.domain || "Science"}]</Text>
+          {paper.domain ? <Text style={styles.domainTag}>[{paper.domain}]</Text> : null}
 
           {/* Clean Title */}
           <Text style={styles.cleanTitle}>{cleanTitle}</Text>
 
           {/* Authors & Venue */}
-          <Text style={styles.authorText}>{paper.authorName || "Academic Scholar"}</Text>
-          <Text style={styles.venueText}>
-            {(paper as any).venue || paper.organization || "Academic Journal"} • {paper.pubYear || 2026}
-          </Text>
+          {paper.authorName ? <Text style={styles.authorText}>{paper.authorName}</Text> : null}
+          {(() => {
+            const line = [(paper as any).venue || paper.organization, paper.pubYear].filter(Boolean).join(" • ");
+            return line ? <Text style={styles.venueText}>{line}</Text> : null;
+          })()}
 
           {/* Primary Action Button: Read Original Paper */}
           <Pressable style={styles.primaryActionBtn} onPress={handleOpenOriginalPaper}>
@@ -190,15 +205,15 @@ export default function PaperDetailScreen() {
           </Pressable>
         </View>
 
-        {/* Integrated Human Voice Audio Player */}
+        {/* Device text-to-speech of the brief shown below */}
         {narration && <AudioBriefPlayer narration={narration} />}
 
         {/* Collapsible Source & Technical Metadata Drawer */}
         <SourceQualityCard
-          venue={(paper as any).venue || paper.organization || "Academic Journal"}
-          publisher={(paper as any).publisher || paper.organization || "Academic Publisher"}
-          metadataSource="OpenAlex / Crossref Gateway"
-          resolvedFormat={paper.pdfUri ? "FULL_TEXT_PDF" : "ABSTRACT_ONLY"}
+          venue={(paper as any).venue || paper.organization || "Not provided"}
+          publisher={(paper as any).publisher || paper.organization || "Not provided"}
+          metadataSource={(paper as any).metadataSource || "Not recorded"}
+          resolvedFormat={brief?.summaryMode === "FULL_TEXT" ? "FULL_TEXT_PDF" : brief?.summaryMode === "ABSTRACT_ONLY" ? "ABSTRACT_ONLY" : "METADATA_ONLY"}
           doi={(paper as any).doi}
         />
 
@@ -236,16 +251,16 @@ export default function PaperDetailScreen() {
               >
                 <Ionicons name="link-outline" size={12} color={colors.primary || "#818CF8"} />
                 <Text style={styles.claimLinkText}>
-                  Verified Claim Source: Chunk {claim.evidence && claim.evidence.length > 0 ? claim.evidence[0].chunkId : "chunk-1"}
+                  {claim.evidence && claim.evidence.length > 0 ? `Source passage: ${claim.evidence[0].chunkId}` : "No source passage recorded"}
                 </Text>
               </Pressable>
             ))}
           </View>
         ))}
 
-        {/* Section 06 · Key Numbers Verified Grid */}
+        {/* Section 06 · Key Numbers (extracted from the text, not independently checked) */}
         <View style={styles.keyNumbersCard}>
-          <Text style={styles.secTitle}>06 · Key Verified Results</Text>
+          <Text style={styles.secTitle}>06 · Key Numbers</Text>
           {brief?.keyNumbers && brief.keyNumbers.length > 0 ? (
             <View style={styles.numbersGrid}>
               {brief.keyNumbers.map((num, nIdx) => (
@@ -258,7 +273,7 @@ export default function PaperDetailScreen() {
             </View>
           ) : (
             <Text style={[styles.secContent, { fontStyle: "italic", marginTop: spacing.xs, color: colors.muted }]}>
-              No verified quantitative result was identified in the available full-text evidence.
+              No quantitative result was found in the text available for this record.
             </Text>
           )}
         </View>

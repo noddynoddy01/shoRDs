@@ -12,6 +12,8 @@ import { useFeedMetrics } from "@/hooks/useFeedMetrics";
 import { domains } from "@/data/samplePapers";
 import { buildPaperFromUpload, generateStackCards } from "@/services/paperSummarizer";
 import { addUploadedPaper } from "@/services/uploadedPapers";
+import { resolvePaperReference } from "@/services/paperResolveClient";
+import { describeApiError } from "@/services/auth/apiClient";
 import { useTheme } from "@/context/ThemeContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -28,8 +30,8 @@ export default function UploadScreen() {
   const [pdfName, setPdfName] = useState("");
   const [pdfUri, setPdfUri] = useState("");
   const [arxivLink, setArxivLink] = useState("");
-  const [org, setOrg] = useState("arXiv Org");
-  const [pubYear, setPubYear] = useState<number>(2026);
+  const [org, setOrg] = useState("");
+  const [pubYear, setPubYear] = useState<number | null>(null);
   const [doi, setDoi] = useState("");
 
   const [parsingProgress, setParsingProgress] = useState(false);
@@ -65,39 +67,38 @@ export default function UploadScreen() {
     }
   }
 
-  function handleArxivFetch() {
-    if (!arxivLink.trim()) {
-      Alert.alert("Input Link", "Please enter a valid arXiv URL or DOI.");
+  /** Looks the reference up through the backend (POST /api/v1/papers/resolve). Only fields the server returns are filled in. */
+  async function handleArxivFetch() {
+    const ref = arxivLink.trim();
+    if (!ref) {
+      Alert.alert("Input Link", "Please enter a DOI, arXiv id or a DOI / arXiv link.");
       return;
     }
     setParsingProgress(true);
-    setTimeout(() => {
+    try {
+      const paper = await resolvePaperReference(ref);
+      if (paper.title) setTitle(paper.title);
+      if (paper.abstract) setSummary(paper.abstract);
+      if (paper.doi) setDoi(paper.doi);
+      if (paper.venue) setOrg(paper.venue);
+      if (paper.year) setPubYear(paper.year);
+      const filled = [paper.title && "title", paper.abstract && "abstract", paper.doi && "DOI"].filter(Boolean).join(", ");
+      Alert.alert(
+        paper.coverage === "CONTENT_UNAVAILABLE" ? "Nothing found" : "Fetched",
+        paper.coverage === "CONTENT_UNAVAILABLE"
+          ? paper.coverageNotice || "No record was found for that reference. Enter the details yourself."
+          : `Filled from the source: ${filled || "nothing"}. ${paper.coverageNotice || ""}`.trim()
+      );
+    } catch (e) {
+      Alert.alert("Could not fetch", describeApiError(e));
+    } finally {
       setParsingProgress(false);
-      setTitle("Attention Is All You Need");
-      setDomain("AI / ML");
-      setSummary("The dominant sequence transduction models are based on complex recurrent or convolutional neural networks. We propose the Transformer, a model architecture based entirely on attention mechanisms.");
-      setTags("transformer, attention, deep learning");
-      setDoi("10.48550/arXiv.1706.03762");
-      setOrg("Google Brain / Research");
-      Alert.alert("Auto-Extracted", "Fetched manuscript details from arXiv!");
-    }, 1200);
+    }
   }
 
+  /** Picking a PDF only attaches the file. Nothing is read from it here, so no title, abstract, tags or DOI are invented. */
   function triggerAutoExtraction(fallbackTitle: string) {
-    setParsingProgress(true);
-    setTimeout(() => {
-      setParsingProgress(false);
-      if (!summary) {
-        setSummary("This manuscript details a structural framework that resolves latency overhead through decentralized scheduling pipelines.");
-      }
-      if (!tags) {
-        setTags("ai, neural nets, optimization");
-      }
-      if (!doi) {
-        setDoi("10.1016/j.artint.2026.01");
-      }
-      Alert.alert("Document Selected", `Uploaded: ${pdfName || fallbackTitle}. Text & metadata extracted.`);
-    }, 1200);
+    Alert.alert("Document attached", `Attached: ${pdfName || fallbackTitle}. Its text is not read automatically yet. Enter the title and abstract yourself.`);
   }
 
   async function submit() {
@@ -123,7 +124,7 @@ export default function UploadScreen() {
         <PageHeader
           kicker="Publishing Studio"
           title="Submit Research Archive"
-          subtitle="Upload manuscript PDFs or fetch metadata directly from arXiv/DOI links using our independent AI parser."
+          subtitle="Add a manuscript PDF, or look up a paper by DOI or arXiv id to fill in its title and abstract."
         />
 
         {/* arXiv / Link Fetcher */}
@@ -243,8 +244,8 @@ export default function UploadScreen() {
               style={[styles.input, { flex: 1.5 }]}
             />
             <TextInput
-              value={String(pubYear)}
-              onChangeText={(v) => setPubYear(Number(v) || 2026)}
+              value={pubYear ? String(pubYear) : ""}
+              onChangeText={(v) => setPubYear(Number(v) > 0 ? Number(v) : null)}
               placeholder="Year"
               placeholderTextColor={colors.subdued}
               keyboardType="number-pad"
@@ -267,7 +268,7 @@ export default function UploadScreen() {
           <View style={styles.loadingBox}>
             <ActivityIndicator size="large" color={colors.primary} />
             <Text style={styles.loadingTitleText}>Independent AI Parser</Text>
-            <Text style={styles.loadingStepText}>Processing PDF text, DOI metadata, and layout tables locally...</Text>
+            <Text style={styles.loadingStepText}>Looking up the paper...</Text>
           </View>
         </View>
       </Modal>
