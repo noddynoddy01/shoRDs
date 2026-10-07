@@ -194,14 +194,18 @@ async function handleCopilotQuery(rawBody, deps = {}) {
       });
     } catch (err) {
       const category = (err && err.category) || "UNKNOWN";
-      providerError = { category, httpStatus: err && err.httpStatus ? err.httpStatus : null };
-      fallbackReason = `PROVIDER_${category}`;
+      const policy = Boolean(err && err.policyDenied); // refused by the spend-control gate BEFORE any provider call
+      providerError = policy ? null : { category, httpStatus: err && err.httpStatus ? err.httpStatus : null };
+      fallbackReason = policy ? `AI_POLICY_${category}` : `PROVIDER_${category}`;
       const hint =
         category === "INVALID_CREDENTIAL" ? " Check ANTHROPIC_API_KEY." :
         category === "MODEL_UNAVAILABLE" ? " Check ANTHROPIC_MODEL (model may be retired or misspelled)." :
         category === "INSUFFICIENT_CREDITS" ? " Anthropic credit balance is exhausted." : "";
-      const log = ["INVALID_CREDENTIAL", "MODEL_UNAVAILABLE", "INSUFFICIENT_CREDITS", "INVALID_REQUEST"].includes(category) ? logger.error : logger.warn;
-      log.call(logger, `[AIGateway] Anthropic call failed (category=${category}, http=${providerError.httpStatus || "n/a"}, model=${modelCfg.model}, attempts=${(err && err.attempts) || 1}, providerRequestId=${(err && err.requestId) || "n/a"}); serving local fallback.${hint}`);
+      if (policy) logger.warn(`[AIGateway] AI call refused by spend control (category=${category}, model=${modelCfg.model}); no provider call was made; serving local fallback.`);
+      else {
+        const log = ["INVALID_CREDENTIAL", "MODEL_UNAVAILABLE", "INSUFFICIENT_CREDITS", "INVALID_REQUEST"].includes(category) ? logger.error : logger.warn;
+        log.call(logger, `[AIGateway] Anthropic call failed (category=${category}, http=${providerError.httpStatus || "n/a"}, model=${modelCfg.model}, attempts=${(err && err.attempts) || 1}, providerRequestId=${(err && err.requestId) || "n/a"}); serving local fallback.${hint}`);
+      }
     }
   }
 

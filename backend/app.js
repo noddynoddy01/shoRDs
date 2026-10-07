@@ -10,7 +10,7 @@
  *   -> validate input -> authorize resource (project role) -> per-tenant / daily limits -> handler -> safe response
  *
  * Public: GET / , /health (liveness only), /ready (real dependency state), /api/v1/replica.
- * Admin only (ADMIN_UIDS): GET /api/v1/llm/health, /api/v1/llm/metrics.
+ * Admin only (ADMIN_UIDS): GET /api/v1/llm/health, /api/v1/llm/metrics, GET /api/v1/admin/ai/budget, PUT /api/v1/admin/ai/kill-switch.
  */
 
 const crypto = require("crypto");
@@ -25,6 +25,7 @@ const { EvidenceError } = require("./llm/evidence");
 const { PaperError } = require("./papers/paperService");
 const { parsePaperRef } = require("./papers/identity");
 const { toView } = require("./jobs/jobStore");
+const { hashUser } = require("./llm/usageLedger");
 
 const JSON_HEADERS = { "Content-Type": "application/json; charset=utf-8" };
 const UID_RE = /^[A-Za-z0-9_-]{1,128}$/;
@@ -45,6 +46,7 @@ function createApp(deps) {
     cache = null,
     paperService,
     pipeline,
+    budget = null,
     ledger = null,
     readiness,
     workerStats = null,
@@ -282,6 +284,32 @@ function createApp(deps) {
     });
   }
 
+
+  /** Administrators only. Reports the spend-control state: kill switch, limits, today's global spend, circuit breaker, counters. */
+  async function getAiBudget(ctx) {
+    if (!isAdmin(ctx.principal)) return fail(ctx, 403, "FORBIDDEN", "Administrator access required.");
+    if (!budget) return fail(ctx, 503, "SPEND_CONTROL_NOT_WIRED", "Spend control is not available in this runtime.");
+    send(ctx, 200, { ...(await budget.status()), requestId: ctx.requestId });
+  }
+
+  /**
+   * Administrators only. Engages or releases the server-side kill switch for paid AI calls. Clients cannot influence the switch:
+   * nothing else in any request is read by the gate. AI_ENABLED=false in the environment always wins and cannot be reopened here.
+   */
+  async function putAiKillSwitch(ctx) {
+    if (!isAdmin(ctx.principal)) return fail(ctx, 403, "FORBIDDEN", "Administrator access required.");
+    if (!budget) return fail(ctx, 503, "SPEND_CONTROL_NOT_WIRED", "Spend control is not available in this runtime.");
+    if (!(await limit(ctx, "WRITE_USER", "user", ctx.principal.uid))) return;
+    const body = await readBody(ctx);
+    if (!body) return;
+    if (typeof body.engaged !== "boolean") return fail(ctx, 400, "INVALID_BODY", "`engaged` must be true or false.");
+    const reason = typeof body.reason === "string" ? body.reason.trim().slice(0, 200) : "";
+    if (body.engaged && !reason) return fail(ctx, 400, "REASON_REQUIRED", "A `reason` is required when engaging the kill switch.");
+    if (/[\u0000-\u001f\u007f]/.test(reason)) return fail(ctx, 400, "INVALID_BODY", "`reason` must not contain control characters.");
+    const state = await budget.setKillSwitch({ engaged: body.engaged, reason, by: hashUser(ctx.principal.uid) });
+    send(ctx, 200, { killSwitch: state, requestId: ctx.requestId });
+  }
+
   async function postProject(ctx) {
     if (!(await limit(ctx, "WRITE_USER", "user", ctx.principal.uid))) return;
     const body = await readBody(ctx);
@@ -455,6 +483,8 @@ function createApp(deps) {
     if (method === "GET" && is("api", "v1", "replica")) return { name: "replica", public: true, run: getReplica };
     if (method === "GET" && is("api", "v1", "llm", "health")) return { name: "llm_health", run: getLlmHealth };
     if (method === "GET" && is("api", "v1", "llm", "metrics")) return { name: "llm_metrics", run: getLlmMetrics };
+    if (method === "GET" && is("api", "v1", "admin", "ai", "budget")) return { name: "admin_ai_budget", run: getAiBudget };
+    if (method === "PUT" && is("api", "v1", "admin", "ai", "kill-switch")) return { name: "admin_ai_kill_switch", post: true, run: putAiKillSwitch };
     if (method === "POST" && is("api", "v1", "projects")) return { name: "project_create", post: true, run: postProject };
     if (method === "GET" && is("api", "v1", "projects")) return { name: "project_list", run: listMyProjects };
     if (method === "GET" && is("api", "v1", "projects", "*")) return { name: "project_get", run: (c) => getProject(c, seg[3]) };

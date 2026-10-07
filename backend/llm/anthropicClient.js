@@ -222,16 +222,26 @@ function classifyHttpError(statusCode, bodyText, headers = {}) {
   return new ClientError(category, `HTTP ${statusCode}${summary ? `: ${summary}` : ""}`, details);
 }
 
-/** Cost estimate from reported usage and a verified price; `null` when either is unavailable. */
-function computeCost(model, usage, env = process.env) {
-  if (!usage) return { costUsd: null, costStatus: "NOT_AVAILABLE" };
-  let price = PRICING_PER_MTOK[model];
+/**
+ * USD per million tokens for a model, or `null` when no verified price exists. Both ANTHROPIC_PRICE_* variables together
+ * override the table (an operator-supplied price). Shared by cost reporting and by the pre-call budget gate, so a model that
+ * cannot be priced is the same model that cannot be budgeted (the gate then refuses to call it).
+ */
+function resolvePrice(model, env = process.env) {
+  let price = PRICING_PER_MTOK[model] || null;
   const overrideIn = Number(env.ANTHROPIC_PRICE_INPUT_PER_MTOK);
   const overrideOut = Number(env.ANTHROPIC_PRICE_OUTPUT_PER_MTOK);
   if (env.ANTHROPIC_PRICE_INPUT_PER_MTOK !== undefined && env.ANTHROPIC_PRICE_OUTPUT_PER_MTOK !== undefined &&
       Number.isFinite(overrideIn) && Number.isFinite(overrideOut) && overrideIn >= 0 && overrideOut >= 0) {
     price = { input: overrideIn, output: overrideOut };
   }
+  return price;
+}
+
+/** Cost estimate from reported usage and a verified price; `null` when either is unavailable. */
+function computeCost(model, usage, env = process.env) {
+  if (!usage) return { costUsd: null, costStatus: "NOT_AVAILABLE" };
+  const price = resolvePrice(model, env);
   if (!price) return { costUsd: null, costStatus: "NOT_AVAILABLE" };
   const costUsd = (usage.inputTokens / 1e6) * price.input + (usage.outputTokens / 1e6) * price.output;
   return { costUsd: Number(costUsd.toFixed(6)), costStatus: "ESTIMATED" };
@@ -399,6 +409,7 @@ module.exports = {
   parseMessageResponse,
   classifyHttpError,
   computeCost,
+  resolvePrice,
   httpsTransport,
   httpsGetTransport,
   probeModel,

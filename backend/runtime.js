@@ -6,7 +6,7 @@
  *
  * Required configuration (a missing one fails readiness and the dependent routes answer 503; nothing falls back silently):
  *   DATABASE_URL, REDIS_URL, FIREBASE_PROJECT_ID, CORS_ORIGINS (production)
- * Optional: ANTHROPIC_API_KEY (absent -> labelled local fallback), ANTHROPIC_MODEL, ADMIN_UIDS, RATE_LIMIT_*, WORKER_ENABLED,
+ * Optional: ANTHROPIC_API_KEY (absent -> labelled local fallback), ANTHROPIC_MODEL, ADMIN_UIDS, AI_ENABLED, AI_BUDGET_* (see docs/architecture/AI_SPEND_SAFETY.md), RATE_LIMIT_*, WORKER_ENABLED,
  *           WORKER_CONCURRENCY, REQUIRE_AI_PROVIDER, TRUST_PROXY, TRUST_PROXY_HOPS, MAX_REQUEST_BODY_BYTES, AI_CACHE_ENABLED.
  */
 
@@ -25,6 +25,7 @@ const { createProviders } = require("./papers/providers");
 const { createPaperService, PaperError } = require("./papers/paperService");
 const { createAiPipeline } = require("./llm/aiPipeline");
 const { createUsageLedger } = require("./llm/usageLedger");
+const { createAiBudget, createRedisBudgetStore, createLedgerSeeder } = require("./llm/aiBudget");
 const { createReadinessChecker, createAiProbe } = require("./readiness");
 const { createApp } = require("./app");
 
@@ -88,7 +89,10 @@ function createRuntime(env = process.env, overrides = {}) {
     }
   });
   const ledger = createUsageLedger({ pool: appPool, logger });
-  const pipeline = createAiPipeline({ paperService, cache, ledger, telemetry, client: overrides.client, env, replicaId, logger, now: overrides.now });
+  // Spend control: every paid model call passes this gate first. A malformed AI_BUDGET_* value throws here (fail at startup).
+  // Postgres (ai_usage) is the authoritative record; Redis coordinates reservations. If Redis is unreachable paid calls are refused.
+  const budget = overrides.budget || createAiBudget({ store: createRedisBudgetStore(appRedis), seedFromLedger: createLedgerSeeder(appPool), env, logger, now: overrides.now });
+  const pipeline = createAiPipeline({ paperService, cache, ledger, telemetry, client: overrides.client, budget, env, replicaId, logger, now: overrides.now });
   const processor = createAnalysisProcessor({ pipeline });
   const worker = workerEnabled && pool && redis
     ? createWorker({
@@ -128,6 +132,7 @@ function createRuntime(env = process.env, overrides = {}) {
     cache,
     paperService,
     pipeline,
+    budget,
     ledger,
     readiness,
     workerStats: worker ? () => worker.stats() : null,
@@ -169,7 +174,7 @@ function createRuntime(env = process.env, overrides = {}) {
     if (pool) await pool.end();
   }
 
-  return { handler, replicaId, pool, redis, worker, jobStore, rateLimiter, cache, telemetry, verifier, corsConfig, readiness, paperService, pipeline, ledger, startBackground, shutdown };
+  return { handler, replicaId, pool, redis, worker, jobStore, rateLimiter, cache, telemetry, verifier, corsConfig, readiness, paperService, pipeline, budget, ledger, startBackground, shutdown };
 }
 
 module.exports = { createRuntime };

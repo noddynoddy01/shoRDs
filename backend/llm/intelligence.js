@@ -266,10 +266,14 @@ async function handleIntelligence(input, deps = {}) {
       result = await client.callMessages({ apiKey, model: modelCfg.model, system: SYSTEM_PROMPT, user: buildIntelligencePrompt({ paper, chunks, coverage }), maxTokens: profile.maxTokens, effort: profile.effort, timeoutMs: profile.timeoutMs, env });
     } catch (err) {
       const category = (err && err.category) || "UNKNOWN";
-      providerError = { category, httpStatus: err && err.httpStatus ? err.httpStatus : null };
-      fallbackReason = `PROVIDER_${category}`;
-      const log = ["INVALID_CREDENTIAL", "MODEL_UNAVAILABLE", "INSUFFICIENT_CREDITS", "INVALID_REQUEST"].includes(category) ? logger.error : logger.warn;
-      log.call(logger, `[AIGateway] Anthropic call failed (category=${category}, http=${providerError.httpStatus || "n/a"}, model=${modelCfg.model}, attempts=${(err && err.attempts) || 1}); serving local fallback.`);
+      const policy = Boolean(err && err.policyDenied); // refused by the spend-control gate BEFORE any provider call
+      providerError = policy ? null : { category, httpStatus: err && err.httpStatus ? err.httpStatus : null };
+      fallbackReason = policy ? `AI_POLICY_${category}` : `PROVIDER_${category}`;
+      if (policy) logger.warn(`[AIGateway] AI call refused by spend control (category=${category}, model=${modelCfg.model}); no provider call was made; serving local fallback.`);
+      else {
+        const log = ["INVALID_CREDENTIAL", "MODEL_UNAVAILABLE", "INSUFFICIENT_CREDITS", "INVALID_REQUEST"].includes(category) ? logger.error : logger.warn;
+        log.call(logger, `[AIGateway] Anthropic call failed (category=${category}, http=${providerError.httpStatus || "n/a"}, model=${modelCfg.model}, attempts=${(err && err.attempts) || 1}); serving local fallback.`);
+      }
     }
   }
 
