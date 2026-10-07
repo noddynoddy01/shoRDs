@@ -405,7 +405,7 @@ function createApp(deps) {
       return send(ctx, 422, { error: known.coverage, message: known.coverageNotice, contentCoverage: known.coverage, paper: { paperId: known.paperId, title: known.title, authors: known.authors, year: known.year, doi: known.doi }, aiCalled: false, requestId: ctx.requestId });
     }
 
-    const { job, created, enqueued } = await jobStore.createJob({
+    const { job, created, enqueued, conflict } = await jobStore.createJob({
       projectId: m.projectId,
       tenantId: m.tenantId,
       userId: ctx.principal.uid,
@@ -414,6 +414,10 @@ function createApp(deps) {
       idempotencyKey,
       replicaId
     });
+    if (conflict) {
+      // The key was first used for a different project, paper or depth. Nothing was created or enqueued, and the original job is not described.
+      return fail(ctx, 422, "IDEMPOTENCY_KEY_REUSED", "This Idempotency-Key was already used for a different request. Use a new key for a new request, or repeat the original request unchanged.");
+    }
     const extra = created ? {} : { "Idempotent-Replay": "true" };
     send(ctx, created ? 202 : 200, { ...job, result: undefined, pollUrl: `/api/v1/analysis/${job.jobId}`, replicaId, queue: created ? { enqueued } : undefined, idempotentReplay: created ? undefined : true, requestId: ctx.requestId }, extra);
   }

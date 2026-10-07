@@ -6,6 +6,7 @@
  * Tests marked `todo` assert the DESIRED behaviour of a weakness that is demonstrated and documented in
  * docs/security/SECURITY_AUDIT_2026-10.md but whose fix touches an area that needs owner approval first
  * (API contract, authentication, rate limiting, Claude prompts, caching or evidence). They report as todo, not as failures.
+ * (V-3, idempotency key reuse, was fixed in P0.5 and its test is now enforced.)
  */
 const test = require("node:test");
 const assert = require("node:assert/strict");
@@ -151,8 +152,7 @@ test("security audit: local attacks against the real handler", { skip }, async (
     } finally { await R2.close(); }
   });
 
-  await t.test("idempotency: reusing a key with a DIFFERENT request must not silently return the first job",
-    { todo: "createJob returns the existing job without comparing the request (docs/security/SECURITY_AUDIT_2026-10.md V-3). Fix changes the API contract (422): needs owner approval." },
+  await t.test("idempotency: reusing a key with a DIFFERENT request must not silently return the first job (V-3, fixed in P0.5)",
     async () => {
       const first = await call(alice, "POST", "/api/v1/analysis", { projectId, paperId: PAPER, analysisDepth: "QUICK" }, { "idempotency-key": "reuse-me" });
       assert.equal(first.status, 202);
