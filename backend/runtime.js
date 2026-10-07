@@ -109,7 +109,8 @@ function createRuntime(env = process.env, overrides = {}) {
       })
     : null;
 
-  const readiness = createReadinessChecker({
+  let draining = false;
+  const baseReadiness = createReadinessChecker({
     pool,
     redis,
     verifier,
@@ -118,6 +119,11 @@ function createRuntime(env = process.env, overrides = {}) {
     replicaId,
     worker: worker ? () => ({ running: worker.stats().running, inflight: worker.stats().inflight }) : null
   });
+  // While shutting down this replica is alive (/health) but must not receive new work (/ready).
+  const readiness = async () => {
+    if (!draining) return baseReadiness();
+    return { ready: false, status: "DRAINING", replicaId, timestamp: new Date((overrides.now || Date.now)()).toISOString(), checks: {}, warnings: ["Replica is shutting down"] };
+  };
 
   const handler = createApp({
     env,
@@ -166,15 +172,20 @@ function createRuntime(env = process.env, overrides = {}) {
     return attempt();
   }
 
+  function beginDrain() {
+    draining = true;
+  }
+
   async function shutdown(graceMs = 10000) {
     stopped = true;
+    draining = true;
     if (migrationTimer) clearTimeout(migrationTimer);
     if (worker) await worker.stop(graceMs);
     if (redis) await redis.close();
     if (pool) await pool.end();
   }
 
-  return { handler, replicaId, pool, redis, worker, jobStore, rateLimiter, cache, telemetry, verifier, corsConfig, readiness, paperService, pipeline, budget, ledger, startBackground, shutdown };
+  return { handler, replicaId, pool, redis, worker, jobStore, rateLimiter, cache, telemetry, verifier, corsConfig, readiness, paperService, pipeline, budget, ledger, startBackground, beginDrain, shutdown };
 }
 
 module.exports = { createRuntime };
