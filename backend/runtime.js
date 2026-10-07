@@ -151,8 +151,15 @@ function createRuntime(env = process.env, overrides = {}) {
   let migrationTimer = null;
   let stopped = false;
 
-  /** Run migrations (retrying in the background until the database is reachable), then start the worker. Never throws. */
-  function startBackground() {
+  /**
+   * Run migrations, then start the worker. Never throws.
+   *  - Transient failures (database not reachable yet, connection lost) are retried every 5 s; each attempt is atomic, so a
+   *    retry never sees a half-applied migration.
+   *  - A permanent failure (the database rejected a migration statement) cannot be fixed by retrying: it is logged once as FATAL
+   *    (version, name and SQLSTATE only, never SQL or data), retrying stops, the replica stays NOT_READY (so the deploy health
+   *    check fails and the previous release keeps serving), and `onFatal` is called (the entrypoint exits non-zero).
+   */
+  function startBackground({ onFatal } = {}) {
     if (!pool) {
       logger.error(`[Boot] DATABASE_URL is not configured (${dbError.code}); the service will report NOT_READY`);
       return;
@@ -160,12 +167,17 @@ function createRuntime(env = process.env, overrides = {}) {
     const attempt = async () => {
       if (stopped) return;
       try {
-        const r = await runMigrations(pool);
+        const r = await runMigrations(pool, overrides.migrations);
         logger.log(`[Boot] database schema at version ${r.current}${r.applied.length ? ` (applied ${r.applied.join(",")})` : ""}`);
         if (worker && !stopped) worker.start();
       } catch (e) {
-        logger.error(`[Boot] migrations not applied yet (${e.code || "ERROR"}); retrying in 5s`);
-        migrationTimer = setTimeout(attempt, 5000);
+        if (e && e.code === "MIGRATION_FAILED" && e.permanent) {
+          logger.error(`[Boot] FATAL: ${e.message}; not retrying. The schema is unchanged by this migration (rolled back).`);
+          if (onFatal) onFatal(e);
+          return;
+        }
+        logger.error(`[Boot] migrations not applied yet (${e.code || "ERROR"}${e.version ? ` at version ${e.version}` : ""}); retrying in 5s`);
+        migrationTimer = setTimeout(attempt, Number(env.MIGRATION_RETRY_MS) > 0 ? Number(env.MIGRATION_RETRY_MS) : 5000);
         if (migrationTimer.unref) migrationTimer.unref();
       }
     };

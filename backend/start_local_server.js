@@ -44,7 +44,10 @@ server.on("error", (e) => {
 
 server.listen(PORT, HOST, () => {
   console.log(`[shoRDs Server] Replica ${runtime.replicaId} listening on http://${HOST}:${PORT}`);
-  runtime.startBackground();
+  runtime.startBackground({
+    // a migration the database rejected cannot succeed on retry: exit non-zero so the platform marks this deployment failed
+    onFatal: () => process.exit(1)
+  });
 });
 
 let shuttingDown = false;
