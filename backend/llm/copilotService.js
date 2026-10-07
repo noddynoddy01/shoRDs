@@ -15,6 +15,7 @@
 
 const { callMessages, resolveApiKey, resolveModelConfig, resolveProfile } = require("./anthropicClient");
 const { isCanonicalPaperId, parseChunkId } = require("../papers/identity");
+const { neutralizeTags } = require("./promptSafety");
 
 const LOCAL_MODEL_ID = "local-deterministic-v1";
 const PROMPT_VERSION = "2026.2";
@@ -85,9 +86,6 @@ function validateRequest(body, limits = DEFAULT_LIMITS) {
   return { ok: true, value: { query, paperId, chunks, depth: body.analysisDepth } };
 }
 
-function neutralizeTags(text) {
-  return text.replace(/<\/?\s*(paper_excerpts|excerpt|question)\b[^>]*>/gi, "[tag removed]");
-}
 
 function buildUserPrompt({ query, paperId, chunks }) {
   const excerpts = chunks
