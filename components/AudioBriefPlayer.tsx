@@ -1,7 +1,7 @@
 /**
- * Conversational Audio Brief Player Component for shoRDs Research Intelligence OS
+ * Read-aloud player for shoRDs
  * Integrated player supporting play/pause, playback speed options (1.0x, 1.25x, 1.5x),
- * active chapter tracking, and natural conversational human researcher narration.
+ * and active chapter tracking. It reads the on-screen brief with the device voice (not a human recording).
  */
 
 import React, { useState, useEffect } from "react";
@@ -94,7 +94,7 @@ export function AudioBriefPlayer({ narration }: Props) {
       <View style={styles.headerRow}>
         <View style={styles.titleBadge}>
           <Ionicons name="headset-outline" size={14} color={colors.primary || "#818CF8"} />
-          <Text style={styles.headerTitle}>HUMAN VOICE BRIEF · {narration.estimatedDurationMinutes} MIN READ/LISTEN</Text>
+          <Text style={styles.headerTitle}>READ ALOUD (DEVICE VOICE) · ABOUT {narration.estimatedDurationMinutes} MIN</Text>
         </View>
         <Pressable onPress={handleCycleSpeed} style={styles.speedBtn}>
           <Text style={styles.speedText}>{speed}x</Text>
@@ -120,7 +120,7 @@ export function AudioBriefPlayer({ narration }: Props) {
             style={{ marginLeft: isPlaying ? 0 : 2 }}
           />
           <Text style={styles.mainPlayBtnText}>
-            {isPlaying ? "Pause Audio" : "Listen to Human Brief"}
+            {isPlaying ? "Pause Audio" : "Read the brief aloud"}
           </Text>
         </Pressable>
 

@@ -6,7 +6,7 @@
  *
  * Required configuration (a missing one fails readiness and the dependent routes answer 503; nothing falls back silently):
  *   DATABASE_URL, REDIS_URL, FIREBASE_PROJECT_ID, CORS_ORIGINS (production)
- * Optional: ANTHROPIC_API_KEY (absent -> labelled local fallback), ANTHROPIC_MODEL, ADMIN_UIDS, RATE_LIMIT_*, WORKER_ENABLED,
+ * Optional: ANTHROPIC_API_KEY (absent -> labelled local fallback), ANTHROPIC_MODEL, ADMIN_UIDS, AI_ENABLED, AI_BUDGET_* (see docs/architecture/AI_SPEND_SAFETY.md), RATE_LIMIT_*, WORKER_ENABLED,
  *           WORKER_CONCURRENCY, REQUIRE_AI_PROVIDER, TRUST_PROXY, TRUST_PROXY_HOPS, MAX_REQUEST_BODY_BYTES, AI_CACHE_ENABLED.
  */
 
@@ -25,6 +25,7 @@ const { createProviders } = require("./papers/providers");
 const { createPaperService, PaperError } = require("./papers/paperService");
 const { createAiPipeline } = require("./llm/aiPipeline");
 const { createUsageLedger } = require("./llm/usageLedger");
+const { createAiBudget, createRedisBudgetStore, createLedgerSeeder } = require("./llm/aiBudget");
 const { createReadinessChecker, createAiProbe } = require("./readiness");
 const { createApp } = require("./app");
 
@@ -88,7 +89,10 @@ function createRuntime(env = process.env, overrides = {}) {
     }
   });
   const ledger = createUsageLedger({ pool: appPool, logger });
-  const pipeline = createAiPipeline({ paperService, cache, ledger, telemetry, client: overrides.client, env, replicaId, logger, now: overrides.now });
+  // Spend control: every paid model call passes this gate first. A malformed AI_BUDGET_* value throws here (fail at startup).
+  // Postgres (ai_usage) is the authoritative record; Redis coordinates reservations. If Redis is unreachable paid calls are refused.
+  const budget = overrides.budget || createAiBudget({ store: createRedisBudgetStore(appRedis), seedFromLedger: createLedgerSeeder(appPool), env, logger, now: overrides.now });
+  const pipeline = createAiPipeline({ paperService, cache, ledger, telemetry, client: overrides.client, budget, env, replicaId, logger, now: overrides.now });
   const processor = createAnalysisProcessor({ pipeline });
   const worker = workerEnabled && pool && redis
     ? createWorker({
@@ -105,7 +109,8 @@ function createRuntime(env = process.env, overrides = {}) {
       })
     : null;
 
-  const readiness = createReadinessChecker({
+  let draining = false;
+  const baseReadiness = createReadinessChecker({
     pool,
     redis,
     verifier,
@@ -114,6 +119,11 @@ function createRuntime(env = process.env, overrides = {}) {
     replicaId,
     worker: worker ? () => ({ running: worker.stats().running, inflight: worker.stats().inflight }) : null
   });
+  // While shutting down this replica is alive (/health) but must not receive new work (/ready).
+  const readiness = async () => {
+    if (!draining) return baseReadiness();
+    return { ready: false, status: "DRAINING", replicaId, timestamp: new Date((overrides.now || Date.now)()).toISOString(), checks: {}, warnings: ["Replica is shutting down"] };
+  };
 
   const handler = createApp({
     env,
@@ -128,6 +138,7 @@ function createRuntime(env = process.env, overrides = {}) {
     cache,
     paperService,
     pipeline,
+    budget,
     ledger,
     readiness,
     workerStats: worker ? () => worker.stats() : null,
@@ -140,8 +151,15 @@ function createRuntime(env = process.env, overrides = {}) {
   let migrationTimer = null;
   let stopped = false;
 
-  /** Run migrations (retrying in the background until the database is reachable), then start the worker. Never throws. */
-  function startBackground() {
+  /**
+   * Run migrations, then start the worker. Never throws.
+   *  - Transient failures (database not reachable yet, connection lost) are retried every 5 s; each attempt is atomic, so a
+   *    retry never sees a half-applied migration.
+   *  - A permanent failure (the database rejected a migration statement) cannot be fixed by retrying: it is logged once as FATAL
+   *    (version, name and SQLSTATE only, never SQL or data), retrying stops, the replica stays NOT_READY (so the deploy health
+   *    check fails and the previous release keeps serving), and `onFatal` is called (the entrypoint exits non-zero).
+   */
+  function startBackground({ onFatal } = {}) {
     if (!pool) {
       logger.error(`[Boot] DATABASE_URL is not configured (${dbError.code}); the service will report NOT_READY`);
       return;
@@ -149,27 +167,37 @@ function createRuntime(env = process.env, overrides = {}) {
     const attempt = async () => {
       if (stopped) return;
       try {
-        const r = await runMigrations(pool);
+        const r = await runMigrations(pool, overrides.migrations);
         logger.log(`[Boot] database schema at version ${r.current}${r.applied.length ? ` (applied ${r.applied.join(",")})` : ""}`);
         if (worker && !stopped) worker.start();
       } catch (e) {
-        logger.error(`[Boot] migrations not applied yet (${e.code || "ERROR"}); retrying in 5s`);
-        migrationTimer = setTimeout(attempt, 5000);
+        if (e && e.code === "MIGRATION_FAILED" && e.permanent) {
+          logger.error(`[Boot] FATAL: ${e.message}; not retrying. The schema is unchanged by this migration (rolled back).`);
+          if (onFatal) onFatal(e);
+          return;
+        }
+        logger.error(`[Boot] migrations not applied yet (${e.code || "ERROR"}${e.version ? ` at version ${e.version}` : ""}); retrying in 5s`);
+        migrationTimer = setTimeout(attempt, Number(env.MIGRATION_RETRY_MS) > 0 ? Number(env.MIGRATION_RETRY_MS) : 5000);
         if (migrationTimer.unref) migrationTimer.unref();
       }
     };
     return attempt();
   }
 
+  function beginDrain() {
+    draining = true;
+  }
+
   async function shutdown(graceMs = 10000) {
     stopped = true;
+    draining = true;
     if (migrationTimer) clearTimeout(migrationTimer);
     if (worker) await worker.stop(graceMs);
     if (redis) await redis.close();
     if (pool) await pool.end();
   }
 
-  return { handler, replicaId, pool, redis, worker, jobStore, rateLimiter, cache, telemetry, verifier, corsConfig, readiness, paperService, pipeline, ledger, startBackground, shutdown };
+  return { handler, replicaId, pool, redis, worker, jobStore, rateLimiter, cache, telemetry, verifier, corsConfig, readiness, paperService, pipeline, budget, ledger, startBackground, beginDrain, shutdown };
 }
 
 module.exports = { createRuntime };

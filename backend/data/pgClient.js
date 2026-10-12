@@ -421,6 +421,7 @@ class PgConnection {
           const f = parseErrorFields(body);
           error = new PgError("PG_QUERY_ERROR", `${f.S || "ERROR"} ${f.C || ""}: ${f.M || "query failed"}`, { sqlState: f.C });
         } else if (type === "Z") {
+          this.txStatus = String.fromCharCode(body[0]); // 'I' idle, 'T' in a transaction, 'E' in a failed transaction
           if (error) return fail(error);
           return finish({ rows, rowCount, fields: fields || [] });
         }
@@ -498,6 +499,11 @@ class PgPool {
 
   _release(c) {
     c.busy = false;
+    // A connection that is not idle (still inside a transaction, or in an aborted one: SQLSTATE 25P02 for every later command)
+    // must never be handed to the next caller. Closing it also ends its session, which releases any session-level lock it holds.
+    if (c.alive && c.txStatus && c.txStatus !== "I") {
+      c.close();
+    }
     if (!c.alive) {
       this.total--;
       c.close();
@@ -533,7 +539,9 @@ class PgPool {
     try {
       return await fn({
         query: (t, p) => c.query(t, p || [], this.opts.queryTimeoutMs),
-        simple: (s) => c.simple(s, this.opts.queryTimeoutMs)
+        simple: (s) => c.simple(s, this.opts.queryTimeoutMs),
+        // Throw this connection away instead of returning it to the pool (ends the session: locks and transactions go with it).
+        destroy: () => c.close()
       });
     } finally {
       this._release(c);

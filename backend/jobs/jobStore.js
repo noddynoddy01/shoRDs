@@ -56,8 +56,20 @@ function createJobStore({ pool, redis, queueKey = QUEUE_KEY, logger = console })
   }
 
   /**
-   * @returns {Promise<{job, created:boolean, enqueued:boolean|null}>}
-   * With an idempotency key, a repeat request by the same user returns the original job (created:false).
+   * The identity of a job request, used to bind an Idempotency-Key to what it was first used for: project, paper and depth.
+   * (Fields a client may add to the body, and header casing, are not part of it. Depth is already normalised to upper case.)
+   */
+  function requestIdentity({ projectId, paperId, request }) {
+    const depth = request && request.depth ? String(request.depth).toUpperCase() : null;
+    return JSON.stringify([projectId, paperId, depth]);
+  }
+
+  /**
+   * @returns {Promise<{job, created:boolean, enqueued:boolean|null, conflict?:boolean}>}
+   * With an idempotency key, a repeat of the SAME request by the same user returns the original job (created:false).
+   * Reusing the key for a DIFFERENT request (other project, paper or depth) returns { conflict: true, job: null }: no job is
+   * created, nothing is enqueued, and the original job is not disclosed. The first request to claim a key wins, also when two
+   * differing requests race (the unique index decides; the loser is compared against the stored row).
    */
   async function createJob({ projectId, tenantId, userId, paperId, request, idempotencyKey = null, replicaId, maxAttempts = 3 }) {
     const jobId = newJobId();
@@ -70,7 +82,12 @@ function createJobStore({ pool, redis, queueKey = QUEUE_KEY, logger = console })
     );
     if (ins.rowCount === 0) {
       const existing = await pool.query("SELECT * FROM analysis_jobs WHERE user_id = $1 AND idempotency_key = $2", [userId, idempotencyKey]);
-      return { job: toView(existing.rows[0]), created: false, enqueued: null };
+      const row = existing.rows[0];
+      // Compared against what the stored row recorded (project_id, paper_id, request), so jobs created before this check existed
+      // are bound to their original request too; no schema change is needed.
+      const same = requestIdentity({ projectId: row.project_id, paperId: row.paper_id, request: row.request }) === requestIdentity({ projectId, paperId, request });
+      if (!same) return { job: null, created: false, enqueued: null, conflict: true };
+      return { job: toView(row), created: false, enqueued: null };
     }
     const enqueued = await enqueue(jobId);
     return { job: toView(ins.rows[0]), created: true, enqueued };

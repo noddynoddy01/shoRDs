@@ -22,7 +22,7 @@ const PAPER_MISSING = `doi:${fx.DOI_MISSING}`;
 
 /** A model stub whose calls can be held open, so tests can observe PROCESSING and race cancellation. It answers like a real model (valid structured JSON citing real chunk ids). */
 function gatedClient() {
-  const inner = modelStub();
+  const inner = modelStub({ costUsd: 0.005, costStatus: "ESTIMATED" }); // reports a priced cost like the real client does; an unmeasured cost would be charged at the worst-case ceiling by spend control
   const c = { calls: 0, started: 0, gate: null, release: null, hold: false, inner };
   c.arm = () => { c.hold = true; c.gate = new Promise((r) => { c.release = () => { c.hold = false; r(); }; }); };
   c.callMessages = async (o) => {

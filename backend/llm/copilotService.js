@@ -15,6 +15,7 @@
 
 const { callMessages, resolveApiKey, resolveModelConfig, resolveProfile } = require("./anthropicClient");
 const { isCanonicalPaperId, parseChunkId } = require("../papers/identity");
+const { neutralizeTags } = require("./promptSafety");
 
 const LOCAL_MODEL_ID = "local-deterministic-v1";
 const PROMPT_VERSION = "2026.2";
@@ -85,9 +86,6 @@ function validateRequest(body, limits = DEFAULT_LIMITS) {
   return { ok: true, value: { query, paperId, chunks, depth: body.analysisDepth } };
 }
 
-function neutralizeTags(text) {
-  return text.replace(/<\/?\s*(paper_excerpts|excerpt|question)\b[^>]*>/gi, "[tag removed]");
-}
 
 function buildUserPrompt({ query, paperId, chunks }) {
   const excerpts = chunks
@@ -194,14 +192,18 @@ async function handleCopilotQuery(rawBody, deps = {}) {
       });
     } catch (err) {
       const category = (err && err.category) || "UNKNOWN";
-      providerError = { category, httpStatus: err && err.httpStatus ? err.httpStatus : null };
-      fallbackReason = `PROVIDER_${category}`;
+      const policy = Boolean(err && err.policyDenied); // refused by the spend-control gate BEFORE any provider call
+      providerError = policy ? null : { category, httpStatus: err && err.httpStatus ? err.httpStatus : null };
+      fallbackReason = policy ? `AI_POLICY_${category}` : `PROVIDER_${category}`;
       const hint =
         category === "INVALID_CREDENTIAL" ? " Check ANTHROPIC_API_KEY." :
         category === "MODEL_UNAVAILABLE" ? " Check ANTHROPIC_MODEL (model may be retired or misspelled)." :
         category === "INSUFFICIENT_CREDITS" ? " Anthropic credit balance is exhausted." : "";
-      const log = ["INVALID_CREDENTIAL", "MODEL_UNAVAILABLE", "INSUFFICIENT_CREDITS", "INVALID_REQUEST"].includes(category) ? logger.error : logger.warn;
-      log.call(logger, `[AIGateway] Anthropic call failed (category=${category}, http=${providerError.httpStatus || "n/a"}, model=${modelCfg.model}, attempts=${(err && err.attempts) || 1}, providerRequestId=${(err && err.requestId) || "n/a"}); serving local fallback.${hint}`);
+      if (policy) logger.warn(`[AIGateway] AI call refused by spend control (category=${category}, model=${modelCfg.model}); no provider call was made; serving local fallback.`);
+      else {
+        const log = ["INVALID_CREDENTIAL", "MODEL_UNAVAILABLE", "INSUFFICIENT_CREDITS", "INVALID_REQUEST"].includes(category) ? logger.error : logger.warn;
+        log.call(logger, `[AIGateway] Anthropic call failed (category=${category}, http=${providerError.httpStatus || "n/a"}, model=${modelCfg.model}, attempts=${(err && err.attempts) || 1}, providerRequestId=${(err && err.requestId) || "n/a"}); serving local fallback.${hint}`);
+      }
     }
   }
 

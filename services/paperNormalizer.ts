@@ -7,94 +7,68 @@ export type NormalizedPaper = Paper & {
   isPeerReviewed: boolean;
 };
 
+/**
+ * Brings a provider record into the app's Paper shape. It only reshapes what the record says: an unknown author, venue,
+ * publisher, year or source stays empty. (Earlier versions guessed the venue from words in the title - "attention" became
+ * "IEEE TPAMI", "clinical" became "The Lancet", anything else "NeurIPS Proceedings" - defaulted the author to "Academic Scholar",
+ * the year to 2026, the source to "OpenAlex", and marked every paper peer-reviewed.)
+ */
 export function normalizeAndValidatePaper(rawInput: any): NormalizedPaper {
   if (!rawInput || typeof rawInput !== "object") {
     return {
       id: "unknown-paper",
-      title: "Manuscript Metadata Record",
-      domain: "Research",
-      summary: "Manuscript summary unavailable.",
-      fullExplanation: "Manuscript explanation unavailable.",
-      authorId: "scholar-1",
-      authorName: "Academic Scholar",
-      authorRole: "Author",
-      organization: "Nature Publishing Group",
-      originalLink: "https://shords.app",
-      tags: ["research"],
-      readingTime: "15 min read",
-      savedCount: 1,
+      title: "Untitled record",
+      domain: "",
+      summary: "",
+      fullExplanation: "",
+      authorId: "",
+      authorName: "",
+      authorRole: "",
+      organization: "",
+      originalLink: "",
+      tags: [],
+      readingTime: "",
+      savedCount: 0,
       createdAt: new Date(),
-      pubYear: 2026,
-      venue: "Nature",
-      publisher: "Nature Publishing Group",
-      metadataSource: "OpenAlex",
-      isPeerReviewed: true
+      venue: "",
+      publisher: "",
+      metadataSource: "",
+      isPeerReviewed: false
     };
   }
 
-  const title = (rawInput.title || rawInput.name || "Research Manuscript").trim();
-  const summaryText = (rawInput.summary || rawInput.abstract || rawInput.fullExplanation || "Summary unavailable.").trim();
-  const authors = (rawInput.authorName || rawInput.authors || "Academic Scholar").trim();
+  const str = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
+  const title = str(rawInput.title) || str(rawInput.name) || "Untitled record";
+  const summaryText = str(rawInput.summary) || str(rawInput.abstract) || str(rawInput.fullExplanation);
+  const authors = Array.isArray(rawInput.authors) ? rawInput.authors.filter((a: unknown) => typeof a === "string").join(", ") : str(rawInput.authorName) || str(rawInput.authors);
 
-  // Authentic Venue Name Parsing (Never output generic placeholders)
-  let venue = rawInput.venue || rawInput.journal || rawInput.publication || "";
-  let publisher = rawInput.publisher || rawInput.organization || "";
-  let metadataSource = rawInput.metadataSource || rawInput.suppliedProvider || "OpenAlex";
-
-  const lowerTitle = title.toLowerCase();
-
-  if (!venue || venue.includes("OpenAlex Journal") || venue.includes("Academic Venue")) {
-    if (lowerTitle.includes("artificial intelligence") || lowerTitle.includes("reasoning")) {
-      venue = "Artificial Intelligence";
-      publisher = "Elsevier";
-    } else if (lowerTitle.includes("transformer") || lowerTitle.includes("attention") || lowerTitle.includes("neural")) {
-      venue = "IEEE Transactions on Pattern Analysis and Machine Intelligence";
-      publisher = "IEEE";
-    } else if (lowerTitle.includes("epidermal") || lowerTitle.includes("electronic") || lowerTitle.includes("material")) {
-      venue = "Nature Materials";
-      publisher = "Nature Publishing Group";
-    } else if (lowerTitle.includes("clinical") || lowerTitle.includes("patient") || lowerTitle.includes("medical")) {
-      venue = "The Lancet";
-      publisher = "Elsevier";
-    } else if (lowerTitle.includes("survey") || lowerTitle.includes("review")) {
-      venue = "ACM Computing Surveys";
-      publisher = "ACM";
-    } else {
-      venue = "NeurIPS Proceedings";
-      publisher = "Neural Information Processing Systems";
-    }
-  }
-
-  if (!publisher || publisher.includes("OpenAlex Journal") || publisher.includes("Academic Publishing House")) {
-    if (venue.includes("IEEE")) publisher = "IEEE";
-    else if (venue.includes("ACM")) publisher = "ACM";
-    else if (venue.includes("Nature")) publisher = "Nature Publishing Group";
-    else if (venue.includes("Lancet") || venue.includes("Artificial Intelligence")) publisher = "Elsevier";
-    else publisher = "Springer Nature";
-  }
+  const venue = str(rawInput.venue) || str(rawInput.journal) || str(rawInput.publication);
+  const publisher = str(rawInput.publisher) || str(rawInput.organization);
+  const metadataSource = str(rawInput.metadataSource) || str(rawInput.suppliedProvider);
+  const organization = [venue, publisher && publisher !== venue ? `(${publisher})` : ""].filter(Boolean).join(" ");
 
   return {
     id: rawInput.id || `paper-${Date.now()}`,
     title,
-    domain: rawInput.domain || "AI / ML",
+    domain: str(rawInput.domain),
     summary: summaryText,
-    fullExplanation: summaryText,
-    authorId: rawInput.authorId || "scholar-1",
+    fullExplanation: str(rawInput.fullExplanation) || summaryText,
+    authorId: str(rawInput.authorId),
     authorName: authors,
-    authorRole: rawInput.authorRole || "Author",
-    organization: `${venue} (${publisher})`,
-    originalLink: rawInput.originalLink || rawInput.url || "https://shords.app",
+    authorRole: str(rawInput.authorRole),
+    organization,
+    originalLink: str(rawInput.originalLink) || str(rawInput.url),
     pdfUri: rawInput.pdfUri,
-    tags: rawInput.tags || ["research"],
-    readingTime: rawInput.readingTime || "15 min read",
-    savedCount: rawInput.savedCount || 1,
+    tags: Array.isArray(rawInput.tags) ? rawInput.tags : [],
+    readingTime: str(rawInput.readingTime),
+    savedCount: typeof rawInput.savedCount === "number" ? rawInput.savedCount : 0,
     createdAt: rawInput.createdAt ? new Date(rawInput.createdAt) : new Date(),
-    pubYear: rawInput.pubYear || 2026,
+    pubYear: typeof rawInput.pubYear === "number" ? rawInput.pubYear : undefined,
     doi: rawInput.doi,
     illustrations: rawInput.illustrations,
     venue,
     publisher,
     metadataSource,
-    isPeerReviewed: true
+    isPeerReviewed: rawInput.isPeerReviewed === true // only when the source said so
   };
 }

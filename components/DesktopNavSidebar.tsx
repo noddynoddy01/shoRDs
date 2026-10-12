@@ -35,7 +35,6 @@ export function DesktopNavSidebar({
   const navItems = [
     { label: "Feed", icon: "newspaper-outline" as const, route: "/(tabs)" },
     { label: "Explore", icon: "compass-outline" as const, route: "/(tabs)/explore" },
-    { label: "Review Mode", icon: "git-compare-outline" as const, route: "/review-mode" },
     { label: "Search", icon: "search-outline" as const, route: "/search" },
     { label: "Profile", icon: "person-outline" as const, route: "/(tabs)/profile" }
   ];
@@ -115,8 +114,8 @@ export function DesktopNavSidebar({
           >
             <Ionicons name="sparkles" size={14} color="#F59E0B" />
             <View style={{ flex: 1 }}>
-              <Text style={styles.subTitle}>PRO RESEARCH PASS</Text>
-              <Text style={styles.subDesc}>Full text & Claude 3.5 Sonnet</Text>
+              <Text style={styles.subTitle}>Research Analysis</Text>
+              <Text style={styles.subDesc}>Claude Sonnet 5.5</Text>
             </View>
           </LinearGradient>
         </Pressable>

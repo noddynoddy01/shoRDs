@@ -15,12 +15,16 @@
 
 const http = require("http");
 const { createRuntime } = require("./runtime");
+const { parsePort, parseHost } = require("./bootConfig");
 
-const PORT = parseInt(process.env.PORT || "4000", 10);
-const HOST = process.env.HOST || "0.0.0.0";
-
+// Invalid (not merely missing) configuration stops the process before it listens: a wrong port or a malformed limit must not
+// produce a replica that looks alive. Missing dependency configuration is reported by /ready instead (see bootConfig.js).
+let PORT;
+let HOST;
 let runtime;
 try {
+  PORT = parsePort(process.env.PORT);
+  HOST = parseHost(process.env.HOST);
   runtime = createRuntime(process.env);
 } catch (e) {
   console.error(`[Boot] invalid configuration: ${e.message}`);
@@ -32,9 +36,18 @@ server.headersTimeout = 15000;
 server.requestTimeout = 60000;
 server.keepAliveTimeout = 65000;
 
+server.on("error", (e) => {
+  // e.g. EADDRINUSE / EACCES: say so plainly and exit non-zero so the platform marks the deployment failed
+  console.error(`[Boot] cannot listen on ${HOST}:${PORT} (${e.code || "ERROR"})`);
+  process.exit(1);
+});
+
 server.listen(PORT, HOST, () => {
   console.log(`[shoRDs Server] Replica ${runtime.replicaId} listening on http://${HOST}:${PORT}`);
-  runtime.startBackground();
+  runtime.startBackground({
+    // a migration the database rejected cannot succeed on retry: exit non-zero so the platform marks this deployment failed
+    onFatal: () => process.exit(1)
+  });
 });
 
 let shuttingDown = false;
@@ -42,6 +55,7 @@ async function shutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
   console.log(`[shoRDs Server] ${signal} received; draining`);
+  runtime.beginDrain(); // /ready now answers 503 DRAINING so no new traffic is sent here; /health stays up until exit
   const hard = setTimeout(() => process.exit(1), 20000);
   hard.unref();
   server.close();

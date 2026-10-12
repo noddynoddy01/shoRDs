@@ -1,5 +1,8 @@
 # Phase 8: from "locally verified" to "cloud verified"
 
+> **Superseded.** This file is the pre-deploy snapshot of 2026-10-04. The deployed, verified state (including the real Claude
+> runs) is recorded in [`PRODUCTION_VERIFICATION.md`](PRODUCTION_VERIFICATION.md). The text below is kept as history.
+
 Date: 2026-10-04. **Status: NOT READY FOR THE ANTHROPIC KEY.** Everything that can be proven without your cloud accounts has been
 proven; the remaining gates need your Railway, Vercel, Docker and an internet connection. They are scripted below so each one ends
 in a PASS / FAIL / NOT_VERIFIED line rather than an opinion.

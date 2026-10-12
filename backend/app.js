@@ -10,7 +10,7 @@
  *   -> validate input -> authorize resource (project role) -> per-tenant / daily limits -> handler -> safe response
  *
  * Public: GET / , /health (liveness only), /ready (real dependency state), /api/v1/replica.
- * Admin only (ADMIN_UIDS): GET /api/v1/llm/health, /api/v1/llm/metrics.
+ * Admin only (ADMIN_UIDS): GET /api/v1/llm/health, /api/v1/llm/metrics, GET /api/v1/admin/ai/budget, PUT /api/v1/admin/ai/kill-switch.
  */
 
 const crypto = require("crypto");
@@ -25,6 +25,7 @@ const { EvidenceError } = require("./llm/evidence");
 const { PaperError } = require("./papers/paperService");
 const { parsePaperRef } = require("./papers/identity");
 const { toView } = require("./jobs/jobStore");
+const { hashUser } = require("./llm/usageLedger");
 
 const JSON_HEADERS = { "Content-Type": "application/json; charset=utf-8" };
 const UID_RE = /^[A-Za-z0-9_-]{1,128}$/;
@@ -45,6 +46,7 @@ function createApp(deps) {
     cache = null,
     paperService,
     pipeline,
+    budget = null,
     ledger = null,
     readiness,
     workerStats = null,
@@ -53,7 +55,12 @@ function createApp(deps) {
     now = Date.now
   } = deps;
 
-  const maxBodyBytes = Number(deps.maxBodyBytes || env.MAX_REQUEST_BODY_BYTES || 524288);
+  // A malformed value (e.g. "512KB") would become NaN, and every `size > NaN` check is false: the cap would silently vanish.
+  // Anything that is not a positive integer therefore falls back to the default.
+  const DEFAULT_MAX_BODY_BYTES = 524288;
+  const positiveInt = (v) => { const n = Number(v); return Number.isInteger(n) && n > 0 ? n : null; };
+  const maxBodyBytes = positiveInt(deps.maxBodyBytes) || positiveInt(env.MAX_REQUEST_BODY_BYTES) || DEFAULT_MAX_BODY_BYTES;
+  if (env.MAX_REQUEST_BODY_BYTES && !positiveInt(env.MAX_REQUEST_BODY_BYTES) && logger && logger.warn) logger.warn(`[config] MAX_REQUEST_BODY_BYTES is not a positive integer; using ${DEFAULT_MAX_BODY_BYTES}.`);
   const trustProxy = deps.trustProxy !== undefined ? deps.trustProxy : env.TRUST_PROXY === "true";
   const proxyHops = Number(deps.proxyHops || env.TRUST_PROXY_HOPS || 1);
   const adminUids = new Set(String(env.ADMIN_UIDS || "").split(",").map((s) => s.trim()).filter(Boolean));
@@ -277,12 +284,39 @@ function createApp(deps) {
     });
   }
 
+
+  /** Administrators only. Reports the spend-control state: kill switch, limits, today's global spend, circuit breaker, counters. */
+  async function getAiBudget(ctx) {
+    if (!isAdmin(ctx.principal)) return fail(ctx, 403, "FORBIDDEN", "Administrator access required.");
+    if (!budget) return fail(ctx, 503, "SPEND_CONTROL_NOT_WIRED", "Spend control is not available in this runtime.");
+    send(ctx, 200, { ...(await budget.status()), requestId: ctx.requestId });
+  }
+
+  /**
+   * Administrators only. Engages or releases the server-side kill switch for paid AI calls. Clients cannot influence the switch:
+   * nothing else in any request is read by the gate. AI_ENABLED=false in the environment always wins and cannot be reopened here.
+   */
+  async function putAiKillSwitch(ctx) {
+    if (!isAdmin(ctx.principal)) return fail(ctx, 403, "FORBIDDEN", "Administrator access required.");
+    if (!budget) return fail(ctx, 503, "SPEND_CONTROL_NOT_WIRED", "Spend control is not available in this runtime.");
+    if (!(await limit(ctx, "WRITE_USER", "user", ctx.principal.uid))) return;
+    const body = await readBody(ctx);
+    if (!body) return;
+    if (typeof body.engaged !== "boolean") return fail(ctx, 400, "INVALID_BODY", "`engaged` must be true or false.");
+    const reason = typeof body.reason === "string" ? body.reason.trim().slice(0, 200) : "";
+    if (body.engaged && !reason) return fail(ctx, 400, "REASON_REQUIRED", "A `reason` is required when engaging the kill switch.");
+    if (/[\u0000-\u001f\u007f]/.test(reason)) return fail(ctx, 400, "INVALID_BODY", "`reason` must not contain control characters.");
+    const state = await budget.setKillSwitch({ engaged: body.engaged, reason, by: hashUser(ctx.principal.uid) });
+    send(ctx, 200, { killSwitch: state, requestId: ctx.requestId });
+  }
+
   async function postProject(ctx) {
     if (!(await limit(ctx, "WRITE_USER", "user", ctx.principal.uid))) return;
     const body = await readBody(ctx);
     if (!body) return;
     const name = typeof body.name === "string" ? body.name.trim() : "";
     if (!name || name.length > 120) return fail(ctx, 400, "INVALID_NAME", "`name` is required (1-120 characters).");
+    if (/[\u0000-\u001f\u007f]/.test(name)) return fail(ctx, 400, "INVALID_NAME", "`name` must not contain control characters."); // a NUL byte would otherwise reach PostgreSQL and surface as a 503
     const project = await projects.createProject(pool, { name, userId: ctx.principal.uid });
     send(ctx, 201, { ...project, requestId: ctx.requestId });
   }
@@ -371,7 +405,7 @@ function createApp(deps) {
       return send(ctx, 422, { error: known.coverage, message: known.coverageNotice, contentCoverage: known.coverage, paper: { paperId: known.paperId, title: known.title, authors: known.authors, year: known.year, doi: known.doi }, aiCalled: false, requestId: ctx.requestId });
     }
 
-    const { job, created, enqueued } = await jobStore.createJob({
+    const { job, created, enqueued, conflict } = await jobStore.createJob({
       projectId: m.projectId,
       tenantId: m.tenantId,
       userId: ctx.principal.uid,
@@ -380,6 +414,10 @@ function createApp(deps) {
       idempotencyKey,
       replicaId
     });
+    if (conflict) {
+      // The key was first used for a different project, paper or depth. Nothing was created or enqueued, and the original job is not described.
+      return fail(ctx, 422, "IDEMPOTENCY_KEY_REUSED", "This Idempotency-Key was already used for a different request. Use a new key for a new request, or repeat the original request unchanged.");
+    }
     const extra = created ? {} : { "Idempotent-Replay": "true" };
     send(ctx, created ? 202 : 200, { ...job, result: undefined, pollUrl: `/api/v1/analysis/${job.jobId}`, replicaId, queue: created ? { enqueued } : undefined, idempotentReplay: created ? undefined : true, requestId: ctx.requestId }, extra);
   }
@@ -449,6 +487,8 @@ function createApp(deps) {
     if (method === "GET" && is("api", "v1", "replica")) return { name: "replica", public: true, run: getReplica };
     if (method === "GET" && is("api", "v1", "llm", "health")) return { name: "llm_health", run: getLlmHealth };
     if (method === "GET" && is("api", "v1", "llm", "metrics")) return { name: "llm_metrics", run: getLlmMetrics };
+    if (method === "GET" && is("api", "v1", "admin", "ai", "budget")) return { name: "admin_ai_budget", run: getAiBudget };
+    if (method === "PUT" && is("api", "v1", "admin", "ai", "kill-switch")) return { name: "admin_ai_kill_switch", post: true, run: putAiKillSwitch };
     if (method === "POST" && is("api", "v1", "projects")) return { name: "project_create", post: true, run: postProject };
     if (method === "GET" && is("api", "v1", "projects")) return { name: "project_list", run: listMyProjects };
     if (method === "GET" && is("api", "v1", "projects", "*")) return { name: "project_get", run: (c) => getProject(c, seg[3]) };

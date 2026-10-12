@@ -107,7 +107,7 @@ export function buildStructuredPaperIntelligence(doc: ExtractedDocument, chunks:
     keyFindings,
     quantitativeResults,
     limitations,
-    applications: keyFindings.length > 0 ? [{ value: "Practical scientific implementation", chunkIds: keyFindings[0].chunkIds }] : [],
+    applications: [],
     futureWork,
     evidenceMap
   };
@@ -189,72 +189,10 @@ function extractQuantitativeResultsFromText(text: string, insights: string[] = [
 }
 
 /**
- * Returns rigorous, domain-aware analytical cautions without generic template leakage.
- */
-function getDomainAnalyticalCautions(domain: string = "", text: string = ""): string[] {
-  const d = domain.toLowerCase();
-  const t = text.toLowerCase();
-
-  if (d.includes("quantum") || t.includes("qubit") || t.includes("surface code")) {
-    return [
-      "Hardware noise profiles and spatial crosstalk vary across physical superconducting architectures.",
-      "Scaling to higher-distance error-correcting codes requires sub-microsecond inline decoding latencies."
-    ];
-  }
-  if (d.includes("cancer") || d.includes("pathology") || d.includes("medical") || t.includes("wsi") || t.includes("biopsy")) {
-    return [
-      "Histological preparation and staining variations across pathology labs may induce domain shift.",
-      "Requires human-in-the-loop diagnostic review to prevent false-negative edge cases in atypical tissues."
-    ];
-  }
-  if (d.includes("robot") || d.includes("gripper") || t.includes("actuator") || t.includes("elastomer")) {
-    return [
-      "Long-term cyclic strain and fatigue may degrade elastomer flexibility and grip force consistency.",
-      "Dynamic payload manipulation under abrupt acceleration requires closed-loop haptic feedback."
-    ];
-  }
-  if (d.includes("ai") || d.includes("machine learning") || d.includes("neural") || d.includes("vision")) {
-    return [
-      "Performance guarantees depend on training data distribution alignment with real-world inputs.",
-      "Production deployment requires hardware-specific model compression and latency profiling."
-    ];
-  }
-  if (d.includes("cyber") || d.includes("crypto") || d.includes("security")) {
-    return [
-      "Cryptographic and zero-trust guarantees require rigorous formal verification against side-channel vectors.",
-      "Systemic throughput overhead under peak network traffic warrants targeted load benchmarking."
-    ];
-  }
-
-  return [
-    `Evaluation boundaries reflect the specific experimental conditions documented in ${domain || "the study"}.`,
-    "Independent replication across heterogeneous environments is advised prior to production deployment."
-  ];
-}
-
-/**
- * Generates grounded why-it-matters statements rooted in domain context and practical significance.
- */
-function generateWhyItMatters(title: string, domain: string, results: string): string {
-  const d = domain.toLowerCase();
-  if (d.includes("quantum")) {
-    return "Crucial for fault-tolerant quantum computing; without accurate, low-latency error decoding and suppression, scaling to thousands of physical qubits to run useful algorithms remains impossible.";
-  }
-  if (d.includes("cancer") || d.includes("pathology") || d.includes("medical")) {
-    return "Directly impacts patient outcomes by accelerating diagnostic review times, minimizing pathologist fatigue, and surfacing minute micro-metastases that human observers might overlook.";
-  }
-  if (d.includes("robot") || d.includes("gripper")) {
-    return "Transforms automated handling in agriculture, surgery, and fragile manufacturing by eliminating payload damage without requiring brittle, ultra-expensive micro-force sensors.";
-  }
-  if (d.includes("energy") || d.includes("battery") || d.includes("solar")) {
-    return "Accelerates sustainable technology by improving power conversion efficiency and extending storage lifecycle under variable operating conditions.";
-  }
-  return `Advances the state of the art in ${domain || "scientific research"} by providing verified empirical improvements and actionable methodologies for subsequent research and deployment.`;
-}
-
-/**
- * First-class Paper Intelligence Generator
- * Synthesizes 18+ structured dimensions from genuine paper data with zero template leakage.
+ * Paper Intelligence Generator (on-device, heuristic).
+ * Everything returned is either the paper's own text or empty. It never writes statements about the paper that its text does not
+ * contain: no "why it matters", no domain-based cautions, no "validated performance", no filler sentences. Fields the text
+ * does not support are empty strings / empty arrays, and the screens omit them.
  */
 export function generatePaperIntelligence(
   paper: Paper | any,
@@ -269,7 +207,7 @@ export function generatePaperIntelligence(
 
   // Determine coverage
   let contentCoverage: ContentCoverageType = "METADATA_ONLY";
-  if (paper.fullTextRaw || (paper.fullExplanation && paper.fullExplanation.length > 250) || paper.fullTextStatus === "FULL_TEXT_PDF") {
+  if (paper.fullTextRaw || paper.fullTextStatus === "FULL_TEXT_PDF") {
     contentCoverage = "FULL_TEXT";
   } else if (paper.summary && paper.summary.length > 30) {
     contentCoverage = "ABSTRACT_ONLY";
@@ -280,34 +218,25 @@ export function generatePaperIntelligence(
   let confidenceReason = "Limited to publication indexing metadata and bibliographic record.";
   if (contentCoverage === "FULL_TEXT") {
     confidence = "HIGH";
-    confidenceReason = "Deep multi-section analysis grounded in explicit methodology and empirical results.";
+    confidenceReason = "Based on the full text supplied with the record. The sections are extracted by rules on this device and have not been independently checked.";
   } else if (contentCoverage === "ABSTRACT_ONLY") {
     confidence = "MEDIUM";
-    confidenceReason = "Extracted from manuscript abstract; experimental and full methodology details require full PDF.";
+    confidenceReason = "Based on the abstract only; methods and results beyond the abstract are not covered.";
   }
 
   // Parse 4 core sections
   const parsed = parsePaperSections(paper, title, paper.summary, domain);
 
-  // TL;DR: 2-3 clean, concrete sentences
-  const tldrSentence1 = `${title} addresses key challenges in ${domain}.`;
-  const tldrSentence2 = parsed.context.split(/[.\n]/)[0].trim();
-  const tldrSentence3 = parsed.results.split(/[.\n]/)[0].trim();
-  const tldr = `${tldrSentence1} ${tldrSentence2}. Key finding: ${tldrSentence3}.`.replace(/\.\.+/g, ".");
+  // TL;DR: the first sentences of the paper's own abstract/summary, verbatim. No template wording is added.
+  const leadText = (paper.summary || parsed.context || "").trim();
+  const tldr = (leadText.match(/[^.!?]+[.!?]+(?:\s|$)/g) || [leadText]).slice(0, 3).join(" ").trim();
 
-  // Research Problem & Motivation
-  const researchProblem = parsed.context || `Challenges in ${domain} requiring improved computational and empirical performance.`;
-  const motivation = `Overcoming operational limitations, high computational overhead, and empirical bottlenecks in ${domain}.`;
+  // Research problem: only text the paper itself provides for its background/abstract.
+  const researchProblem = parsed.context || "";
+  const motivation = "";
 
-  // Key Contributions
-  const keyContributions: string[] = [];
-  if (insights.length > 0) {
-    insights.forEach(ins => keyContributions.push(ins));
-  } else {
-    keyContributions.push(`Formulates a domain-specific framework addressing ${title.toLowerCase()}.`);
-    if (parsed.methodology) keyContributions.push(parsed.methodology.split(/[.\n]/)[0].trim() + ".");
-    if (parsed.results) keyContributions.push(parsed.results.split(/[.\n]/)[0].trim() + ".");
-  }
+  // Key contributions: only contributions the record itself lists.
+  const keyContributions: string[] = [...insights];
 
   // Quantitative Results
   const quantitativeResults = extractQuantitativeResultsFromText(rawText, insights);
@@ -325,9 +254,6 @@ export function generatePaperIntelligence(
       }
     }
   }
-  if (keyFindings.length === 0) {
-    keyFindings.push(`Demonstrated measurable empirical advancements in ${domain}.`);
-  }
 
   // Limitations
   const authorStated: string[] = [];
@@ -336,21 +262,16 @@ export function generatePaperIntelligence(
     limitSentences.slice(0, 2).forEach((s: string) => authorStated.push(s.trim()));
   }
 
-  const analyticalCautions = getDomainAnalyticalCautions(domain, rawText);
+  // Limitations: only sentences in the paper's text that state one. No generic or domain-based cautions are added.
+  const whyItMatters = "";
+  const practicalImplications: string[] = [];
 
-  // Why it matters & practical implications
-  const whyItMatters = generateWhyItMatters(title, domain, parsed.results);
-  const practicalImplications = [
-    `Facilitates robust implementation for ${domain} applications.`,
-    `Provides actionable architectural benchmarks for researchers and engineers.`
-  ];
-
-  // Methodology breakdown
+  // Methodology breakdown: the paper's own method text; nothing assumed about setup or benchmarks.
   const methodology = {
-    overview: parsed.methodology || `Structured empirical methodology tailored for ${domain}.`,
-    approach: paper.subdomain ? `${paper.subdomain} framework` : undefined,
-    techniques: paper.tags && paper.tags.length > 0 ? paper.tags : [domain.toLowerCase()],
-    experimentalSetup: `Evaluated under standard ${domain} benchmarks.`
+    overview: parsed.methodology || "",
+    approach: undefined as string | undefined,
+    techniques: paper.tags && paper.tags.length > 0 ? paper.tags : [],
+    experimentalSetup: undefined as string | undefined
   };
 
   // Evidence references
@@ -362,16 +283,8 @@ export function generatePaperIntelligence(
         section: c.section,
         page: c.page || 1,
         chunkId: c.chunkId,
-        verified: true
+        verified: false // on-device chunks are listed as source passages; nothing here has been independently verified
       });
-    });
-  } else {
-    evidenceList.push({
-      claimText: tldr.slice(0, 120) + "...",
-      section: "ABSTRACT",
-      page: 1,
-      chunkId: `${paperId}_chunk_1`,
-      verified: true
     });
   }
 
@@ -396,18 +309,15 @@ export function generatePaperIntelligence(
     methodology,
     keyFindings,
     quantitativeResults,
-    strengths: [
-      `Rigorous formulation tailored for ${domain}.`,
-      `Validated performance surpassing baseline methods.`
-    ],
+    strengths: [],
     limitations: {
       authorStated: authorStated.length > 0 ? authorStated : undefined,
-      analyticalCautions
+      analyticalCautions: []
     },
     whyItMatters,
     practicalImplications,
-    futureWork: parsed.futureScope ? [parsed.futureScope] : [`Extending experimental validation across broader ${domain} workloads.`],
-    keywords: paper.tags || [domain],
+    futureWork: parsed.futureScope ? [parsed.futureScope] : [],
+    keywords: paper.tags || [],
     evidence: evidenceList,
     readingMetrics
   };

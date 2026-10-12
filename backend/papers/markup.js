@@ -43,12 +43,20 @@ const NAME_RE = /[a-zA-Z][\w:.-]*/y;
 const RAW_CLOSE = { script: /<\/script\s*>/gi, style: /<\/style\s*>/gi };
 const MAX_TAG_CHARS = 4096;
 const DEFAULT_BUDGET_MS = 4000;
+// Characters scanned by tag attempts that turned out NOT to be tags. A hostile page such as "<a <a <a ..." makes every "<" scan up to
+// MAX_TAG_CHARS before failing (about 4096 steps per 3 input bytes). A real article wastes almost nothing, so a hard cap on
+// this waste bounds the time the (single-threaded) API process can be held by one document to a fraction of a second.
+const MAX_WASTED_SCAN = 20 * 1000 * 1000;
 
 /**
  * Read one start/end tag beginning at src[lt] === "<". Returns null when it is not a well-formed tag (the "<" is then plain
  * text). Cost is bounded by MAX_TAG_CHARS per attempt; quoted attribute values may contain ">".
  */
-function readTag(src, lt) {
+function readTag(src, lt, stats) {
+  // Fast reject: a tag needs a ">" within MAX_TAG_CHARS. The position of the next ">" is remembered across calls (lt only
+  // increases), so input without a nearby ">" (e.g. "<a <a <a ...") costs O(1) per "<" instead of up to MAX_TAG_CHARS.
+  if (stats.gt !== -1 && stats.gt < lt) stats.gt = src.indexOf(">", lt);
+  if (stats.gt === -1 || stats.gt >= lt + MAX_TAG_CHARS) return null;
   let i = lt + 1;
   const closing = src[i] === "/";
   if (closing) i += 1;
@@ -72,12 +80,13 @@ function readTag(src, lt) {
     }
     if (c === 34 || c === 39) {
       const q = src.indexOf(src[j], j + 1);
-      if (q === -1 || q >= limit) return null; // unterminated quote: not a tag
+      if (q === -1 || q >= limit) { if (stats) stats.wasted += j - lt; return null; } // unterminated quote: not a tag
       j = q + 1;
       continue;
     }
     j += 1;
   }
+  if (stats) stats.wasted += j - lt;
   return null;
 }
 
@@ -95,6 +104,7 @@ function parse(input, opts = {}) {
   let depth = 0;
   let nodes = 0;
   let ops = 0;
+  const stats = { wasted: 0, gt: -2 };
   const src = String(input);
   const n = src.length;
   const addText = (t) => {
@@ -126,7 +136,8 @@ function parse(input, opts = {}) {
       pos = e === -1 ? n : e + 1;
       continue;
     }
-    const tag = readTag(src, lt);
+    const tag = readTag(src, lt, stats);
+    if (stats.wasted > MAX_WASTED_SCAN) throw new Error("MARKUP_TOO_COMPLEX");
     if (!tag) {
       addText("<");
       pos = lt + 1;

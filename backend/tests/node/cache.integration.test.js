@@ -107,7 +107,7 @@ test("result cache and de-duplication (real Redis)", { skip }, async (t) => {
   await t.test("isolation: a different model (ANTHROPIC_MODEL) never serves an answer produced by another model", async () => {
     const model = countingClient();
     const A = await startReplica({ keys, env: { ...env, ANTHROPIC_MODEL: "claude-sonnet-5-5" }, overrides: { client: model } });
-    const B = await startReplica({ keys, env: { ...env, ANTHROPIC_MODEL: "claude-opus-5-5" }, overrides: { client: model } });
+    const B = await startReplica({ keys, env: { ...env, ANTHROPIC_MODEL: "claude-opus-5-5", ANTHROPIC_PRICE_INPUT_PER_MTOK: "5", ANTHROPIC_PRICE_OUTPUT_PER_MTOK: "25" } /* test price: spend control refuses unpriced models, so the second model needs an operator-supplied price */, overrides: { client: model } });
     const { a, pa, ask } = await twoTenants(A);
     assert.equal((await ask(a, pa)).json.cache.status, "MISS");
     const askB = (body = {}) => B.call("POST", "/api/v1/copilot/query", { token: tok(a), body: { projectId: pa, query: "What was the effect on blood pressure?", paperId: PAPER, ...body }, headers: ipHeader() });

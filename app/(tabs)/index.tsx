@@ -31,7 +31,6 @@ import { SettingsTray } from "@/components/SettingsTray";
 import { SubscriptionModal } from "@/components/SubscriptionModal";
 import { getUserSubscriptionAsync, UserSubscription } from "@/services/subscriptionService";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { FloatingChatButton } from "@/components/FloatingChatButton";
 import { domainSubtopics, domains } from "@/data/samplePapers";
 
 export default function HomeScreen() {
@@ -337,7 +336,6 @@ export default function HomeScreen() {
       {/* Settings Tray & Floating Chat */}
       <SettingsTray visible={settingsVisible} onClose={() => setSettingsVisible(false)} currentUserProfile={userProfile} />
       <SubscriptionModal visible={subscriptionVisible} onClose={() => setSubscriptionVisible(false)} />
-      <FloatingChatButton />
     </Screen>
   );
 }

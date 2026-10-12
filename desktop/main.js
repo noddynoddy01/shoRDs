@@ -9,6 +9,7 @@ const { app, BrowserWindow, ipcMain, dialog, globalShortcut, Notification, clipb
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
+const { resolveDownloadTarget, resolveStaticPath } = require('./safeExport');
 
 let mainWindow = null;
 let staticServer = null;
@@ -48,13 +49,11 @@ function startStaticServer() {
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
 
-      let reqUrl = req.url.split('?')[0];
-      if (reqUrl === '/') reqUrl = '/index.html';
-
-      let filePath = path.join(DIST_DIR, reqUrl);
+      // Never join the request path onto the disk unchecked: "/../.." must not escape DIST_DIR.
+      const filePath = resolveStaticPath(DIST_DIR, req.url);
 
       // Check if file exists
-      if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+      if (filePath && fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
         const ext = path.extname(filePath).toLowerCase();
         const contentType = MIME_TYPES[ext] || 'application/octet-stream';
         res.writeHead(200, { 'Content-Type': contentType });
@@ -298,8 +297,9 @@ ipcMain.handle('dialog-save-file', async (event, { defaultName, content, fileTyp
 // Direct Export to Downloads Folder
 ipcMain.handle('export-downloads', async (event, { fileName, data }) => {
   try {
-    const downloadsDir = app.getPath('downloads');
-    const targetPath = path.join(downloadsDir, fileName);
+    // `fileName` comes from web content: only a plain file name inside the downloads folder is accepted.
+    const targetPath = resolveDownloadTarget(app.getPath('downloads'), fileName);
+    if (typeof data !== 'string' || data.length > 50 * 1024 * 1024) throw new Error('INVALID_DATA');
     fs.writeFileSync(targetPath, data, 'utf-8');
     return { success: true, targetPath };
   } catch (err) {

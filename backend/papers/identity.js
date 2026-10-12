@@ -40,12 +40,15 @@ function normalizeAuthorName(authorStr) {
   return authorStr.split(",")[0].trim().toLowerCase().normalize("NFKD").replace(/[^a-z]/g, "") || "scholar";
 }
 
+/** A "." or ".." path segment would let a DOI steer the path of the provider URL it is interpolated into (e.g. /works/doi:10.1/../../x). */
+const hasDotSegment = (s) => s.split("/").some((seg) => seg === "." || seg === "..");
+
 function normalizeDoi(raw) {
   if (typeof raw !== "string") return null;
   let s = raw.trim().toLowerCase();
   s = s.replace(/^(https?:\/\/)?(dx\.)?doi\.org\//, "").replace(/^doi:\s*/, "");
   s = s.replace(/[^a-z0-9\/._\-]/g, ""); // same stripping as the frontend function, so existing ids stay stable
-  return DOI_RE.test(s) && s.length <= 150 ? s : null;
+  return DOI_RE.test(s) && s.length <= 150 && !hasDotSegment(s) ? s : null;
 }
 
 function normalizePmid(raw) {
@@ -95,7 +98,7 @@ function canonicalPaperId(p) {
 
 /** Is this string a canonical paper id exactly as produced by canonicalPaperId? */
 function isCanonicalPaperId(id) {
-  return typeof id === "string" && id.length <= MAX_ID_CHARS && CANONICAL_ID_RE.test(id);
+  return typeof id === "string" && id.length <= MAX_ID_CHARS && CANONICAL_ID_RE.test(id) && !hasDotSegment(id);
 }
 
 /**

@@ -14,7 +14,7 @@
 
 const { handleCopilotQuery, validateRequest, PROMPT_VERSION } = require("./copilotService");
 const { handleIntelligence, INTEL_PROMPT_VERSION, INTEL_SCHEMA_VERSION } = require("./intelligence");
-const { resolveApiKey, resolveModelConfig, resolveProfile } = require("./anthropicClient");
+const { callMessages: realCallMessages, resolveApiKey, resolveModelConfig, resolveProfile } = require("./anthropicClient");
 const { buildCacheKey, contentHash, cachedAiCall, isRealCompleteAnswer } = require("./resultCache");
 const { validateChunkIds, selectForQuestion, selectForIntelligence, DEFAULT_MAX_CONTEXT_CHARS } = require("./evidence");
 
@@ -39,7 +39,16 @@ function assertNoClientEvidence(body) {
   }
 }
 
-function createAiPipeline({ paperService, cache = null, ledger = null, telemetry = null, client, env = process.env, replicaId, logger = console, now = Date.now }) {
+function createAiPipeline({ paperService, cache = null, ledger = null, telemetry = null, client, budget = null, env = process.env, replicaId, logger = console, now = Date.now }) {
+  /**
+   * The client every model call uses. With a spend-control gate (`budget`, always supplied by the production runtime) each call is
+   * bound to this request's tenant / project / user and passes kill switch, price, ceiling, breaker, duplicate lock and budget
+   * reservation BEFORE the provider is contacted. Without one (unit tests of other concerns) the client is used as given.
+   */
+  const clientFor = (ctx) => {
+    const real = client || { callMessages: realCallMessages };
+    return budget ? budget.guardClient(real, { tenantId: ctx.scope && ctx.scope.tenantId, projectId: ctx.scope && ctx.scope.projectId, uid: ctx.uid }) : client;
+  };
   const maxContextChars = () => Math.max(2000, Number(env.AI_MAX_CONTEXT_CHARS) || DEFAULT_MAX_CONTEXT_CHARS);
 
   function gated(kind, paper, requestId, started) {
@@ -101,7 +110,7 @@ function createAiPipeline({ paperService, cache = null, ledger = null, telemetry
       key: cache && hasKey && chunks.length > 0
         ? buildCacheKey({ tenantId: ctx.scope.tenantId, projectId: ctx.scope.projectId, paperId: paper.paperId, contentHash: contentHash(chunks), model: modelCfg.model, mode: `QUESTION:${depth}`, promptVersion: PROMPT_VERSION, query })
         : null,
-      produce: () => handleCopilotQuery(rawBody, { env, telemetry, replicaId, client, logger, now, limits, coverage: paper.coverage, coverageNotice: paper.coverageNotice, paper: header(paper), context: { chunksSent: chunks.length, chunksOmitted: selection.omitted, truncated: selection.truncated }, requestId }),
+      produce: () => handleCopilotQuery(rawBody, { env, telemetry, replicaId, client: clientFor(ctx), logger, now, limits, coverage: paper.coverage, coverageNotice: paper.coverageNotice, paper: header(paper), context: { chunksSent: chunks.length, chunksOmitted: selection.omitted, truncated: selection.truncated }, requestId }),
       cacheableOf: isRealCompleteAnswer,
       replicaId,
       now,
@@ -135,7 +144,7 @@ function createAiPipeline({ paperService, cache = null, ledger = null, telemetry
       key: cache && hasKey && chunks.length > 0
         ? buildCacheKey({ tenantId: ctx.scope.tenantId, projectId: ctx.scope.projectId, paperId: paper.paperId, contentHash: contentHash(chunks), model: modelCfg.model, mode: `INTELLIGENCE:v${INTEL_SCHEMA_VERSION}:${depth}`, promptVersion: INTEL_PROMPT_VERSION, query: "STRUCTURED_INTELLIGENCE" })
         : null,
-      produce: () => handleIntelligence({ paper, chunks, depth: body.analysisDepth, selection }, { env, telemetry, replicaId, client, logger, now, requestId }),
+      produce: () => handleIntelligence({ paper, chunks, depth: body.analysisDepth, selection }, { env, telemetry, replicaId, client: clientFor(ctx), logger, now, requestId }),
       cacheableOf: isRealCompleteAnswer,
       replicaId,
       now,

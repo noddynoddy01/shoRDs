@@ -138,7 +138,30 @@ const MIGRATIONS = [
   }
 ];
 
+/** Raised when a migration cannot be applied. Carries only categories: never SQL text or data values. */
+class MigrationError extends Error {
+  constructor(version, name, cause) {
+    const sqlState = (cause && cause.sqlState) || null;
+    super(`migration ${version} (${name}) failed: ${(cause && cause.code) || "ERROR"}${sqlState ? ` sqlstate=${sqlState}` : ""}`);
+    this.name = "MigrationError";
+    this.code = "MIGRATION_FAILED";
+    this.version = version;
+    this.migration = name;
+    this.sqlState = sqlState;
+    this.causeCode = (cause && cause.code) || "ERROR";
+    // permanent: the database understood the statement and rejected it, so running it again cannot succeed
+    // transient: the connection or the server was unavailable (class 08 connection, 40 rollback/deadlock, 53 resources, 57 shutdown)
+    this.permanent = Boolean(sqlState) && !/^(08|40|53|55|57|58)/.test(sqlState);
+  }
+}
+
 /**
+ * Applies pending migrations in order, each atomically, while holding the cross-replica advisory lock.
+ *
+ * Failure handling (audit P0-4): a migration that fails is rolled back explicitly; if the ROLLBACK itself cannot be completed the
+ * connection is destroyed (never returned to the pool inside an aborted transaction); the advisory lock is always released, or
+ * the session that holds it is destroyed (which releases it). The error that escapes is a MigrationError naming the version.
+ *
  * @param {import('./pgClient').PgPool} pool
  * @returns {Promise<{applied: number[], alreadyApplied: number[], current: number}>}
  */
@@ -154,7 +177,19 @@ async function runMigrations(pool, migrations = MIGRATIONS) {
       for (const m of migrations) {
         if (done.has(m.version)) continue;
         if (!Number.isInteger(m.version) || !/^[a-z0-9_]+$/.test(m.name)) throw new Error("invalid migration definition");
-        await c.simple(`BEGIN; ${m.sql}; INSERT INTO schema_migrations (version, name) VALUES (${m.version}, '${m.name}'); COMMIT;`);
+        try {
+          await c.simple("BEGIN");
+          await c.simple(m.sql);
+          await c.query("INSERT INTO schema_migrations (version, name) VALUES ($1, $2)", [m.version, m.name]);
+          await c.simple("COMMIT");
+        } catch (e) {
+          try {
+            await c.simple("ROLLBACK");
+          } catch (_) {
+            c.destroy(); // cannot leave a transaction we could not roll back: end the session
+          }
+          throw new MigrationError(m.version, m.name, e);
+        }
         applied.push(m.version);
       }
       const current = Math.max(0, ...migrations.map((m) => m.version));
@@ -163,7 +198,7 @@ async function runMigrations(pool, migrations = MIGRATIONS) {
       try {
         await c.query("SELECT pg_advisory_unlock($1::bigint)", [ADVISORY_LOCK_KEY]);
       } catch (_) {
-        /* the lock is released when the session ends anyway */
+        c.destroy(); // could not release the lock explicitly: ending the session releases it, and the connection is not reused
       }
     }
   });
@@ -181,4 +216,4 @@ async function schemaStatus(pool, migrations = MIGRATIONS) {
   }
 }
 
-module.exports = { MIGRATIONS, runMigrations, schemaStatus, ADVISORY_LOCK_KEY };
+module.exports = { MIGRATIONS, runMigrations, schemaStatus, ADVISORY_LOCK_KEY, MigrationError };

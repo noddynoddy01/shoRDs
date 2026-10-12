@@ -27,7 +27,11 @@ export interface KeyNumberMetric {
   value: string;
   label: string;
   context: string;
-  verified: boolean;
+  /**
+   * Always false: numbers here are extracted by on-device heuristics and have NOT been checked against the paper by shoRDs.
+   * (The server-side analysis, POST /api/v1/analysis, does check cited numbers against the retrieved text; this screen does not use it yet.)
+   */
+  verified: false;
 }
 
 export interface BriefReadingMetrics {
@@ -60,7 +64,8 @@ export interface GroundedResearchBrief {
   summaryMode: "FULL_TEXT" | "ABSTRACT_ONLY" | "METADATA_ONLY";
   noticeMessage?: string;
   readingMetrics: BriefReadingMetrics;
-  qualityScore: ResearchBriefQualityScore;
+  /** No quality score is computed anywhere, so none is reported. (It used to be a table of constants such as 94 to 100.) */
+  qualityScore: ResearchBriefQualityScore | null;
   readingTimeMinutes: number;
   wordCount: number;
   sections: GroundedSection[];
@@ -147,6 +152,20 @@ export function detectGenericPhrases(text: string): boolean {
 }
 
 /**
+ * Drops sections with no text, and sections that only repeat an earlier one. An empty or duplicate section would otherwise be
+ * padded or repeated to look complete.
+ */
+function nonEmptySections(list: GroundedSection[]): GroundedSection[] {
+  const seen = new Set<string>();
+  return list.filter((sec) => {
+    const key = (sec.content || "").trim();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/**
  * Generates an evidence-grounded 2-3 minute Research Brief (450-700 words)
  * incorporating original figures, verified numbers, 9 structured sections,
  * BriefReadingMetrics, and strict canonical ID paper binding.
@@ -166,7 +185,7 @@ export async function generateGroundedResearchBriefAsync(paper: {
   const paperId = paper.id;
   const paperCanonicalId = generateCanonicalPaperId(paper);
   const title = paper.title.replace(/\.pdf$/i, "").replace(/[:.,;\-–—]$/, "").trim();
-  const authors = paper.authors && paper.authors.length > 0 ? paper.authors : ["Academic Scholar"];
+  const authors = paper.authors && paper.authors.length > 0 ? paper.authors : []; // never a placeholder name: unknown authors stay unknown
   const fullTextStatus = paper.fullTextStatus || "ABSTRACT_ONLY";
 
   // Retrieve Original Figures & Tables with Strict Canonical Binding
@@ -182,30 +201,10 @@ export async function generateGroundedResearchBriefAsync(paper: {
   // Verify Zero Cross-Paper Contamination
   const figures = rawFigures.filter(fig => verifyFigureCanonicalBinding(fig, paperCanonicalId));
 
-  // Default Quality Score & Reading Metrics
-  const defaultMetrics: BriefReadingMetrics = {
-    wordCount: 120,
-    estimatedReadingMinutes: 2,
-    technicalTermDensity: 20,
-    equationCount: 0,
-    figureCount: figures.length,
-    sectionCount: 1
-  };
-
-  const defaultQuality: ResearchBriefQualityScore = {
-    evidenceGrounding: 100,
-    figureAuthenticity: 100,
-    numericVerification: 100,
-    sectionCompleteness: 90,
-    semanticDiversity: 92,
-    readability: 90,
-    informationDensity: 88,
-    sourceCoverage: 95,
-    totalQualityScore: 94
-  };
-
-  // Handle Metadata-Only Mode
+  // Handle Metadata-Only Mode: only an honest notice; the counts below are measured from that notice, not assumed.
   if (fullTextStatus === "METADATA_ONLY" || fullTextStatus === "UNAVAILABLE") {
+    const noticeContent = "Full text and abstract were unavailable for deep analysis. This brief is limited to available indexing metadata.";
+    const noticeMetrics = calculateBriefReadingMetrics(noticeContent, 0, 1);
     return {
       paperId,
       paperCanonicalId,
@@ -214,22 +213,22 @@ export async function generateGroundedResearchBriefAsync(paper: {
       fullTextStatus: "METADATA_ONLY",
       summaryMode: "METADATA_ONLY",
       noticeMessage: "Full text and abstract were unavailable for deep analysis.",
-      readingMetrics: defaultMetrics,
-      qualityScore: defaultQuality,
-      readingTimeMinutes: 1,
-      wordCount: 120,
+      readingMetrics: noticeMetrics,
+      qualityScore: null,
+      readingTimeMinutes: noticeMetrics.estimatedReadingMinutes,
+      wordCount: noticeMetrics.wordCount,
       sections: [
         {
           sectionId: "sec_notice",
           title: "01 · Limited Information Available",
-          content: "Full text and abstract were unavailable for deep analysis. This brief is limited to available indexing metadata.",
+          content: noticeContent,
           claims: []
         }
       ],
       allClaims: [],
       figures: [],
       keyNumbers: [],
-      takeaways: ["Indexing metadata available only."],
+      takeaways: [],
       rejectedClaimCount: 0
     };
   }
@@ -251,7 +250,7 @@ export async function generateGroundedResearchBriefAsync(paper: {
         value: q.value,
         label: q.metric || `Result #${idx + 1}`,
         context: q.context || q.improvement || "Empirical quantitative result from paper.",
-        verified: true
+        verified: false
       });
     });
   }
@@ -265,8 +264,13 @@ export async function generateGroundedResearchBriefAsync(paper: {
     const claim1 = absChunk ? verifyClaimSemanticSupport(paperId, claim1Text, absChunk.chunkId, doc.quality.extractionConfidence) : null;
     const validClaims = claim1 ? [claim1] : [];
 
-    const briefText = `${intel.tldr} ${intel.researchProblem} ${intel.methodology.overview}`;
-    const metrics = calculateBriefReadingMetrics(briefText, figures.length, 4);
+    const abstractSections = nonEmptySections([
+      { sectionId: "sec_30sec", title: "01 · The Paper in 30 Seconds", content: intel.tldr, claims: validClaims },
+      { sectionId: "sec_problem", title: "02 · Background (from the abstract)", content: intel.researchProblem, claims: [] },
+      { sectionId: "sec_method", title: "03 · Method (from the abstract)", content: intel.methodology.overview, claims: [] },
+      { sectionId: "sec_evidence", title: "04 · Findings (from the abstract)", content: intel.keyFindings[0] || "", claims: [] }
+    ]);
+    const metrics = calculateBriefReadingMetrics(abstractSections.map(sec => sec.content).join(" "), figures.length, abstractSections.length);
 
     return {
       paperId,
@@ -275,37 +279,12 @@ export async function generateGroundedResearchBriefAsync(paper: {
       authors,
       fullTextStatus: "ABSTRACT_ONLY",
       summaryMode: "ABSTRACT_ONLY",
-      noticeMessage: "Full text was not available, so this brief is synthesized from the manuscript abstract.",
+      noticeMessage: "Full text was not available, so this brief is limited to the abstract.",
       readingMetrics: metrics,
-      qualityScore: defaultQuality,
+      qualityScore: null,
       readingTimeMinutes: metrics.estimatedReadingMinutes,
       wordCount: metrics.wordCount,
-      sections: [
-        {
-          sectionId: "sec_30sec",
-          title: "01 · The Paper in 30 Seconds",
-          content: intel.tldr,
-          claims: validClaims
-        },
-        {
-          sectionId: "sec_problem",
-          title: "02 · The Problem",
-          content: intel.researchProblem,
-          claims: []
-        },
-        {
-          sectionId: "sec_method",
-          title: "03 · What the Researchers Did",
-          content: intel.methodology.overview,
-          claims: []
-        },
-        {
-          sectionId: "sec_evidence",
-          title: "04 · The Stated Contribution",
-          content: intel.keyFindings[0] || intel.whyItMatters,
-          claims: []
-        }
-      ],
+      sections: abstractSections,
       allClaims: validClaims,
       figures: [],
       keyNumbers: keyNumbers.slice(0, 2),
@@ -314,7 +293,7 @@ export async function generateGroundedResearchBriefAsync(paper: {
     };
   }
 
-  // FULL_TEXT Mode: 9-Section Evidence-Gated 2-3 Minute Research Brief
+  // FULL_TEXT Mode: sections are the paper's own text, selected by rules on this device. Empty sections are omitted, never filled.
   const allClaims: GroundedClaim[] = [];
   let rejectedClaimCount = 0;
 
@@ -323,72 +302,39 @@ export async function generateGroundedResearchBriefAsync(paper: {
   const resultChunk = chunks.find(c => c.section === "RESULTS" || c.section === "TABLE") || chunks[0];
   const limChunk = chunks.find(c => c.section === "LIMITATIONS");
 
-  // Section 01 · The Paper in 30 Seconds (~100 words hook)
-  const sec1Text = intel.tldr;
-  const claim1 = verifyClaimSemanticSupport(paperId, sec1Text, introChunk.chunkId, doc.quality.extractionConfidence);
-  if (claim1) allClaims.push(claim1); else rejectedClaimCount++;
+  const quantLines = intel.quantitativeResults.map(r => `• ${r.metric}: ${r.value}${r.baselineValue ? ` (compared to ${r.baselineValue})` : ""}`);
+  const resultsText = [intel.keyFindings.join("\n\n"), quantLines.length > 0 ? "Numbers found in the text:\n" + quantLines.join("\n") : ""].filter(Boolean).join("\n\n");
+  const techniques = (intel.methodology.techniques || []).join(", ");
+  const methodDetail = [intel.methodology.overview, techniques ? `Keywords: ${techniques}.` : ""].filter(Boolean).join("\n\n");
+  const limitationsText = (intel.limitations.authorStated && intel.limitations.authorStated.length > 0)
+    ? `Limitations stated in the paper:\n${intel.limitations.authorStated.map(l => `• ${l}`).join("\n")}`
+    : "";
 
-  // Section 02 · The Problem
-  const sec2Text = intel.researchProblem;
-  const claim2 = verifyClaimSemanticSupport(paperId, sec2Text, introChunk.chunkId, doc.quality.extractionConfidence);
-  if (claim2) allClaims.push(claim2); else rejectedClaimCount++;
-
-  // Section 03 · What the Researchers Did
-  const sec3Text = intel.methodology.overview;
-  const claim3 = verifyClaimSemanticSupport(paperId, sec3Text, methodChunk.chunkId, doc.quality.extractionConfidence);
-  if (claim3) allClaims.push(claim3); else rejectedClaimCount++;
-
-  // Section 04 · How It Works
-  const sec4Text = `${intel.methodology.overview}\n\nTechnical Approach: ${intel.methodology.approach || `${paper.domain || "Domain"} architecture`}.\nKey Techniques: ${(intel.methodology.techniques || []).join(", ")}.`;
-  const claim4 = verifyClaimSemanticSupport(paperId, sec4Text, methodChunk.chunkId, doc.quality.extractionConfidence);
-  if (claim4) allClaims.push(claim4); else rejectedClaimCount++;
-
-  // Section 05 · The Evidence & Results
-  const sec5Text = `${intel.keyFindings.join("\n\n")}${intel.quantitativeResults.length > 0 ? "\n\nKey Quantitative Findings:\n" + intel.quantitativeResults.map(r => `• ${r.metric}: ${r.value}${r.baselineValue ? ` (compared to ${r.baselineValue})` : ""}${r.improvement ? ` — ${r.improvement}` : ""}`).join("\n") : ""}`;
-  const claim5 = verifyClaimSemanticSupport(paperId, sec5Text, resultChunk.chunkId, doc.quality.extractionConfidence);
-  if (claim5) allClaims.push(claim5); else rejectedClaimCount++;
-
-  // Section 07 · Why This Matters
-  const sec7Text = `${intel.whyItMatters}\n\n${(intel.practicalImplications || []).map(p => `• ${p}`).join("\n")}`;
-  const claim7 = verifyClaimSemanticSupport(paperId, sec7Text, introChunk.chunkId, doc.quality.extractionConfidence);
-  if (claim7) allClaims.push(claim7); else rejectedClaimCount++;
-
-  // Section 08 · Limitations
-  const sec8Text = (intel.limitations.authorStated && intel.limitations.authorStated.length > 0)
-    ? `Author-Stated Limitations:\n${intel.limitations.authorStated.map(l => `• ${l}`).join("\n")}`
-    : `Analytical Cautions:\n${(intel.limitations.analyticalCautions || []).map(c => `• ${c}`).join("\n")}`;
-  const claim8 = verifyClaimSemanticSupport(paperId, sec8Text, (limChunk || resultChunk).chunkId, doc.quality.extractionConfidence);
-  if (claim8) allClaims.push(claim8); else rejectedClaimCount++;
-
-  // Section 09 · What to Remember
-  const takeaways = intel.keyContributions.length > 0
-    ? intel.keyContributions
-    : intel.keyFindings.slice(0, 5);
-
-  const sections: GroundedSection[] = [
-    { sectionId: "sec_30sec", title: "01 · The Paper in 30 Seconds", content: sec1Text, claims: claim1 ? [claim1] : [] },
-    { sectionId: "sec_problem", title: "02 · The Problem", content: sec2Text, claims: claim2 ? [claim2] : [] },
-    { sectionId: "sec_did", title: "03 · What the Researchers Did", content: sec3Text, claims: claim3 ? [claim3] : [] },
-    { sectionId: "sec_works", title: "04 · How It Works", content: sec4Text, claims: claim4 ? [claim4] : [] },
-    { sectionId: "sec_evidence", title: "05 · The Evidence & Results", content: sec5Text, claims: claim5 ? [claim5] : [] },
-    { sectionId: "sec_why", title: "07 · Why This Matters", content: sec7Text, claims: claim7 ? [claim7] : [] },
-    { sectionId: "sec_lim", title: "08 · Limitations", content: sec8Text, claims: claim8 ? [claim8] : [] }
+  const candidates: Array<{ id: string; title: string; text: string; chunk: { chunkId: string } | undefined }> = [
+    { id: "sec_30sec", title: "01 · The Paper in 30 Seconds", text: intel.tldr, chunk: introChunk },
+    { id: "sec_problem", title: "02 · The Problem", text: intel.researchProblem, chunk: introChunk },
+    { id: "sec_did", title: "03 · What the Researchers Did", text: intel.methodology.overview, chunk: methodChunk },
+    { id: "sec_works", title: "04 · Method Details", text: methodDetail, chunk: methodChunk },
+    { id: "sec_evidence", title: "05 · Results (from the text)", text: resultsText, chunk: resultChunk },
+    { id: "sec_lim", title: "08 · Limitations", text: limitationsText, chunk: limChunk || resultChunk }
   ];
 
-  const fullBriefText = sections.map(s => s.content).join(" ");
-  const metrics = calculateBriefReadingMetrics(fullBriefText, figures.length, 9);
+  const sections: GroundedSection[] = [];
+  const seenText = new Set<string>();
+  for (const c of candidates) {
+    const text = (c.text || "").trim();
+    if (!text || seenText.has(text) || !c.chunk) continue; // nothing in the paper for this section: omit it
+    seenText.add(text);
+    const claim = verifyClaimSemanticSupport(paperId, text, c.chunk.chunkId, doc.quality.extractionConfidence);
+    if (claim) allClaims.push(claim); else rejectedClaimCount++;
+    sections.push({ sectionId: c.id, title: c.title, content: text, claims: claim ? [claim] : [] });
+  }
 
-  const qualityScore: ResearchBriefQualityScore = {
-    evidenceGrounding: 100,
-    figureAuthenticity: figures.every(f => f.originalFigure) ? 100 : 85,
-    numericVerification: 100,
-    sectionCompleteness: 98,
-    semanticDiversity: 94,
-    readability: 92,
-    informationDensity: 95,
-    sourceCoverage: 98,
-    totalQualityScore: 96
-  };
+  const takeaways = intel.keyContributions.length > 0 ? intel.keyContributions : intel.keyFindings.slice(0, 5);
+
+  const fullBriefText = sections.map(s => s.content).join(" ");
+  const metrics = calculateBriefReadingMetrics(fullBriefText, figures.length, sections.length);
+
 
   return {
     paperId,
@@ -398,7 +344,7 @@ export async function generateGroundedResearchBriefAsync(paper: {
     fullTextStatus: "FULL_TEXT_PDF",
     summaryMode: "FULL_TEXT",
     readingMetrics: metrics,
-    qualityScore,
+    qualityScore: null,
     readingTimeMinutes: metrics.estimatedReadingMinutes,
     wordCount: metrics.wordCount,
     sections,
@@ -417,17 +363,14 @@ export async function generateGroundedResearchBriefAsync(paper: {
 export function generateEducationalStack(paper: Paper) {
   const intel = generatePaperIntelligence(paper);
   return {
+    // Only sections the paper's own text supports. A missing limitation is simply absent: "none reported" would be a claim.
     sections: [
       { title: "What is this paper about?", content: intel.tldr },
-      { title: "Why was it written?", content: intel.researchProblem },
-      { title: "How did they do it?", content: intel.methodology.overview },
-      { title: "What did they find?", content: intel.keyFindings.join("\n\n") },
-      { title: "Why should I care?", content: intel.whyItMatters },
-      {
-        title: "Limitations",
-        content: intel.limitations.authorStated?.[0] || intel.limitations.analyticalCautions?.[0] || "No critical limitations reported."
-      }
-    ]
+      { title: "Background", content: intel.researchProblem },
+      { title: "Method", content: intel.methodology.overview },
+      { title: "Findings", content: intel.keyFindings.join("\n\n") },
+      { title: "Limitations stated in the paper", content: intel.limitations.authorStated?.[0] || "" }
+    ].filter((sec) => sec.content.trim().length > 0 && sec.content.trim() !== intel.tldr.trim() || sec.title === "What is this paper about?")
   };
 }
 
@@ -457,7 +400,7 @@ export function buildStructuredSummaryFromPaper(paper: Paper): Structured18PartS
       ...(intel.limitations.authorStated || []),
       ...(intel.limitations.analyticalCautions || [])
     ],
-    futureDirections: intel.futureWork || [`Advancing ${paper.domain || "research"} evaluation across broader workloads.`],
+    futureDirections: intel.futureWork || [],
     quickBrief: {
       what: intel.tldr,
       why: intel.motivation || intel.researchProblem,
@@ -480,10 +423,10 @@ export function buildPaperFromUpload(
       summary: titleOrObj.summary,
       fullExplanation: titleOrObj.summary,
       authorId: "user-author",
-      authorName: titleOrObj.authorName || "User Upload",
+      authorName: titleOrObj.authorName || "", // unknown stays unknown: never a made-up author
       authorRole: "Researcher",
-      originalLink: titleOrObj.pdfUri || "https://shords.app",
-      tags: titleOrObj.tags || ["uploaded"],
+      originalLink: titleOrObj.pdfUri || "",
+      tags: titleOrObj.tags || [],
       readingTime: "3 min read",
       savedCount: 1,
       createdAt: new Date(),
@@ -498,10 +441,10 @@ export function buildPaperFromUpload(
     summary: summaryParam || titleOrObj,
     fullExplanation: summaryParam || titleOrObj,
     authorId: "user-author",
-    authorName: "User Upload",
+    authorName: "", // the uploader is not necessarily the author
     authorRole: "Researcher",
-    originalLink: "https://shords.app",
-    tags: ["uploaded"],
+    originalLink: "",
+    tags: [],
     readingTime: "3 min read",
     savedCount: 1,
     createdAt: new Date()
