@@ -185,11 +185,14 @@ test("GAP: a changed coverage notice / paper header does not leave a stale heade
 // Prompt/profile/validator text is identified ONLY by hand-bumped version strings. This guard turns "forgot to bump" into a
 // failing test: the fingerprint below is pinned to the versions. Change a prompt -> this fails -> bump the version AND update
 // the fingerprint in the same commit (which also changes every cache key, so no stale answer survives).
-test("guard: prompt text, analysis profiles and cache schema are pinned to their version strings", () => {
+// The fingerprint hashes the SOURCE TEXT of copilotService.js. A Windows checkout (git core.autocrlf) stores that file with CRLF line
+// endings, which would change the hash without changing a single prompt character, so line endings are normalised before hashing.
+const normalizeLineEndings = (text) => text.replace(/\r\n/g, "\n");
+
+function promptFingerprint(copilotSrc) {
   const intel = require("../../llm/intelligence");
   const client = require("../../llm/anthropicClient");
-  const copilotSrc = require("fs").readFileSync(require.resolve("../../llm/copilotService"), "utf8");
-  const sysCopilot = /const SYSTEM_PROMPT = \[([\s\S]*?)\]\.join\("\\n"\);/.exec(copilotSrc);
+  const sysCopilot = /const SYSTEM_PROMPT = \[([\s\S]*?)\]\.join\("\\n"\);/.exec(normalizeLineEndings(copilotSrc));
   assert.ok(sysCopilot, "copilot SYSTEM_PROMPT block not found: update this guard together with the refactor");
   const material = JSON.stringify({
     cacheSchema: CACHE_SCHEMA_VERSION,
@@ -200,8 +203,21 @@ test("guard: prompt text, analysis profiles and cache schema are pinned to their
     intelSystem: intel.SYSTEM_PROMPT,
     profiles: client.ANALYSIS_PROFILES
   });
-  const fp = crypto.createHash("sha256").update(material).digest("hex").slice(0, 16);
+  return crypto.createHash("sha256").update(material).digest("hex").slice(0, 16);
+}
+const readCopilotSource = () => require("fs").readFileSync(require.resolve("../../llm/copilotService"), "utf8");
+
+test("guard: prompt text, analysis profiles and cache schema are pinned to their version strings", () => {
+  const fp = promptFingerprint(readCopilotSource());
   assert.equal(fp, PINNED_FINGERPRINT, `Prompt/profile/schema text changed (fingerprint ${fp}). Bump PROMPT_VERSION / INTEL_PROMPT_VERSION (so cache keys change) and then update PINNED_FINGERPRINT.`);
+});
+
+test("guard: the fingerprint is the same for LF and CRLF checkouts (Windows and Linux)", () => {
+  const lf = normalizeLineEndings(readCopilotSource());
+  const crlf = lf.replace(/\n/g, "\r\n");
+  assert.ok(crlf.includes("\r\n") && !lf.includes("\r"), "the test input must really contain both line-ending styles");
+  assert.equal(promptFingerprint(crlf), promptFingerprint(lf));
+  assert.equal(promptFingerprint(lf), PINNED_FINGERPRINT);
 });
 
 const PINNED_FINGERPRINT = "31bf630b783e5b29";
