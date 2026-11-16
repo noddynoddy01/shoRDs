@@ -2,6 +2,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { ActivityIndicator, Pressable, PressableStateCallbackType, StyleSheet, Text } from "react-native";
 import { radius, tokens } from "@/constants/theme";
 import { useTheme } from "@/context/ThemeContext";
+import { webTransition } from "./motion";
 
 export type IconName = keyof typeof Ionicons.glyphMap;
 /** react-native-web adds hover and focus state to Pressable; the native types do not know about them, so both are optional here. */
@@ -21,10 +22,12 @@ export function Button({ label, onPress, kind = "primary", loading, disabled, ic
       onPress={off ? undefined : onPress}
       accessibilityRole="button" accessibilityLabel={label} accessibilityHint={accessibilityHint} accessibilityState={{ disabled: off, busy: !!loading }} aria-disabled={off} aria-busy={!!loading}
       style={({ pressed, hovered, focused }: PState) => [
-        s.btn, small && s.small, fullWidth && { alignSelf: "stretch" },
+        s.btn, webTransition, small && s.small, fullWidth && { alignSelf: "stretch" },
         { backgroundColor: bg, borderColor: kind === "secondary" ? colors.border : bg, opacity: off ? 0.5 : pressed ? 0.88 : 1 },
         kind === "secondary" && hovered && !off && { backgroundColor: colors.surface },
         kind === "primary" && hovered && !off && { opacity: 0.94 },
+        pressed && !off && { transform: [{ scale: 0.97 }] },
+        hovered && !off && kind !== "ghost" && { transform: [{ translateY: -1 }] },
         focused && { borderColor: tokens.focusRing, borderWidth: 2 }
       ]}
     >

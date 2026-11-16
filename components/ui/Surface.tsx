@@ -5,7 +5,7 @@ import { radius, spacing, tokens } from "@/constants/theme";
 import { useTheme } from "@/context/ThemeContext";
 import { initials } from "@/services/social/format";
 import type { IconName, PState } from "./Button";
-import { usePulse } from "./motion";
+import { usePulse, webTransition } from "./motion";
 
 /** A bordered content surface. Flat (no gradient, no blur); with `onPress` it is a button with hover and focus states. */
 export function Card({ children, style, onPress, accessibilityLabel, padded = true }: { children: ReactNode; style?: ViewStyle; onPress?: () => void; accessibilityLabel?: string; padded?: boolean }) {
@@ -14,7 +14,7 @@ export function Card({ children, style, onPress, accessibilityLabel, padded = tr
   if (onPress) {
     return (
       <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={accessibilityLabel}
-        style={({ pressed, hovered, focused }: PState) => [...base, hovered && { borderColor: colors.primary + "66" }, pressed && { opacity: 0.9 }, focused && { borderColor: tokens.focusRing, borderWidth: 2 }]}>
+        style={({ pressed, hovered, focused }: PState) => [...base, webTransition, hovered && { borderColor: colors.primary + "66", transform: [{ translateY: -2 }] }, pressed && { opacity: 0.9, transform: [{ scale: 0.985 }] }, focused && { borderColor: tokens.focusRing, borderWidth: 2 }]}>
         {children}
       </Pressable>
     );
@@ -68,7 +68,7 @@ export function EmptyState({ icon = "file-tray-outline", title, text, action }: 
       </View>
       <Text style={{ color: colors.text, fontSize: tokens.fontSize.lg * k, fontWeight: tokens.weight.bold, textAlign: "center" }}>{title}</Text>
       {text ? <Text style={{ color: colors.muted, fontSize: tokens.fontSize.sm * k, lineHeight: 20 * k, textAlign: "center", maxWidth: 420 }}>{text}</Text> : null}
-      {action}
+      {action ? <View style={{ alignSelf: "center", marginTop: spacing.xs }}>{action}</View> : null}
     </View>
   );
 }

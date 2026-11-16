@@ -5,7 +5,7 @@ import { Linking, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimens
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Logo } from "@/components/Logo";
 import { PersonaPicker } from "@/components/social/PersonaPicker";
-import { Button, Card, Dropdown, FadeIn } from "@/components/ui";
+import { Button, Card, Dropdown, FadeIn, Float } from "@/components/ui";
 import type { IconName } from "@/components/ui";
 import { radius, spacing, tokens } from "@/constants/theme";
 import { site } from "@/constants/site";
@@ -99,8 +99,8 @@ export default function LandingScreen() {
               </View>
             </FadeIn>
             {wide ? (
-              <FadeIn delay={120} style={{ flex: 0.8 }}>
-                <Card style={{ gap: spacing.md, padding: spacing.lg }} accessibilityLabel="Illustration of a research card">
+              <FadeIn delay={260} distance={18} style={{ flex: 0.8 }}>
+                <Float><Card style={{ gap: spacing.md, padding: spacing.lg }} accessibilityLabel="Illustration of a research card">
                   <Text style={{ color: colors.subdued, fontSize: tokens.fontSize.xs, letterSpacing: 0.8, textTransform: "uppercase" }}>Illustration: how a paper becomes a card</Text>
                   {(["Abstract in plain language", "Key points to remember", "Evidence linked to the paper"] as const).map((t, i) => (
                     <View key={t} style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
@@ -111,7 +111,7 @@ export default function LandingScreen() {
                       </View>
                     </View>
                   ))}
-                </Card>
+                </Card></Float>
               </FadeIn>
             ) : null}
           </View>
@@ -122,12 +122,12 @@ export default function LandingScreen() {
           <View style={s.inner}>
             <Heading sub="Three things shoRDs does, each useful on its own.">What shoRDs is for</Heading>
             <View style={[s.grid, { flexDirection: wide ? "row" : "column" }]}>
-              {PILLARS.map((p) => (
-                <Card key={p.title} style={{ flex: 1, gap: spacing.sm, padding: spacing.lg }}>
+              {PILLARS.map((p, i) => (
+                <FadeIn key={p.title} delay={120 * i} distance={14} style={{ flex: 1 }}><Card style={{ flex: 1, gap: spacing.sm, padding: spacing.lg }}>
                   <View style={[s.icon, { backgroundColor: colors.primary + "18" }]}><Ionicons name={p.icon} size={24} color={colors.primary} /></View>
                   <Text accessibilityRole="header" style={{ color: colors.text, fontSize: tokens.fontSize.lg * k, fontWeight: tokens.weight.bold }}>{p.title}</Text>
                   <Text style={{ color: colors.muted, fontSize: tokens.fontSize.md * k, lineHeight: 23 * k }}>{p.body}</Text>
-                </Card>
+                </Card></FadeIn>
               ))}
             </View>
           </View>
@@ -139,11 +139,11 @@ export default function LandingScreen() {
             <Heading>How it works</Heading>
             <View style={[s.grid, { flexDirection: wide ? "row" : "column" }]}>
               {STEPS.map((st, i) => (
-                <View key={st.title} style={{ flex: 1, gap: 8 }}>
+                <FadeIn key={st.title} delay={100 * i} distance={12} style={{ flex: 1, gap: 8 }}>
                   <Text style={{ color: colors.accent, fontSize: 28 * k, fontWeight: tokens.weight.heavy }}>{String(i + 1).padStart(2, "0")}</Text>
                   <Text accessibilityRole="header" style={{ color: colors.text, fontSize: tokens.fontSize.lg * k, fontWeight: tokens.weight.bold }}>{st.title}</Text>
                   <Text style={{ color: colors.muted, fontSize: tokens.fontSize.sm * k, lineHeight: 21 * k }}>{st.body}</Text>
-                </View>
+                </FadeIn>
               ))}
             </View>
           </View>

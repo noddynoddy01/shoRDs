@@ -8,7 +8,8 @@ import { ProgressSteps } from "@/components/social/ProgressSteps";
 import { useAuth } from "@/context/AuthContext";
 import { useProfile } from "@/context/ProfileContext";
 import { useTheme } from "@/context/ThemeContext";
-import { tokens } from "@/constants/theme";
+import { spacing, tokens } from "@/constants/theme";
+import { FadeIn } from "@/components/ui";
 import { postOnboardingRoute } from "@/services/social/dashboard";
 import { SelectablePersona } from "@/services/social/intent";
 import { intent } from "@/services/social/intentStore";
@@ -87,8 +88,11 @@ export default function OnboardingScreen() {
     <Page title="Set up your profile" subtitle={`Step ${stage + 1} of ${STAGES.length}: ${STAGES[stage]}`} onBack={stage > 0 ? () => setStage(stage - 1) : skip} back={stage > 0}>
       <ProgressSteps total={STAGES.length} current={stage} />
       {problem ? <Banner text={problem} /> : null}
+      <FadeIn key={stage} distance={14} style={{ gap: spacing.md }}>
       {stage === 0 && (
         <>
+          <Text accessibilityRole="header" style={{ color: colors.text, fontSize: tokens.fontSize.xxl * k, fontWeight: tokens.weight.heavy, letterSpacing: -0.4 }}>Welcome to shoRDs</Text>
+          <Muted>Let's set up your space. It takes about two minutes, you can stop at any step, and everything is saved as you go.</Muted>
           <Muted>shoRDs keeps your profile on its own servers. Your sign-in stays with Firebase. Your email address is never shown to other people.</Muted>
           <ProfileFields draft={draft} set={set} fields={["displayName"]} />
           <Text accessibilityRole="header" style={{ color: colors.text, fontSize: tokens.fontSize.lg * k, fontWeight: tokens.weight.bold }}>How would you like to use shoRDs?</Text>
@@ -109,6 +113,7 @@ export default function OnboardingScreen() {
           {mentorNext ? <Banner kind="info" text="Next you will complete your mentor application. You are not a verified mentor, and are not listed as one, until an administrator approves it." /> : null}
         </Card>
       )}
+      </FadeIn>
       <Row style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
         <Btn kind="ghost" label="Skip for now" onPress={skip} />
         {stage < STAGES.length - 1 ? <Btn label="Save and continue" onPress={() => void next()} loading={busy} iconRight="arrow-forward" /> : <Btn label={mentorNext ? "Finish and continue to application" : "Finish"} onPress={() => void finish()} loading={busy} icon="checkmark" />}

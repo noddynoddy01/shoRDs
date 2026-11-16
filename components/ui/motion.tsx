@@ -47,3 +47,38 @@ export function usePulse(): Animated.Value {
   }, [reduced, v]);
   return v;
 }
+
+/** A slow, gentle vertical drift for hero illustrations. Static when reduced. */
+export function Float({ children, amplitude = 6, period = 3400, style }: { children: ReactNode; amplitude?: number; period?: number; style?: ViewStyle }) {
+  const reduced = useReducedMotion();
+  const v = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (reduced) { v.setValue(0); return; }
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(v, { toValue: 1, duration: period, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(v, { toValue: 0, duration: period, easing: Easing.inOut(Easing.sin), useNativeDriver: true })
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [reduced, period, v]);
+  return <Animated.View style={[style, { transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [0, -amplitude] }) }] }]}>{children}</Animated.View>;
+}
+
+/** A bar that eases to `fraction` (0..1) of its track whenever the value changes; jumps straight there when reduced. */
+export function GrowBar({ fraction, color, track, height = 4, radius = 2 }: { fraction: number; color: string; track: string; height?: number; radius?: number }) {
+  const reduced = useReducedMotion();
+  const f = Math.max(0, Math.min(1, fraction));
+  const v = useRef(new Animated.Value(reduced ? f : 0)).current;
+  useEffect(() => {
+    if (reduced) { v.setValue(f); return; }
+    Animated.timing(v, { toValue: f, duration: 420, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
+  }, [f, reduced, v]);
+  return (
+    <Animated.View style={{ flex: 1, height, borderRadius: radius, backgroundColor: track, overflow: "hidden" }}>
+      <Animated.View style={{ height, borderRadius: radius, backgroundColor: color, width: v.interpolate({ inputRange: [0, 1], outputRange: ["0%", "100%"] }) }} />
+    </Animated.View>
+  );
+}
+
+/** Style fragment that makes hover, press and focus changes ease on the web (ignored on native). */
+export const webTransition = (Platform.OS === "web" ? { transitionProperty: "transform, border-color, background-color, opacity", transitionDuration: "160ms", transitionTimingFunction: "ease-out" } : {}) as unknown as ViewStyle;

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { Platform, useWindowDimensions } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { colors as defaultColors } from "../constants/theme";
 
@@ -92,6 +93,12 @@ export const fontScaleNames = {
 
 export type FontScaleType = keyof typeof fontScaleNames;
 
+/** Extra text scale for wide browser windows: 1 below 1024px, 1.06 from 1024px, 1.12 from 1440px. Always 1 on native. */
+export function webWidthBoost(width: number, platform: string = Platform.OS): number {
+  if (platform !== "web") return 1;
+  return width >= 1440 ? 1.12 : width >= 1024 ? 1.06 : 1;
+}
+
 type ThemeContextType = {
   theme: ThemeType;
   colors: typeof themes["dark"];
@@ -133,7 +140,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   };
 
   const colors = themes[theme];
-  const fontSizeScale = fontScaleNames[fontScaleType];
+  // On wide web windows the fixed pixel sizes read small, so the scale grows gently with the window (phones and tablets are unchanged).
+  const { width: winWidth } = useWindowDimensions();
+  const fontSizeScale = fontScaleNames[fontScaleType] * webWidthBoost(winWidth);
 
   return (
     <ThemeContext.Provider

@@ -9,6 +9,7 @@ import { AuthProvider, useAuth } from "../context/AuthContext";
 import { ProjectProvider } from "../context/ProjectContext";
 import { ProfileProvider, useProfile } from "../context/ProfileContext";
 import { AppRail } from "../components/nav/AppRail";
+import { SplashIntro } from "../components/SplashIntro";
 import { ToastProvider } from "../components/ui";
 import { decideRoute, routerBehindUrl } from "../services/auth/routeGuard";
 import { showsChrome } from "../services/nav/items";
@@ -57,6 +58,7 @@ function AuthGate() {
           <ActivityIndicator color={colors.accent} />
         </View>
       )}
+      <SplashIntro ready={decision.action === "ALLOW"} />
     </>
   );
 }

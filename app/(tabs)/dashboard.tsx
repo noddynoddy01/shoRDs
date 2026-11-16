@@ -134,16 +134,16 @@ export default function DashboardScreen() {
 
           <View style={{ gap: spacing.sm }}>
             <SectionHeader title={model.kind === "STUDENT" ? "Your learning" : model.kind === "RESEARCHER" ? "Your research" : model.kind === "PROFESSOR" ? "Your academic community" : model.kind === "MENTOR" ? "Your toolkit" : "Explore"} />
-            <Columns>
+            <FadeIn delay={80} distance={12}><Columns>
               <Quick icon="newspaper-outline" label="Research feed" hint="Short cards from recent papers" to="/(tabs)" />
               <Quick icon="compass-outline" label="Explore by topic" hint="Search and filter by domain" to="/(tabs)/explore" />
               <Quick icon="sparkles-outline" label="Research Copilot" hint="Questions about a paper" to="/research/copilot" />
-            </Columns>
-            <Columns>
+            </Columns></FadeIn>
+            <FadeIn delay={180} distance={12}><Columns>
               <Quick icon="people-outline" label={model.kind === "STUDENT" ? "Find a mentor" : "Mentor directory"} hint="Verified mentors only" to="/(tabs)/mentors" />
               <Quick icon="help-buoy-outline" label="shoRDs Assistant" hint="Help about using shoRDs" to="/assistant" />
               <Quick icon="cloud-upload-outline" label="Upload a paper" hint="Add a PDF to read" to="/(tabs)/upload" />
-            </Columns>
+            </Columns></FadeIn>
             {isAdmin ? <Columns><Quick icon="shield-checkmark-outline" label="Review mentor applications" hint="Administrator" to="/mentor/review" /></Columns> : null}
           </View>
 
