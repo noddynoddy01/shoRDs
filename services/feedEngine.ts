@@ -116,6 +116,11 @@ export function applyDiversityFilter(papers: Paper[], maxPerDomain: number = 4):
  * Advances cursors, fetches candidates, deduplicates, validates eligibility, excludes recently seen/dismissed,
  * applies ranking and taxonomy diversity, and logs full telemetry.
  */
+/** Whether the most recent discovery request reached the paper source ("ok") or failed (no network, timeout, rate limit, server error). Lets the screen say the right thing when the list is empty. */
+export type FeedFetchStatus = "unknown" | "ok" | "unavailable";
+let lastFeedFetchStatus: FeedFetchStatus = "unknown";
+export function getLastFeedFetchStatus(): FeedFetchStatus { return lastFeedFetchStatus; }
+
 export async function generateBackendFeedBatchAsync(
   domain?: string,
   isRefresh: boolean = false,
@@ -139,11 +144,14 @@ export async function generateBackendFeedBatchAsync(
     const page = await fetchOpenAlexPage({ query: topicQuery, page: currentOpenAlexPage, perPage: 50, sortBy: "recency" });
     if (page.status === "ok") {
       candidates = page.papers;
+      lastFeedFetchStatus = "ok";
       providerHealthService.recordSuccess("OpenAlex", Date.now() - startTime, candidates.length);
     } else {
+      lastFeedFetchStatus = "unavailable";
       providerHealthService.recordFailure("OpenAlex");
     }
   } catch (err) {
+    lastFeedFetchStatus = "unavailable";
     providerHealthService.recordFailure("OpenAlex");
   }
 

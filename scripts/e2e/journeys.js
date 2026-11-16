@@ -230,6 +230,15 @@ async function navTo(a, label) {
       await a.goto("/dashboard"); await a.settle(1500);
       await navTo(a, "Research");
       await a.settle(2500); await a.shot("R-feed");
+      {
+        // A topic chosen in the feed must show papers for that topic. The earlier code filtered by the paper's broad field name, matched nothing, and told people to "connect to internet".
+        const topic = a.page.getByText("Quantum Computing", { exact: true }).first();
+        if ((await topic.count()) && (await topic.isVisible().catch(() => false))) {
+          await topic.click(); await a.settle(3000); await a.shot("R-feed-topic");
+          const tt = await a.text();
+          check("R: choosing a topic in the feed shows its papers, not an offline message", !/Could not reach the paper source|No papers to show|Connect to internet/.test(tt) && /Sparse Attention|Fictional|Fixture/i.test(tt));
+        }
+      }
       await navTo(a, "Explore"); await a.settle(2500); await a.shot("R-explore");
       check("R: Explore opens from the navigation (rail or bottom bar)", /explore/.test(a.path()), a.path());
       await a.goto("/search"); await a.settle(1500); await a.shot("R-search-empty");

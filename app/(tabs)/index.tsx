@@ -24,6 +24,7 @@ import { Screen } from "@/components/Screen";
 import { colors as defaultColors, radius, spacing } from "@/constants/theme";
 import { useFeedMetrics } from "@/hooks/useFeedMetrics";
 import { getPapersAsync, fetchNextDiscoveryPageAsync } from "@/services/papersStore";
+import { getLastFeedFetchStatus } from "@/services/feedEngine";
 import { ExpressiveAudioEngine } from "@/services/audioService";
 import { Paper } from "@/types/models";
 import { useTheme } from "@/context/ThemeContext";
@@ -51,6 +52,7 @@ export default function HomeScreen() {
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
   const [userProfile, setUserProfile] = useState<{ name: string; email: string; role?: string } | null>(null);
   const [isMuted, setIsMuted] = useState(false);
+  const [emptyIsNetwork, setEmptyIsNetwork] = useState(false);
 
   // Multi-Selection Checkbox state in Feed
   const [selectedPaperIds, setSelectedPaperIds] = useState<string[]>([]);
@@ -71,11 +73,14 @@ export default function HomeScreen() {
     setIsLoadingFeed(true);
     try {
       const list = await getPapersAsync(filterDomain as any);
+      setEmptyIsNetwork(getLastFeedFetchStatus() === "unavailable");
+      setSelectedDesktopPaper(null);
       setPapers(list);
       if (list.length > 0) {
         setSelectedDesktopPaper(list[0]);
       }
     } catch {
+      setEmptyIsNetwork(true);
       setPapers([]);
     } finally {
       setIsLoadingFeed(false);
@@ -173,9 +178,12 @@ export default function HomeScreen() {
             </View>
           ) : papers.length === 0 ? (
             <View style={styles.centerBox}>
-              <Ionicons name="wifi-outline" size={36} color={colors.subdued} />
-              <Text style={styles.emptyTitle}>No Papers Found</Text>
-              <Text style={styles.emptySub}>Connect to internet to fetch live open-access research papers.</Text>
+              <Ionicons name={emptyIsNetwork ? "wifi-outline" : "search-outline"} size={36} color={colors.subdued} />
+              <Text style={styles.emptyTitle}>{emptyIsNetwork ? "Could not reach the paper source" : "No papers to show for this topic"}</Text>
+              <Text style={styles.emptySub}>{emptyIsNetwork ? "Your connection may be fine: the open-access paper service did not answer (it may be busy). Please try again in a moment." : "The paper source answered, but nothing with a readable abstract came back for this topic right now. Try Refresh feed or choose another topic."}</Text>
+              <Pressable onPress={() => { void loadInitialFeed(); }} accessibilityRole="button" style={{ marginTop: 14, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: colors.border }}>
+                <Text style={{ color: colors.text, fontWeight: "700" }}>Try again</Text>
+              </Pressable>
             </View>
           ) : (
             <FlatList
@@ -285,9 +293,12 @@ export default function HomeScreen() {
         </View>
       ) : papers.length === 0 ? (
         <View style={styles.centerBox}>
-          <Ionicons name="wifi-outline" size={36} color={colors.subdued} />
-          <Text style={styles.emptyTitle}>Offline Mode</Text>
-          <Text style={styles.emptySub}>Connect to internet to fetch live open-access research papers.</Text>
+          <Ionicons name={emptyIsNetwork ? "wifi-outline" : "search-outline"} size={36} color={colors.subdued} />
+          <Text style={styles.emptyTitle}>{emptyIsNetwork ? "Could not reach the paper source" : "No papers to show for this topic"}</Text>
+          <Text style={styles.emptySub}>{emptyIsNetwork ? "Your connection may be fine: the open-access paper service did not answer (it may be busy). Please try again in a moment." : "The paper source answered, but nothing with a readable abstract came back for this topic right now. Try Refresh feed or choose another topic."}</Text>
+          <Pressable onPress={() => { void loadInitialFeed(); }} accessibilityRole="button" style={{ marginTop: 14, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: colors.border }}>
+            <Text style={{ color: colors.text, fontWeight: "700" }}>Try again</Text>
+          </Pressable>
         </View>
       ) : (
         <FlatList

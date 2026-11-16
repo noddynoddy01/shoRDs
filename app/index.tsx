@@ -76,7 +76,7 @@ export default function LandingScreen() {
             </View>
           ) : null}
           <View style={{ flexDirection: "row", gap: narrow ? 2 : spacing.sm, alignItems: "center" }}>
-            <ThemeButton />
+            {!narrow ? <ThemeButton /> : null}
             <Button small kind="ghost" label="Sign In" onPress={() => router.push("/auth" as never)} />
             <Button small label="Get Started" onPress={() => goto("path")} />
             {!wide ? <Dropdown accessibilityLabel="Menu" trigger={<View style={s.menuBtn}><Ionicons name="menu" size={22} color={colors.text} /></View>} items={navLinks.map((n) => ({ label: n.label, onPress: () => goto(n.key) }))} /> : null}
@@ -232,6 +232,7 @@ export default function LandingScreen() {
                 ) : null}
               </View>
             </View>
+            {narrow ? <ThemeButton label="Appearance: theme and text size" /> : null}
             <Text style={{ color: colors.subdued, fontSize: tokens.fontSize.xs * k }}>© {new Date().getFullYear()} shoRDs</Text>
           </View>
         </View>

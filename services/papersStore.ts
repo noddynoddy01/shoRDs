@@ -127,31 +127,43 @@ export async function fetchLivePapersFromOpenAlexAsync(query: string = "artifici
   return fetchLiveFeedCandidatesAsync(query, true);
 }
 
+/** Feeds already fetched, per topic. A topic is fetched with its own query: the papers it returns are that topic's feed as they are (their own `domain`
+ *  field is OpenAlex's broad field name, such as "Physics and Astronomy", and never equals a topic label like "Quantum Computing", so filtering by it emptied the feed). */
+const topicFeeds: Record<string, Paper[]> = {};
+const topicKey = (domain?: Domain | string): string => (domain && String(domain) !== "All Discoveries" ? String(domain) : "");
+
 export async function getPapersAsync(domain?: Domain | string): Promise<Paper[]> {
-  if (cachedPapersList.length === 0) {
-    const liveItems = await fetchLiveFeedCandidatesAsync(domain ? String(domain) : undefined, false);
-    // If the live sources return nothing, the feed is empty and the screen says so. It is not padded with invented papers.
-    cachedPapersList = deduplicatePaperList([...liveItems]);
+  const key = topicKey(domain);
+  if (key === "") {
+    if (cachedPapersList.length === 0) {
+      const liveItems = await fetchLiveFeedCandidatesAsync(undefined, false);
+      // If the live sources return nothing, the feed is empty and the screen says so. It is not padded with invented papers.
+      cachedPapersList = deduplicatePaperList([...liveItems]);
+    }
+    return cachedPapersList;
   }
-
-  if (domain && String(domain) !== "All Discoveries") {
-    return cachedPapersList.filter(p => p.domain === domain || (p.tags && p.tags.includes(String(domain).toLowerCase())));
+  if (!topicFeeds[key] || topicFeeds[key].length === 0) {
+    const liveItems = await fetchLiveFeedCandidatesAsync(key, false);
+    topicFeeds[key] = deduplicatePaperList([...liveItems]);
+    // Every paper fetched stays findable by id (opening, saving) whichever topic it came from.
+    cachedPapersList = deduplicatePaperList([...cachedPapersList, ...topicFeeds[key]]);
   }
-
-  return cachedPapersList;
+  return topicFeeds[key];
 }
 
 export async function fetchNextDiscoveryPageAsync(domain?: Domain | string): Promise<Paper[]> {
-  const freshItems = await fetchLiveFeedCandidatesAsync(domain ? String(domain) : undefined, true);
+  const key = topicKey(domain);
+  const freshItems = await fetchLiveFeedCandidatesAsync(key || undefined, true);
   if (freshItems.length > 0) {
-    const combined = deduplicatePaperList([...freshItems, ...cachedPapersList]);
-    cachedPapersList = combined;
-    return combined;
+    cachedPapersList = deduplicatePaperList([...freshItems, ...cachedPapersList]);
+    if (key !== "") topicFeeds[key] = deduplicatePaperList([...freshItems, ...(topicFeeds[key] || [])]);
   }
-  return cachedPapersList;
+  return key === "" ? cachedPapersList : topicFeeds[key] || [];
 }
 
 export async function getPaperById(id: string): Promise<Paper | undefined> {
+  const cached = cachedPapersList.find(p => p.id === id);
+  if (cached) { markPaperAsSeenAsync(cached); return cached; }
   const allPapers = await getPapersAsync();
   const found = allPapers.find(p => p.id === id);
   if (found) {
