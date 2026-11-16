@@ -1,11 +1,10 @@
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
 import { useState, useEffect, useRef } from "react";
 import {
   Alert,
   FlatList,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -20,21 +19,10 @@ import { cacheDynamicPaper } from "@/services/papersStore";
 import { useTheme } from "@/context/ThemeContext";
 import { ComparePapersModal } from "@/components/ComparePapersModal";
 
-const PUBLICATION_SOURCES = [
-  { id: "all", label: "All Sources" },
-  { id: "openalex", label: "OpenAlex" },
-  { id: "arxiv", label: "arXiv" },
-  { id: "crossref", label: "Crossref" },
-  { id: "europepmc", label: "Europe PMC" },
-  { id: "core", label: "CORE" },
-  { id: "doaj", label: "DOAJ" },
-  { id: "pubmed", label: "PubMed" }
-];
-
 export default function FederatedSearchScreen() {
   const { colors, fontSizeScale } = useTheme();
   const [query, setQuery] = useState("");
-  const [selectedSource, setSelectedSource] = useState("all");
+  const [notice, setNotice] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SearchFilters["sortBy"]>("relevance");
   const [openAccessOnly, setOpenAccessOnly] = useState(false);
 
@@ -67,20 +55,21 @@ export default function FederatedSearchScreen() {
     return () => {
       if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     };
-  }, [query, sortBy, openAccessOnly, selectedSource]);
+  }, [query, sortBy, openAccessOnly]);
 
   const triggerSearch = async (searchTerm: string, pageNum: number) => {
     try {
-      const sourcesFilter = selectedSource === "all" ? [] : [selectedSource];
-      const res = await executeLiveFederatedSearch(searchTerm, pageNum, {
-        sortBy,
-        openAccessOnly,
-        sources: sourcesFilter
-      });
+      const res = await executeLiveFederatedSearch(searchTerm, pageNum, { sortBy, openAccessOnly });
 
       const newPapers = res.papers;
       newPapers.forEach(p => cacheDynamicPaper(p as any));
       setResults(newPapers);
+      setNotice(
+        res.status === "rate_limited" ? "OpenAlex is limiting requests right now. Try again in a little while."
+        : res.isOffline ? "Could not reach OpenAlex. Check your connection and try again."
+        : res.status !== "ok" ? "OpenAlex returned an unexpected answer. Try again shortly."
+        : null
+      );
     } catch (err) {
       console.warn("Federated search error:", err);
     } finally {
@@ -142,24 +131,8 @@ export default function FederatedSearchScreen() {
         </View>
       </View>
 
-      {/* ISSUE 4: Publication Filter Bar */}
       <View style={styles.pubFilterBar}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pubScroll}>
-          {PUBLICATION_SOURCES.map(src => {
-            const isSelected = selectedSource === src.id;
-            return (
-              <Pressable
-                key={src.id}
-                style={[styles.pubChip, isSelected && styles.pubChipActive]}
-                onPress={() => setSelectedSource(src.id)}
-              >
-                <Text style={[styles.pubChipText, isSelected && styles.pubChipTextActive]}>
-                  {src.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+        <Text style={styles.sourceNote}>Searching OpenAlex, which aggregates many publishers and repositories. Results are metadata and abstracts only.</Text>
       </View>
 
       {/* Additional Options Bar */}
@@ -189,13 +162,13 @@ export default function FederatedSearchScreen() {
       {isSearching ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Searching live internet research providers...</Text>
+          <Text style={styles.loadingText}>Searching OpenAlex...</Text>
         </View>
       ) : results.length === 0 ? (
         <View style={styles.centerContainer}>
           <Ionicons name="search-outline" size={48} color={colors.muted} />
           <Text style={styles.emptyText}>
-            {query.length > 0 ? `No live papers found for "${query}"` : "Type a research query to perform live federated search"}
+            {notice ? notice : query.length > 0 ? `No papers found for "${query}"` : "Type a research query to search OpenAlex"}
           </Text>
         </View>
       ) : (
@@ -218,13 +191,13 @@ export default function FederatedSearchScreen() {
                       color={isSelected ? colors.primary : colors.muted}
                     />
                   </Pressable>
-                  <Text style={styles.sourceTag}>{item.sourceTag || "[Live Metadata]"}</Text>
-                  <Text style={styles.yearBadge}>{item.pubYear || 2026}</Text>
+                  <Text style={styles.sourceTag}>{item.sourceTag || "[OpenAlex]"}</Text>
+                  {item.pubYear ? <Text style={styles.yearBadge}>{item.pubYear}</Text> : null}
                 </View>
 
                 <Text style={styles.title}>{item.title}</Text>
-                <Text style={styles.authors}>{item.authorName} • {item.organization}</Text>
-                <Text style={styles.summary} numberOfLines={3}>{item.summary}</Text>
+                <Text style={styles.authors}>{[item.authorName, item.organization].filter(Boolean).join(" • ") || "Authors not listed"}</Text>
+                <Text style={styles.summary} numberOfLines={3}>{item.summary || "No abstract available from the source."}</Text>
               </Pressable>
             );
           }}
@@ -299,31 +272,6 @@ function getStyles(colors: any, scale: number) {
       borderBottomWidth: 1,
       borderBottomColor: colors.border
     },
-    pubScroll: {
-      paddingHorizontal: spacing.md,
-      gap: spacing.xs
-    },
-    pubChip: {
-      paddingHorizontal: spacing.md,
-      paddingVertical: 6,
-      borderRadius: radius.pill,
-      backgroundColor: colors.background,
-      borderWidth: 1,
-      borderColor: colors.border
-    },
-    pubChipActive: {
-      backgroundColor: colors.primary,
-      borderColor: colors.primary
-    },
-    pubChipText: {
-      fontSize: 12 * scale,
-      color: colors.muted,
-      fontWeight: "500"
-    },
-    pubChipTextActive: {
-      color: "#FFFFFF",
-      fontWeight: "700"
-    },
     optionsBar: {
       flexDirection: "row",
       paddingHorizontal: spacing.md,
@@ -391,6 +339,12 @@ function getStyles(colors: any, scale: number) {
     },
     checkbox: {
       marginRight: 4
+    },
+    sourceNote: {
+      color: colors.muted,
+      fontSize: 12 * scale,
+      paddingHorizontal: spacing.md,
+      paddingVertical: 6
     },
     sourceTag: {
       fontSize: 11 * scale,

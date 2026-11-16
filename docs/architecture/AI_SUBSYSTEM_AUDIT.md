@@ -11,9 +11,9 @@ Finding ids (C1, C2, ...) are referenced from tests and from the roadmap.
 | Id | Finding | Severity | Status |
 |---|---|---|---|
 | C1 | Anthropic-specific values and structures are used outside the adapter file (7 modules) | High for multi-provider | Documented; a `todo` boundary test lists every violation |
-| C2 | The paper title is part of the structured-analysis prompt but not part of the cache identity | Low (stale metadata only) | Demonstrated (`todo` test) |
+| C2 | The paper title is part of the structured-analysis prompt but not part of the cache identity | Low (stale metadata only) | **Implemented locally, uncommitted (not yet in PR #1):** the structured-analysis cache query now includes the normalised paper title and the content coverage, so a corrected title or a coverage change is a different key; enforced by tests |
 | C3 | Prompt text, profile parameters and validation thresholds are identified only by hand-bumped version strings | Medium | **Guard test added**: edit without bump now fails CI |
-| C4 | Cached bodies embed the paper header and coverage notice as they were when the entry was written | Low | Demonstrated (`todo` test) |
+| C4 | Cached bodies embed the paper header and coverage notice as they were when the entry was written | Low | **Implemented locally, uncommitted (not yet in PR #1):** a cache hit has its paper header, coverage, coverage notice, document hash and evidence counts refreshed from the current request; the cached answer is untouched |
 | C5 | The cache identity has no provider field and no provider-reported model snapshot | Medium for multi-provider | Documented; fixed in design (ADR-007) |
 | C6 | The question-answering path and the structured path have no shared "analysis version" | Medium | Design (ADR-006) |
 | C7 | Provenance is incomplete and not permanent (Section 4) | High | Design (ADR-006), nothing implemented |
@@ -21,7 +21,7 @@ Finding ids (C1, C2, ...) are referenced from tests and from the roadmap.
 | C9 | `modelVersion` is the provider's `model` string, or the *requested* model when the provider sent none, with no flag saying which | Medium | Documented |
 | C10 | Token accounting ignores cache-read, cache-creation and reasoning token detail; cost is exact-id matched | Medium | Documented |
 | C11 | No cancellation, no streaming, no per-call abort | Medium | Documented; interface in the gateway design |
-| C12 | Output validation weaknesses (numeric substring match, delimiter look-alikes) | Medium | Demonstrated (`todo` tests, security audit V-1, V-2) |
+| C12 | Output validation weaknesses (numeric substring match, delimiter look-alikes) | Medium | **Code fixed in PR #1** (commit `b5565cc`, security audit V-1, V-2): whole-number grounding and linear tag/escape neutralisation. **The prompt-version bump that stops older cached answers being served is local and uncommitted** |
 | C13 | The question-answer path persists nothing: no durable record of what was asked, answered or on what evidence | High for auditability | Documented |
 | C14 | Evidence chunks are overwritten on re-fetch, so an old analysis can no longer show the text it cited | High for reproducibility | Documented; design in ADR-006 |
 | C15 | No spend ceiling, global limit or kill switch | High | See `AI_COST_CONTROL_DESIGN.md` |
@@ -71,7 +71,7 @@ The content hash is computed from the *selected* chunks after the budget selecti
 | question vs structured collide? | cannot (different mode prefix) | |
 | provider failure then retry | nothing stored; next call reaches the model | |
 
-Result: **20 tests pass, 0 fail, 2 `todo`** (the two gaps below).
+Result when written: 20 tests pass, 0 fail, 2 `todo` (the two gaps below). Both gaps are closed in the local working tree and their tests enforced (`cacheIdentityAudit.test.js`, no `todo` left); that work is uncommitted and not yet on PR #1. The coverage-sensitive key and the prompt/validator fingerprint guard were added with it.
 
 **Sensitivity check ("does the test see a bug if there is one?")**: I temporarily removed the content hash and the model from the key. 10 of the tests failed as expected. The change was reverted (`git status` clean for `resultCache.js`).
 
@@ -79,11 +79,11 @@ Result: **20 tests pass, 0 fail, 2 `todo`** (the two gaps below).
 
 ### 3.3 Gaps found
 
-- **C2 title** (demonstrated, `todo`): `buildIntelligencePrompt` puts the paper title in the prompt, the key does not contain it. A corrected title in the provider's metadata with unchanged text returns an analysis generated with the old title. Impact is low because the title is only context, but the rule "every analysis-relevant input" is violated.
-- **C4 stale header** (demonstrated, `todo`): the cached body includes `paper` (title, venue, licence...), `coverageNotice` and `context.chunksOmitted` as of write time. A hit returns that header.
-- **C3 prompt text and profiles** (fixed in test form): the system prompts, `COVERAGE_INSTRUCTION`, `ANALYSIS_PROFILES` (effort, max tokens, timeouts), validation thresholds and the response shaping code are covered only by `PROMPT_VERSION` / `INTEL_PROMPT_VERSION` / `INTEL_SCHEMA_VERSION` / `CACHE_SCHEMA_VERSION`, which a human must bump. A guard test now pins a fingerprint of the prompt text, the profiles and the four version strings. Editing any of them without updating the pinned fingerprint fails CI, and updating the fingerprint is the moment to bump the version, which changes every key. (Validation thresholds in `intelligence.js` are not in the fingerprint; ADR-007 moves to hashing the full prompt and a validator version into the key.)
+- **C2 title** (found in this audit; implemented locally and uncommitted, not yet in PR #1; the original description follows): `buildIntelligencePrompt` puts the paper title in the prompt, the key does not contain it. A corrected title in the provider's metadata with unchanged text returns an analysis generated with the old title. Impact is low because the title is only context, but the rule "every analysis-relevant input" is violated.
+- **C4 stale header** (found in this audit; implemented locally and uncommitted, not yet in PR #1; the original description follows): the cached body includes `paper` (title, venue, licence...), `coverageNotice` and `context.chunksOmitted` as of write time. A hit returns that header.
+- **C3 prompt text and profiles** (fixed in test form): the system prompts, `COVERAGE_INSTRUCTION`, `ANALYSIS_PROFILES` (effort, max tokens, timeouts), validation thresholds and the response shaping code are covered only by `PROMPT_VERSION` / `INTEL_PROMPT_VERSION` / `INTEL_SCHEMA_VERSION` / `CACHE_SCHEMA_VERSION`, which a human must bump. A guard test now pins a fingerprint of the prompt text, the profiles and the four version strings. Editing any of them without updating the pinned fingerprint fails CI, and updating the fingerprint is the moment to bump the version, which changes every key. The fingerprint is behavioural, not a hash of source text: it runs the prompt builders, `neutralizeTags`, `safeTitleAttribute`, `parseModelJson`, `validateIntelligence` and `computeConfidence` on fixed sweeps (every character that may follow `<`, tag-attribute runs around the cap, support from 0 to 100 percent, caps on text, list, citations, rows and keywords, payload size, a confidence grid) and also hashes the exported limit constants (`promptSafety.LIMITS`, `intelligence.LIMITS`), so comments, formatting and line endings cannot move it and a changed limit or rule always does (`backend/tests/node/fingerprintProbes.js`, `cacheIdentityAudit.test.js`). A meta-test re-fingerprints modified copies of the source: 26 realistic changes must be detected and harmless edits must not. Current local (uncommitted) versions: `PROMPT_VERSION` 2026.3, `INTEL_PROMPT_VERSION` 2026.2-intel (bumped when the security changes altered the prompts and the number-grounding check). ADR-007 still describes hashing the full prompt and a validator version into the key.
 - **C5 provider and served model**: no provider field; the model in the key is the *configured* model id. If a provider silently moves an alias to a new snapshot, the key does not change and old answers continue to be served. Whether Anthropic does that for `claude-sonnet-5-5` is **not known from the repository**; the design therefore records the served model string from every response and treats an alias as "version not guaranteed".
-- **Minor**: the legacy `cachedCopilotQuery` path keys on the raw `analysisDepth` string (`"standard"` and `"STANDARD"` are different keys: extra misses, never stale hits). It is not on the production path.
+- **Minor (resolved in Phase 3)**: the legacy `cachedCopilotQuery` path (and `runCopilot.js`, which could call the provider without the spend gate) was not on the production path and has been removed.
 
 ### 3.4 Required key (design, ADR-007)
 
@@ -132,7 +132,7 @@ Fallback is the deterministic local extractive answer, labelled `FALLBACK`, neve
 
 ## 6. Token accounting and cost (C10)
 
-`usage` keeps `input_tokens` and `output_tokens`. Thinking tokens are billed as output and are therefore included in `output_tokens` (documented in the client). Not captured: cache-read or cache-creation input tokens if the provider reports them, and a reasoning-token breakdown. The price table has one entry (`claude-sonnet-5-5`: $2 input, $10 output per million tokens); any other id yields `NOT_AVAILABLE` rather than a guess, which is the correct honest behaviour, and `ANTHROPIC_PRICE_*` variables can override both prices at once. Gaps: no per-model overrides, no effective-date or version for a price change, floating-point `cost_usd`.
+`usage` keeps `input_tokens` and `output_tokens`. Thinking tokens are billed as output and are therefore included in `output_tokens` (documented in the client). Not captured: cache-read or cache-creation input tokens if the provider reports them, and a reasoning-token breakdown. The price table has one entry (`claude-sonnet-5-5`: $2 input, $10 output per million tokens); any other id yields `NOT_AVAILABLE` rather than a guess, which is the correct honest behaviour, and `ANTHROPIC_PRICE_*` variables can override both prices at once. Gaps: no per-model overrides, no effective-date or version for a price change, floating-point `cost_usd` (costs are computed in whole micro-USD, rounded up, then divided by 1e6, so a tiny price cannot produce a cost of 0).
 
 Measured sanity check from the production run: 28,783 input and 4,704 output tokens gave $0.104606, which equals 28,783 x 2/1e6 + 4,704 x 10/1e6. The estimate is internally consistent; the Anthropic Console remains the source of truth and the comparison is still **NOT VERIFIED**.
 

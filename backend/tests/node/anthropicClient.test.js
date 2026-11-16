@@ -18,6 +18,11 @@ const {
   parseMessageResponse,
   classifyHttpError,
   computeCost,
+  resolvePrice,
+  parsePriceOverride,
+  costMicroUsd,
+  ceilMicro,
+  PRICING_PER_MTOK,
   callMessages
 } = require("../../llm/anthropicClient");
 
@@ -197,6 +202,78 @@ test("cost is null for a model without a verified price, and honours explicit pr
   assert.equal(computeCost("claude-sonnet-5-5", usage, { ANTHROPIC_PRICE_INPUT_PER_MTOK: "abc", ANTHROPIC_PRICE_OUTPUT_PER_MTOK: "5" }).costUsd, 12);
 });
 
+// ---- price override (audit D1): a blank, zero or malformed override must never produce a free price
+const IN = "ANTHROPIC_PRICE_INPUT_PER_MTOK";
+const OUT = "ANTHROPIC_PRICE_OUTPUT_PER_MTOK";
+const REAL = PRICING_PER_MTOK["claude-sonnet-5-5"];
+const USAGE_1M = { inputTokens: 1_000_000, outputTokens: 1_000_000, totalTokens: 2_000_000 };
+
+test("price override: both variables blank (or whitespace) are treated as unset - the real price stays", () => {
+  for (const env of [{ [IN]: "", [OUT]: "" }, { [IN]: "   ", [OUT]: "\t" }, {}, { [IN]: undefined, [OUT]: undefined }]) {
+    assert.equal(parsePriceOverride(env).state, "UNSET");
+    assert.deepEqual(resolvePrice("claude-sonnet-5-5", env), REAL);
+    assert.equal(resolvePrice("claude-future-9", env), null, "an unknown model stays unpriced, never free");
+    assert.equal(computeCost("claude-sonnet-5-5", USAGE_1M, env).costUsd, 12);
+    assert.deepEqual(computeCost("claude-future-9", USAGE_1M, env), { costUsd: null, costStatus: "NOT_AVAILABLE" });
+  }
+});
+
+test("price override: zero values never establish a zero-cost model", () => {
+  for (const env of [{ [IN]: "0", [OUT]: "0" }, { [IN]: "0.0", [OUT]: "0.00" }, { [IN]: "0", [OUT]: "10" }, { [IN]: "2", [OUT]: "0" }]) {
+    assert.equal(parsePriceOverride(env).state, "INVALID", JSON.stringify(env));
+    assert.deepEqual(resolvePrice("claude-sonnet-5-5", env), REAL, "a known model keeps its real price");
+    assert.equal(resolvePrice("claude-future-9", env), null, "an unknown model is not given a free price");
+  }
+});
+
+test("price override: only one variable set (the other blank or absent) is invalid and not applied", () => {
+  for (const env of [{ [IN]: "5", [OUT]: "" }, { [IN]: "", [OUT]: "25" }, { [IN]: "5" }, { [OUT]: "25" }]) {
+    assert.equal(parsePriceOverride(env).state, "INVALID", JSON.stringify(env));
+    assert.match(parsePriceOverride(env).reason, /both/);
+    assert.deepEqual(resolvePrice("claude-sonnet-5-5", env), REAL);
+    assert.equal(resolvePrice("claude-future-9", env), null);
+  }
+});
+
+test("price override: negative and non-finite values are invalid and not applied", () => {
+  for (const bad of ["-1", "-0.5", "Infinity", "-Infinity", "NaN", "1e999"]) {
+    for (const env of [{ [IN]: bad, [OUT]: "10" }, { [IN]: "2", [OUT]: bad }]) {
+      assert.equal(parsePriceOverride(env).state, "INVALID", JSON.stringify(env));
+      assert.deepEqual(resolvePrice("claude-sonnet-5-5", env), REAL);
+      assert.equal(resolvePrice("claude-future-9", env), null);
+    }
+  }
+});
+
+test("price override: non-numeric values are invalid and not applied", () => {
+  for (const bad of ["abc", "1,5", "$2", "2 USD", "0x10", "1e3", ".5", "5.", "--1", "null", "[]"]) {
+    const env = { [IN]: bad, [OUT]: "10" };
+    assert.equal(parsePriceOverride(env).state, "INVALID", bad);
+    assert.deepEqual(resolvePrice("claude-sonnet-5-5", env), REAL, bad);
+    assert.equal(resolvePrice("claude-future-9", env), null, bad);
+  }
+});
+
+test("price override: a valid positive pair applies to EVERY model, known or unknown, and drives the cost", () => {
+  const env = { [IN]: "3", [OUT]: "15" };
+  assert.deepEqual(parsePriceOverride(env), { state: "VALID", input: 3, output: 15 });
+  assert.deepEqual(resolvePrice("claude-future-9", env), { input: 3, output: 15 });
+  assert.deepEqual(resolvePrice("claude-sonnet-5-5", env), { input: 3, output: 15 }, "the override replaces a built-in price too");
+  assert.equal(computeCost("claude-future-9", USAGE_1M, env).costUsd, 18);
+  assert.equal(computeCost("claude-sonnet-5-5", USAGE_1M, env).costUsd, 18);
+  const spaced = { [IN]: " 0.5 ", [OUT]: " 2.25 " };
+  assert.deepEqual(parsePriceOverride(spaced), { state: "VALID", input: 0.5, output: 2.25 });
+  assert.equal(computeCost("claude-future-9", USAGE_1M, spaced).costUsd, 2.75);
+});
+
+test("price override: an unknown model with no valid override has no price (fail closed)", () => {
+  assert.equal(resolvePrice("claude-future-9", {}), null);
+  assert.equal(resolvePrice("", {}), null);
+  assert.equal(resolvePrice(undefined, {}), null);
+  assert.equal(resolvePrice("constructor", {}), null, "prototype names are not models");
+  assert.equal(resolvePrice("__proto__", {}), null);
+});
+
 test("a truncated but non-empty answer is returned and flagged", async () => {
   const r = await callMessages(opts(stubTransport([ok({ stop_reason: "max_tokens" })])));
   assert.equal(r.truncated, true);
@@ -340,3 +417,74 @@ test("calling without an API key fails fast without touching the transport", asy
   await assert.rejects(callMessages(opts(t, { apiKey: null })), (e) => e.category === "INVALID_CREDENTIAL");
   assert.equal(t.calls.length, 0);
 });
+
+// ---- minimum price (final hardening): no arbitrary floor; the cost arithmetic rounds UP so no positive price makes a call free
+//
+// Units: a price in USD per million tokens equals micro-USD per token, and micro-USD (0.000001 USD) is the finest unit the budget
+// gate and the ledger use. Rounding to nearest made any call under half a micro-USD cost 0; rounding up cannot.
+
+test("tiny positive prices never produce a free call (the cost is at least 1 micro-USD, never 0)", () => {
+  const usages = [{ inputTokens: 1, outputTokens: 1 }, { inputTokens: 300, outputTokens: 200 }, { inputTokens: 100_000, outputTokens: 32_000 }];
+  for (const p of ["0.000000000001", "0.000001", "0.0001", "0.001", "0.01", "0.1", "0.4999", "0.5", "0.999999", "1"]) {
+    const env = { [IN]: p, [OUT]: p };
+    assert.equal(parsePriceOverride(env).state, "VALID", p);
+    for (const u of usages) {
+      const trueMicro = (u.inputTokens + u.outputTokens) * Number(p);
+      const c = computeCost("claude-future-9", u, env);
+      assert.equal(c.costStatus, "ESTIMATED", p);
+      assert.ok(c.costUsd >= 1e-6, `price ${p}, ${u.inputTokens}+${u.outputTokens} tokens: cost ${c.costUsd} must be at least one micro-USD`);
+      assert.ok(c.costUsd * 1e6 >= trueMicro - 1e-6, `never below the true cost (${p})`);
+      assert.ok(c.costUsd * 1e6 < trueMicro + 1 + 1e-6, `over-charge is under one micro-USD (${p})`);
+      assert.ok(Number.isInteger(costMicroUsd(u, { input: Number(p), output: Number(p) })), "whole micro-USD");
+    }
+  }
+});
+
+test("a call that used no tokens costs 0; a price too small to be a number is invalid, not free", () => {
+  assert.equal(computeCost("claude-future-9", { inputTokens: 0, outputTokens: 0 }, { [IN]: "0.001", [OUT]: "0.001" }).costUsd, 0);
+  const underflow = "0." + "0".repeat(400) + "1"; // parses to the number 0
+  assert.equal(Number(underflow), 0);
+  assert.equal(parsePriceOverride({ [IN]: underflow, [OUT]: "10" }).state, "INVALID");
+  assert.equal(parsePriceOverride({ [IN]: "2", [OUT]: underflow }).state, "INVALID");
+  // the smallest positive number that is still a number stays safe
+  const smallest = "0." + "0".repeat(323) + "5"; // 5e-324, the smallest positive double
+  assert.equal(Number(smallest), 5e-324);
+  assert.equal(parsePriceOverride({ [IN]: smallest, [OUT]: smallest }).state, "VALID");
+  assert.equal(computeCost("claude-future-9", { inputTokens: 5, outputTokens: 5 }, { [IN]: smallest, [OUT]: smallest }).costUsd, 1e-6, "even the smallest positive price charges one micro-USD for a call that used tokens");
+});
+
+test("legitimate prices keep their exact cost (no float drift, no extra micro-USD)", () => {
+  const cases = [
+    // [input $/MTok, output $/MTok, in tokens, out tokens, expected micro-USD = in*pIn + out*pOut]
+    ["2", "10", 1000, 500, 7000],
+    ["3", "15", 1234, 567, 12207],
+    ["1", "5", 999_999, 1, 1_000_004],
+    ["15", "75", 100_000, 32_000, 3_900_000],
+    ["0.25", "1.25", 4000, 2000, 3500],
+    ["0.15", "0.6", 10_000, 10_000, 7500],
+    ["2.75", "0.5", 1_000_000, 1_000_000, 3_250_000]
+  ];
+  for (const [pi, po, ti, to, micro] of cases) {
+    const env = { [IN]: pi, [OUT]: po };
+    const c = computeCost("claude-future-9", { inputTokens: ti, outputTokens: to }, env);
+    assert.equal(c.costUsd, micro / 1e6, `${pi}/${po} ${ti}+${to}`);
+    assert.equal(costMicroUsd({ inputTokens: ti, outputTokens: to }, { input: Number(pi), output: Number(po) }), micro);
+  }
+  // the built-in price is unchanged by the rounding
+  assert.equal(computeCost("claude-sonnet-5-5", { inputTokens: 1000, outputTokens: 500 }, {}).costUsd, 0.007);
+});
+
+test("ceilMicro: rounds up real fractions, forgives only floating-point noise just above a whole number", () => {
+  assert.equal(ceilMicro(0), 0);
+  assert.equal(ceilMicro(1e-9), 1);
+  assert.equal(ceilMicro(0.4), 1);
+  assert.equal(ceilMicro(7000), 7000);
+  assert.equal(ceilMicro(7000.001), 7001, "a real thousandth of a micro-USD is rounded up");
+  assert.equal(ceilMicro(0.007 * 1e6), 7000, "0.007 * 1e6 is 7000.000000000001 in binary floating point");
+  let wrong = 0;
+  for (let n = 1; n <= 200_000; n++) if (ceilMicro((n / 1e6) * 1e6) !== n) wrong++;
+  assert.equal(wrong, 0, "a whole number of micro-USD survives the USD round trip");
+  assert.equal(costMicroUsd({ inputTokens: NaN, outputTokens: 1 }, { input: 1, output: 1 }), null);
+  assert.equal(computeCost("claude-sonnet-5-5", { inputTokens: NaN, outputTokens: 1 }, {}).costStatus, "NOT_AVAILABLE");
+});
+

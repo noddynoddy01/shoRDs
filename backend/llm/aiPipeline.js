@@ -16,6 +16,7 @@ const { handleCopilotQuery, validateRequest, PROMPT_VERSION } = require("./copil
 const { handleIntelligence, INTEL_PROMPT_VERSION, INTEL_SCHEMA_VERSION } = require("./intelligence");
 const { callMessages: realCallMessages, resolveApiKey, resolveModelConfig, resolveProfile } = require("./anthropicClient");
 const { buildCacheKey, contentHash, cachedAiCall, isRealCompleteAnswer } = require("./resultCache");
+const { gateResponse } = require("./responseGate");
 const { validateChunkIds, selectForQuestion, selectForIntelligence, DEFAULT_MAX_CONTEXT_CHARS } = require("./evidence");
 
 const MAX_QUERY_CHARS = 2000;
@@ -39,7 +40,36 @@ function assertNoClientEvidence(body) {
   }
 }
 
-function createAiPipeline({ paperService, cache = null, ledger = null, telemetry = null, client, budget = null, env = process.env, replicaId, logger = console, now = Date.now }) {
+/**
+ * A cache hit (HIT, or DEDUPLICATED: another request's entry) replays a stored model answer. The stored body was written by
+ * whichever request produced it, so everything in it that describes the paper AS IT IS NOW (header, coverage and notice, the
+ * document hash, the evidence-selection counts) is replaced here with this request's values. The cached answer, evidence,
+ * claims, confidence, tokens and versions are kept untouched, and the model is not called. A fresh result (MISS, BYPASS,
+ * NOT_WIRED) already carries current values and is returned as is.
+ *
+ * The two bodies differ on purpose, so each keeps its producer's semantics (copilotService.js / intelligence.js):
+ *   question:     paper, contentCoverage, coverageNotice (omitted when empty), context. It has no contentHash and gets none.
+ *   intelligence: paper, contentCoverage, coverageNotice (as given), contentHash (the paper's whole-document hash, NOT the
+ *                 cache key's hash of the selected chunks; kept as cached if the paper has none now), context.
+ */
+const servedFromCache = (out) => Boolean(out && out.body && out.body.cache && (out.body.cache.status === "HIT" || out.body.cache.status === "DEDUPLICATED"));
+
+function refreshQuestionHit(out, paper, chunks, selection) {
+  if (!servedFromCache(out)) return out;
+  const body = { ...out.body, paper: header(paper), contentCoverage: paper.coverage, context: { chunksSent: chunks.length, chunksOmitted: selection.omitted, truncated: selection.truncated } };
+  if (paper.coverageNotice) body.coverageNotice = paper.coverageNotice;
+  else delete body.coverageNotice; // a fresh answer has no notice key when the paper has none: never keep an outdated one
+  return { ...out, body };
+}
+
+function refreshIntelligenceHit(out, paper, chunks, selection) {
+  if (!servedFromCache(out)) return out;
+  const body = { ...out.body, paper: header(paper), contentCoverage: paper.coverage, coverageNotice: paper.coverageNotice, context: { chunksSent: chunks.length, chunksOmitted: selection.omitted, truncated: Boolean(selection.truncated) } };
+  if (typeof paper.contentHash === "string" && paper.contentHash !== "") body.contentHash = paper.contentHash;
+  return { ...out, body };
+}
+
+function createAiPipeline({ paperService, cache = null, ledger = null, telemetry = null, client, budget = null, env = process.env, replicaId, logger = console, now = Date.now, captureRaw = null }) {
   /**
    * The client every model call uses. With a spend-control gate (`budget`, always supplied by the production runtime) each call is
    * bound to this request's tenant / project / user and passes kill switch, price, ceiling, breaker, duplicate lock and budget
@@ -63,9 +93,11 @@ function createAiPipeline({ paperService, cache = null, ledger = null, telemetry
     };
   }
 
-  async function finish(out, ctx) {
-    if (ledger) await ledger.record(out, ctx);
-    return out;
+  // Every response, fresh or from the cache, passes the licence/confidence gate (responseGate.js) with the paper's CURRENT licence.
+  async function finish(out, ctx, paper) {
+    const served = gateResponse(out, paper);
+    if (ledger) await ledger.record(served, ctx);
+    return served;
   }
 
   /**
@@ -85,7 +117,7 @@ function createAiPipeline({ paperService, cache = null, ledger = null, telemetry
     const { paper } = await paperService.resolve(paperRef); // PaperError: INVALID_PAPER_ID / RETRIEVAL_UNAVAILABLE
     const requestId = `req_cop_${now()}_${Math.random().toString(36).slice(2, 7)}`;
     const base = { kind: "COPILOT", scope: ctx.scope, uid: ctx.uid, jobId: ctx.jobId, paperId: paper.paperId, replicaId };
-    if (paper.coverage !== "FULL_TEXT" && paper.coverage !== "ABSTRACT_ONLY") return finish(gated("COPILOT", paper, requestId, started), base);
+    if (paper.coverage !== "FULL_TEXT" && paper.coverage !== "ABSTRACT_ONLY") return finish(gated("COPILOT", paper, requestId, started), base, paper);
 
     const stored = await paperService.loadChunks(paper.paperId);
     const wanted = validateChunkIds(paper.paperId, body.chunkIds, stored);
@@ -116,7 +148,7 @@ function createAiPipeline({ paperService, cache = null, ledger = null, telemetry
       now,
       telemetry
     });
-    return finish(out, base);
+    return finish(refreshQuestionHit(out, paper, chunks, selection), base, paper);
   }
 
   /**
@@ -130,7 +162,7 @@ function createAiPipeline({ paperService, cache = null, ledger = null, telemetry
     const { paper } = await paperService.resolve(body.paperId);
     const requestId = `req_int_${now()}_${Math.random().toString(36).slice(2, 7)}`;
     const base = { kind: "INTELLIGENCE", scope: ctx.scope, uid: ctx.uid, jobId: ctx.jobId, paperId: paper.paperId, replicaId };
-    if (paper.coverage !== "FULL_TEXT" && paper.coverage !== "ABSTRACT_ONLY") return finish(gated("INTELLIGENCE", paper, requestId, started), base);
+    if (paper.coverage !== "FULL_TEXT" && paper.coverage !== "ABSTRACT_ONLY") return finish(gated("INTELLIGENCE", paper, requestId, started), base, paper);
 
     const stored = await paperService.loadChunks(paper.paperId);
     const selection = selectForIntelligence(stored, { maxChars: maxContextChars() });
@@ -142,15 +174,15 @@ function createAiPipeline({ paperService, cache = null, ledger = null, telemetry
     const out = await cachedAiCall({
       cache,
       key: cache && hasKey && chunks.length > 0
-        ? buildCacheKey({ tenantId: ctx.scope.tenantId, projectId: ctx.scope.projectId, paperId: paper.paperId, contentHash: contentHash(chunks), model: modelCfg.model, mode: `INTELLIGENCE:v${INTEL_SCHEMA_VERSION}:${depth}`, promptVersion: INTEL_PROMPT_VERSION, query: "STRUCTURED_INTELLIGENCE" })
+        ? buildCacheKey({ tenantId: ctx.scope.tenantId, projectId: ctx.scope.projectId, paperId: paper.paperId, contentHash: contentHash(chunks), model: modelCfg.model, mode: `INTELLIGENCE:v${INTEL_SCHEMA_VERSION}:${depth}`, promptVersion: INTEL_PROMPT_VERSION, query: JSON.stringify(["STRUCTURED_INTELLIGENCE", String(paper.title || "").normalize("NFC").trim(), String(paper.coverage)]) })
         : null,
-      produce: () => handleIntelligence({ paper, chunks, depth: body.analysisDepth, selection }, { env, telemetry, replicaId, client: clientFor(ctx), logger, now, requestId }),
+      produce: () => handleIntelligence({ paper, chunks, depth: body.analysisDepth, selection }, { env, telemetry, replicaId, client: clientFor(ctx), logger, now, requestId, captureRaw }),
       cacheableOf: isRealCompleteAnswer,
       replicaId,
       now,
       telemetry
     });
-    return finish(out, base);
+    return finish(refreshIntelligenceHit(out, paper, chunks, selection), base, paper);
   }
 
   return { answerQuestion, analyzePaper };

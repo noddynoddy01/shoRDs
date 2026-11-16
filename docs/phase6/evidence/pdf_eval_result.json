@@ -1,0 +1,560 @@
+{
+  "_kind": "SYNTHETIC_CORPUS_NOT_REAL_WORLD_PDFS",
+  "measuredAt": "2026-11-04T06:53:53.921Z",
+  "poppler": "pdftotext version 24.02.0",
+  "tesseract": "tesseract 5.3.4",
+  "rows": [
+    {
+      "document": "onecol_tables",
+      "extractor": "poppler pdftotext (default order)",
+      "runtimeMs": 25,
+      "peakRssMB": null,
+      "id": "onecol_tables",
+      "textChars": 2805,
+      "readingOrder": {
+        "anchors": 13,
+        "found": 13,
+        "recall": 1,
+        "inOrder": 1
+      },
+      "headings": {
+        "headings": 7,
+        "foundAsOwnLine": 7,
+        "recall": 1,
+        "inOrder": 1
+      },
+      "tables": {
+        "rows": 5,
+        "rowIntegrity": 0,
+        "cells": 20,
+        "cellRecall": 1
+      },
+      "equations": {
+        "equations": 2,
+        "preserved": 2,
+        "recall": 1
+      },
+      "references": {
+        "expected": 8,
+        "markersFound": 8,
+        "recall": 1
+      },
+      "pages": {
+        "pageBreaksPreserved": true,
+        "pagesInOutput": 2,
+        "pagesInTruth": 2,
+        "anchorsOnCorrectPage": null
+      },
+      "scanned": null,
+      "pipeline": {
+        "sectionsFound": [
+          "METHODOLOGY",
+          "CONCLUSION"
+        ],
+        "sectionsMissing": [
+          "INTRODUCTION",
+          "RESULTS",
+          "LIMITATIONS"
+        ],
+        "chunks": 3,
+        "tablesRecovered": 0,
+        "pageProvenance": "PER_CHUNK",
+        "flags": [
+          "SHORT_TEXT",
+          "NO_RESULTS_SECTION",
+          "NO_LIMITATIONS_SECTION",
+          "FIGURE_CONTENT_NOT_READ"
+        ]
+      }
+    },
+    {
+      "document": "onecol_tables",
+      "extractor": "poppler pdftotext -layout",
+      "runtimeMs": 17,
+      "peakRssMB": null,
+      "id": "onecol_tables",
+      "textChars": 3462,
+      "readingOrder": {
+        "anchors": 13,
+        "found": 13,
+        "recall": 1,
+        "inOrder": 1
+      },
+      "headings": {
+        "headings": 7,
+        "foundAsOwnLine": 7,
+        "recall": 1,
+        "inOrder": 1
+      },
+      "tables": {
+        "rows": 5,
+        "rowIntegrity": 1,
+        "cells": 20,
+        "cellRecall": 1
+      },
+      "equations": {
+        "equations": 2,
+        "preserved": 2,
+        "recall": 1
+      },
+      "references": {
+        "expected": 8,
+        "markersFound": 8,
+        "recall": 1
+      },
+      "pages": {
+        "pageBreaksPreserved": true,
+        "pagesInOutput": 2,
+        "pagesInTruth": 2,
+        "anchorsOnCorrectPage": null
+      },
+      "scanned": null,
+      "pipeline": {
+        "sectionsFound": [
+          "CONCLUSION"
+        ],
+        "sectionsMissing": [
+          "INTRODUCTION",
+          "METHODOLOGY",
+          "RESULTS",
+          "LIMITATIONS"
+        ],
+        "chunks": 3,
+        "tablesRecovered": 0,
+        "pageProvenance": "PER_CHUNK",
+        "flags": [
+          "SHORT_TEXT",
+          "NO_METHODS_SECTION",
+          "NO_RESULTS_SECTION",
+          "NO_LIMITATIONS_SECTION",
+          "FIGURE_CONTENT_NOT_READ"
+        ]
+      }
+    },
+    {
+      "document": "scanned_page1",
+      "extractor": "poppler pdftotext (default order)",
+      "runtimeMs": 14,
+      "peakRssMB": null,
+      "id": "scanned_page1",
+      "textChars": 1,
+      "readingOrder": {
+        "anchors": 11,
+        "found": 0,
+        "recall": 0,
+        "inOrder": null
+      },
+      "headings": {
+        "headings": 5,
+        "foundAsOwnLine": 0,
+        "recall": 0,
+        "inOrder": null
+      },
+      "tables": {
+        "rows": 5,
+        "rowIntegrity": 0,
+        "cells": 20,
+        "cellRecall": 0
+      },
+      "equations": {
+        "equations": 2,
+        "preserved": 0,
+        "recall": 0
+      },
+      "references": null,
+      "pages": {
+        "pageBreaksPreserved": true,
+        "pagesInOutput": 1,
+        "pagesInTruth": 1,
+        "anchorsOnCorrectPage": null
+      },
+      "scanned": {
+        "charsPerPage": 0,
+        "textLayerPresent": false,
+        "wordRecall": 0
+      },
+      "pipeline": {
+        "sectionsFound": [],
+        "sectionsMissing": [
+          "INTRODUCTION",
+          "METHODOLOGY",
+          "RESULTS",
+          "CONCLUSION",
+          "LIMITATIONS"
+        ],
+        "chunks": 0,
+        "tablesRecovered": 0,
+        "pageProvenance": "NOT_AVAILABLE",
+        "flags": [
+          "NO_BODY_TEXT",
+          "FIGURE_CONTENT_NOT_READ",
+          "NO_ABSTRACT_HEADING"
+        ]
+      }
+    },
+    {
+      "document": "scanned_page1",
+      "extractor": "poppler pdftotext -layout",
+      "runtimeMs": 13,
+      "peakRssMB": null,
+      "id": "scanned_page1",
+      "textChars": 1,
+      "readingOrder": {
+        "anchors": 11,
+        "found": 0,
+        "recall": 0,
+        "inOrder": null
+      },
+      "headings": {
+        "headings": 5,
+        "foundAsOwnLine": 0,
+        "recall": 0,
+        "inOrder": null
+      },
+      "tables": {
+        "rows": 5,
+        "rowIntegrity": 0,
+        "cells": 20,
+        "cellRecall": 0
+      },
+      "equations": {
+        "equations": 2,
+        "preserved": 0,
+        "recall": 0
+      },
+      "references": null,
+      "pages": {
+        "pageBreaksPreserved": true,
+        "pagesInOutput": 1,
+        "pagesInTruth": 1,
+        "anchorsOnCorrectPage": null
+      },
+      "scanned": {
+        "charsPerPage": 0,
+        "textLayerPresent": false,
+        "wordRecall": 0
+      },
+      "pipeline": {
+        "sectionsFound": [],
+        "sectionsMissing": [
+          "INTRODUCTION",
+          "METHODOLOGY",
+          "RESULTS",
+          "CONCLUSION",
+          "LIMITATIONS"
+        ],
+        "chunks": 0,
+        "tablesRecovered": 0,
+        "pageProvenance": "NOT_AVAILABLE",
+        "flags": [
+          "NO_BODY_TEXT",
+          "FIGURE_CONTENT_NOT_READ",
+          "NO_ABSTRACT_HEADING"
+        ]
+      }
+    },
+    {
+      "document": "scanned_page1",
+      "extractor": "poppler render + tesseract OCR",
+      "runtimeMs": 3037,
+      "peakRssMB": null,
+      "id": "scanned_page1",
+      "textChars": 2175,
+      "readingOrder": {
+        "anchors": 11,
+        "found": 11,
+        "recall": 1,
+        "inOrder": 1
+      },
+      "headings": {
+        "headings": 5,
+        "foundAsOwnLine": 5,
+        "recall": 1,
+        "inOrder": 1
+      },
+      "tables": {
+        "rows": 5,
+        "rowIntegrity": 0,
+        "cells": 20,
+        "cellRecall": 1
+      },
+      "equations": {
+        "equations": 2,
+        "preserved": 1,
+        "recall": 0.5
+      },
+      "references": null,
+      "pages": {
+        "pageBreaksPreserved": true,
+        "pagesInOutput": 1,
+        "pagesInTruth": 1,
+        "anchorsOnCorrectPage": 1
+      },
+      "scanned": {
+        "charsPerPage": 1785,
+        "textLayerPresent": true,
+        "wordRecall": 0.984
+      },
+      "pipeline": {
+        "sectionsFound": [
+          "INTRODUCTION",
+          "METHODOLOGY",
+          "RESULTS",
+          "LIMITATIONS"
+        ],
+        "sectionsMissing": [
+          "CONCLUSION"
+        ],
+        "chunks": 6,
+        "tablesRecovered": 0,
+        "pageProvenance": "PER_CHUNK",
+        "flags": [
+          "SHORT_TEXT",
+          "FIGURE_CONTENT_NOT_READ"
+        ]
+      }
+    },
+    {
+      "document": "twocol_flow",
+      "extractor": "poppler pdftotext (default order)",
+      "runtimeMs": 27,
+      "peakRssMB": null,
+      "id": "twocol_flow",
+      "textChars": 2807,
+      "readingOrder": {
+        "anchors": 13,
+        "found": 12,
+        "recall": 0.923,
+        "inOrder": 0.75
+      },
+      "headings": {
+        "headings": 7,
+        "foundAsOwnLine": 6,
+        "recall": 0.857,
+        "inOrder": 0.833
+      },
+      "tables": {
+        "rows": 5,
+        "rowIntegrity": 0,
+        "cells": 20,
+        "cellRecall": 1
+      },
+      "equations": {
+        "equations": 2,
+        "preserved": 2,
+        "recall": 1
+      },
+      "references": {
+        "expected": 8,
+        "markersFound": 7,
+        "recall": 0.875
+      },
+      "pages": {
+        "pageBreaksPreserved": true,
+        "pagesInOutput": 2,
+        "pagesInTruth": 2,
+        "anchorsOnCorrectPage": 1
+      },
+      "scanned": null,
+      "pipeline": {
+        "sectionsFound": [
+          "INTRODUCTION",
+          "RESULTS",
+          "METHODOLOGY",
+          "LIMITATIONS",
+          "CONCLUSION"
+        ],
+        "sectionsMissing": [],
+        "chunks": 6,
+        "tablesRecovered": 0,
+        "pageProvenance": "PER_CHUNK",
+        "flags": [
+          "SHORT_TEXT",
+          "FIGURE_CONTENT_NOT_READ"
+        ]
+      }
+    },
+    {
+      "document": "twocol_flow",
+      "extractor": "poppler pdftotext -layout",
+      "runtimeMs": 26,
+      "peakRssMB": null,
+      "id": "twocol_flow",
+      "textChars": 5504,
+      "readingOrder": {
+        "anchors": 13,
+        "found": 4,
+        "recall": 0.308,
+        "inOrder": 1
+      },
+      "headings": {
+        "headings": 7,
+        "foundAsOwnLine": 1,
+        "recall": 0.143,
+        "inOrder": 1
+      },
+      "tables": {
+        "rows": 5,
+        "rowIntegrity": 0.2,
+        "cells": 20,
+        "cellRecall": 1
+      },
+      "equations": {
+        "equations": 2,
+        "preserved": 2,
+        "recall": 1
+      },
+      "references": {
+        "expected": 8,
+        "markersFound": 3,
+        "recall": 0.375
+      },
+      "pages": {
+        "pageBreaksPreserved": true,
+        "pagesInOutput": 2,
+        "pagesInTruth": 2,
+        "anchorsOnCorrectPage": 1
+      },
+      "scanned": null,
+      "pipeline": {
+        "sectionsFound": [],
+        "sectionsMissing": [
+          "INTRODUCTION",
+          "METHODOLOGY",
+          "RESULTS",
+          "CONCLUSION",
+          "LIMITATIONS"
+        ],
+        "chunks": 2,
+        "tablesRecovered": 0,
+        "pageProvenance": "PER_CHUNK",
+        "flags": [
+          "NO_BODY_TEXT",
+          "FIGURE_CONTENT_NOT_READ"
+        ]
+      }
+    },
+    {
+      "document": "twocol_scrambled",
+      "extractor": "poppler pdftotext (default order)",
+      "runtimeMs": 27,
+      "peakRssMB": null,
+      "id": "twocol_scrambled",
+      "textChars": 2803,
+      "readingOrder": {
+        "anchors": 13,
+        "found": 13,
+        "recall": 1,
+        "inOrder": 0.769
+      },
+      "headings": {
+        "headings": 7,
+        "foundAsOwnLine": 7,
+        "recall": 1,
+        "inOrder": 0.714
+      },
+      "tables": {
+        "rows": 5,
+        "rowIntegrity": 0,
+        "cells": 20,
+        "cellRecall": 1
+      },
+      "equations": {
+        "equations": 2,
+        "preserved": 2,
+        "recall": 1
+      },
+      "references": {
+        "expected": 8,
+        "markersFound": 8,
+        "recall": 1
+      },
+      "pages": {
+        "pageBreaksPreserved": true,
+        "pagesInOutput": 2,
+        "pagesInTruth": 2,
+        "anchorsOnCorrectPage": 0.923
+      },
+      "scanned": null,
+      "pipeline": {
+        "sectionsFound": [
+          "LIMITATIONS",
+          "METHODOLOGY"
+        ],
+        "sectionsMissing": [
+          "INTRODUCTION",
+          "RESULTS",
+          "CONCLUSION"
+        ],
+        "chunks": 3,
+        "tablesRecovered": 0,
+        "pageProvenance": "PER_CHUNK",
+        "flags": [
+          "SHORT_TEXT",
+          "NO_RESULTS_SECTION",
+          "FIGURE_CONTENT_NOT_READ"
+        ]
+      }
+    },
+    {
+      "document": "twocol_scrambled",
+      "extractor": "poppler pdftotext -layout",
+      "runtimeMs": 24,
+      "peakRssMB": null,
+      "id": "twocol_scrambled",
+      "textChars": 3801,
+      "readingOrder": {
+        "anchors": 13,
+        "found": 13,
+        "recall": 1,
+        "inOrder": 0.769
+      },
+      "headings": {
+        "headings": 7,
+        "foundAsOwnLine": 3,
+        "recall": 0.429,
+        "inOrder": 1
+      },
+      "tables": {
+        "rows": 5,
+        "rowIntegrity": 1,
+        "cells": 20,
+        "cellRecall": 1
+      },
+      "equations": {
+        "equations": 2,
+        "preserved": 2,
+        "recall": 1
+      },
+      "references": {
+        "expected": 8,
+        "markersFound": 2,
+        "recall": 0.25
+      },
+      "pages": {
+        "pageBreaksPreserved": true,
+        "pagesInOutput": 2,
+        "pagesInTruth": 2,
+        "anchorsOnCorrectPage": 0.923
+      },
+      "scanned": null,
+      "pipeline": {
+        "sectionsFound": [],
+        "sectionsMissing": [
+          "INTRODUCTION",
+          "METHODOLOGY",
+          "RESULTS",
+          "CONCLUSION",
+          "LIMITATIONS"
+        ],
+        "chunks": 2,
+        "tablesRecovered": 0,
+        "pageProvenance": "PER_CHUNK",
+        "flags": [
+          "NO_BODY_TEXT",
+          "FIGURE_CONTENT_NOT_READ"
+        ]
+      }
+    }
+  ]
+}

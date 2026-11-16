@@ -92,12 +92,22 @@ test("hand-written sample papers and mentors never enter the running app", () =>
 });
 
 test("unbuilt features render the unavailable screen, with no sample output", () => {
-  for (const f of ["app/review-mode.tsx", "app/canvas.tsx", "app/paywall.tsx", "app/(tabs)/mentors.tsx", "app/chat/[id].tsx"]) {
+  for (const f of ["app/review-mode.tsx", "app/canvas.tsx", "app/paywall.tsx", "app/chat/[id].tsx"]) {
     const code = read(f);
     assert.match(code, /FeatureUnavailable/, `${f} uses FeatureUnavailable`);
     assert.doesNotMatch(stripComments(code), /setTimeout|useState/, `${f} has no simulated work or state`);
   }
   assert.match(read("app/chat/[id].tsx"), /not connected to an AI model/);
+});
+
+test("the Mentors tab is backed by the server directory: real calls, no sample people, no simulated work", () => {
+  // Mentors used to be an "unavailable" stub. The directory is now built, so this pins that it can only show what the backend returns.
+  const code = stripComments(read("app/(tabs)/mentors.tsx"));
+  assert.match(code, /social\.searchMentors\(/);
+  assert.doesNotMatch(code, /FeatureUnavailable|sampleMentors|data\/|MOCK|mock/);
+  const client = read("services/social/client.ts");
+  assert.match(client, /api\.get\("\/api\/v1\/mentors"/);
+  for (const f of ["app/mentors/[uid].tsx", "app/(tabs)/mentors.tsx", "components/social/MentorCard.tsx"]) assert.doesNotMatch(stripComments(read(f)), /setTimeout\([^)]*,\s*\d{4,}/, `${f}: no fake delays`);
 });
 
 test("the paper screen never invents a paper and bases its label on the text it really has", () => {

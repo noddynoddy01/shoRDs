@@ -17,3 +17,8 @@ coverage
 .cache
 .vscode
 .idea
+*.rdb
+benchmark
+
+# Legacy fabricated-output engines (see backend/legacy_quarantine/README.md)
+backend/legacy_quarantine

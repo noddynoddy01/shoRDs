@@ -1,0 +1,851 @@
+{
+ "cases": [
+  {
+   "expect": "ok",
+   "name": "valid-preflight",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"preflight\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"ngl\":8,\"ctx\":4096},\"hmac\":\"303784263dab197341cc21fd2afe827fe3508dcf6c0e4c871543c2aaafc8bbac\"}"
+  },
+  {
+   "expect": "ok",
+   "name": "valid-verify-integrity",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"verify-integrity\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"scope\":\"quick\"},\"hmac\":\"332a21f306394194a8f7fe3ee76becd8ef111e31abaa8be49100a235ed726611\"}"
+  },
+  {
+   "expect": "ok",
+   "name": "valid-server-start",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-start\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"ngl\":8,\"ctx\":4096,\"idle_minutes\":30},\"hmac\":\"c5a2949683cfb0a215b733342356ae3773aaff4cc9b2c89a07596b12bd306d32\"}"
+  },
+  {
+   "expect": "ok",
+   "name": "valid-server-stop",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{},\"hmac\":\"641d4c59102c68e5bf9100331a717d60da1c81ceb24d84a03fbe0160bd1b131e\"}"
+  },
+  {
+   "expect": "ok",
+   "name": "valid-health",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"health\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"suite\":\"synthetic3\"},\"hmac\":\"0fe0bb6074b4c1b7ae547d7bb86a933680dac730ba7b3b5167516810109bbeb6\"}"
+  },
+  {
+   "expect": "ok",
+   "name": "valid-sweep",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"sweep\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"ngl_list\":[8,12,16],\"ctx_list\":[4096],\"gen_tokens\":64},\"hmac\":\"c518c9c0fd55e39ecb51fca4368189381f5fe2f4c2602b8c48c1e92452306089\"}"
+  },
+  {
+   "expect": "ok",
+   "name": "valid-run-suite",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"run-suite\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"suite\":\"synthetic-v1\",\"suite_sha256\":\"abababababababababababababababababababababababababababababababab\",\"max_minutes\":20},\"hmac\":\"8624e0fbfb5412f6e631678a4b04cbfbd310cce0ae4ef3d8a5bb76336899b0ce\"}"
+  },
+  {
+   "expect": "ok",
+   "name": "valid-collect",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"collect\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"what\":\"all\"},\"hmac\":\"d8e9351b061c8932c24c5274065c46cfc84af1eb9c13c1b9565ea929a510f177\"}"
+  },
+  {
+   "expect": "ok",
+   "name": "valid-ctx8192-ngl20",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"preflight\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"ngl\":20,\"ctx\":8192},\"hmac\":\"0d07f4e94c535c5c17802f3c5bde84637d9a1b85c7adc1803a0ed51163b1d4d2\"}"
+  },
+  {
+   "expect": "ok",
+   "name": "valid-sweep-max-combos",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"sweep\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"ngl_list\":[4,8,12,16],\"ctx_list\":[4096,8192],\"gen_tokens\":256},\"hmac\":\"0bee849524e1069ba94139e815d224d390f89e67d87185e3b7d4308b3873ac59\"}"
+  },
+  {
+   "expect": "ok",
+   "name": "valid-with-bom",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "\ufeff{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{},\"hmac\":\"641d4c59102c68e5bf9100331a717d60da1c81ceb24d84a03fbe0160bd1b131e\"}"
+  },
+  {
+   "expect": "ok",
+   "name": "valid-with-whitespace",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\n  \"schema\": \"shords-pilot-job/1\",\n  \"id\": \"job-aaaa-0001\",\n  \"type\": \"server-stop\",\n  \"created_utc\": \"2026-11-04T13:46:30Z\",\n  \"expires_utc\": \"2026-11-04T13:56:30Z\",\n  \"params\": {},\n  \"hmac\": \"641d4c59102c68e5bf9100331a717d60da1c81ceb24d84a03fbe0160bd1b131e\"\n}\r\n"
+  },
+  {
+   "expect": "ok",
+   "name": "boundary-now-equals-expires",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:36:40Z\",\"expires_utc\":\"2026-11-04T13:46:40Z\",\"params\":{},\"hmac\":\"90919978e6a5c2db1cc9850e11a746afef66b5c745d4adc08e176a13ab29ba79\"}"
+  },
+  {
+   "expect": "ok",
+   "name": "boundary-created-minus-skew",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:48:40Z\",\"expires_utc\":\"2026-11-04T13:58:40Z\",\"params\":{},\"hmac\":\"cd38de3dcd53cdcf4b63fa89fad7b0858af0a1c65d5f747c5161ae03ebf36f47\"}"
+  },
+  {
+   "expect": "not-yet-valid",
+   "name": "not-yet-valid",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:48:41Z\",\"expires_utc\":\"2026-11-04T13:58:41Z\",\"params\":{},\"hmac\":\"39fca63d7cda689a4250f98d020685b0a03ae16e1b4da3382e8976f851b5763f\"}"
+  },
+  {
+   "expect": "expired",
+   "name": "expired",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:35:00Z\",\"expires_utc\":\"2026-11-04T13:45:00Z\",\"params\":{},\"hmac\":\"72e5b38e91b8b5f8a2c2aedc2127ce5bd5e29c1715154fbed7b409ceda6fba6c\"}"
+  },
+  {
+   "expect": "replay",
+   "name": "replay",
+   "now": 1793800000,
+   "seen": [
+    "job-aaaa-0001"
+   ],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{},\"hmac\":\"641d4c59102c68e5bf9100331a717d60da1c81ceb24d84a03fbe0160bd1b131e\"}"
+  },
+  {
+   "expect": "ok",
+   "name": "replay-other-id-ok",
+   "now": 1793800000,
+   "seen": [
+    "job-zzzz-0001"
+   ],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{},\"hmac\":\"641d4c59102c68e5bf9100331a717d60da1c81ceb24d84a03fbe0160bd1b131e\"}"
+  },
+  {
+   "expect": "size",
+   "name": "size",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{},\"hmac\":\"641d4c59102c68e5bf9100331a717d60da1c81ceb24d84a03fbe0160bd1b131e\"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        }"
+  },
+  {
+   "expect": "json",
+   "name": "json-truncated",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{},\"hmac\":\"641d4c59102c68e5bf9100331a717d60da1c81ceb24d84a03fbe0160bd1b1"
+  },
+  {
+   "expect": "json",
+   "name": "json-trailing",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{},\"hmac\":\"641d4c59102c68e5bf9100331a717d60da1c81ceb24d84a03fbe0160bd1b131e\"}x"
+  },
+  {
+   "expect": "json",
+   "name": "json-not-object",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "[1,2]"
+  },
+  {
+   "expect": "json",
+   "name": "json-float",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"x\":1.5},\"hmac\":\"641d4c59102c68e5bf9100331a717d60da1c81ceb24d84a03fbe0160bd1b131e\"}"
+  },
+  {
+   "expect": "json",
+   "name": "json-escape-n",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job\\n-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{},\"hmac\":\"641d4c59102c68e5bf9100331a717d60da1c81ceb24d84a03fbe0160bd1b131e\"}"
+  },
+  {
+   "expect": "json",
+   "name": "json-non-ascii",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-st\u00f6p\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{},\"hmac\":\"641d4c59102c68e5bf9100331a717d60da1c81ceb24d84a03fbe0160bd1b131e\"}"
+  },
+  {
+   "expect": "json",
+   "name": "json-duplicate-key",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"type\":\"x\",\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{},\"hmac\":\"641d4c59102c68e5bf9100331a717d60da1c81ceb24d84a03fbe0160bd1b131e\"}"
+  },
+  {
+   "expect": "json",
+   "name": "json-single-quotes",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{'schema':'shords-pilot-job/1','id':'job-aaaa-0001','type':'server-stop','created_utc':'2026-11-04T13:46:30Z','expires_utc':'2026-11-04T13:56:30Z','params':{},'hmac':'641d4c59102c68e5bf9100331a717d60da1c81ceb24d84a03fbe0160bd1b131e'}"
+  },
+  {
+   "expect": "json",
+   "name": "json-depth",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"x\",\"params\":{\"a\":{\"b\":{\"c\":{\"d\":{\"e\":1}}}}}}"
+  },
+  {
+   "expect": "top-keys",
+   "name": "top-keys-missing-hmac",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{}}"
+  },
+  {
+   "expect": "top-keys",
+   "name": "top-keys-extra",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{},\"hmac\":\"641d4c59102c68e5bf9100331a717d60da1c81ceb24d84a03fbe0160bd1b131e\",\"extra\":1}"
+  },
+  {
+   "expect": "schema",
+   "name": "schema",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/2\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{},\"hmac\":\"84bd828e26f1ea8f309953f9465cb778e4697c88bbc2db7d828efc8aaf96de30\"}"
+  },
+  {
+   "expect": "id",
+   "name": "id-uppercase",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "JOB-AAAA-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"JOB-AAAA-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{},\"hmac\":\"e33c9b3fe2709def62ec97614e69a42c78543e040dfe98d6659e071bc84dbf92\"}"
+  },
+  {
+   "expect": "id",
+   "name": "id-short",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-1",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-1\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{},\"hmac\":\"33aca4ca27f862aa3184e0dc3257644cd582f277aa3c0fdfcec6db653520c570\"}"
+  },
+  {
+   "expect": "id",
+   "name": "id-underscore",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job_aaaa_0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job_aaaa_0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{},\"hmac\":\"a9cde61cf0d12dcabc163d6a3f6b6291c4c44032273ef90efad339a4935cf89d\"}"
+  },
+  {
+   "expect": "id",
+   "name": "id-leading-dash",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "-job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"-job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{},\"hmac\":\"dcdcf75848906729fb8d4e70c17401f97a650c6a272f7be985670a6e25b13a15\"}"
+  },
+  {
+   "expect": "id",
+   "name": "id-too-long",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "jaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"jaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{},\"hmac\":\"c0811e7a6aef5842333defc2d2515e3591080b8be33282cd91163378bf49f5e4\"}"
+  },
+  {
+   "expect": "id",
+   "name": "id-traversal",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "..-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"..-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{},\"hmac\":\"04d3ef9eaba0b6c44af509c358651740fcf53340972bdbebfe90386dcb7d328f\"}"
+  },
+  {
+   "expect": "id",
+   "name": "id-space",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job aaaa 0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job aaaa 0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{},\"hmac\":\"1d7eeb85ff5cd9ecf779c68432d5aa0ce45cbb857fb55e1e830b79e8282d1b95\"}"
+  },
+  {
+   "expect": "id",
+   "name": "id-not-string",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "12345678",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":12345678,\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{},\"hmac\":\"641d4c59102c68e5bf9100331a717d60da1c81ceb24d84a03fbe0160bd1b131e\"}"
+  },
+  {
+   "expect": "id-name-mismatch",
+   "name": "id-name-mismatch",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-bbbb-0002",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{},\"hmac\":\"641d4c59102c68e5bf9100331a717d60da1c81ceb24d84a03fbe0160bd1b131e\"}"
+  },
+  {
+   "expect": "type",
+   "name": "type-exec",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"exec\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{},\"hmac\":\"641d4c59102c68e5bf9100331a717d60da1c81ceb24d84a03fbe0160bd1b131e\"}"
+  },
+  {
+   "expect": "type",
+   "name": "type-shell",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"powershell\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{},\"hmac\":\"641d4c59102c68e5bf9100331a717d60da1c81ceb24d84a03fbe0160bd1b131e\"}"
+  },
+  {
+   "expect": "type",
+   "name": "type-upper",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"Preflight\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{},\"hmac\":\"641d4c59102c68e5bf9100331a717d60da1c81ceb24d84a03fbe0160bd1b131e\"}"
+  },
+  {
+   "expect": "type",
+   "name": "type-empty",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{},\"hmac\":\"641d4c59102c68e5bf9100331a717d60da1c81ceb24d84a03fbe0160bd1b131e\"}"
+  },
+  {
+   "expect": "type",
+   "name": "type-not-string",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":7,\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{},\"hmac\":\"641d4c59102c68e5bf9100331a717d60da1c81ceb24d84a03fbe0160bd1b131e\"}"
+  },
+  {
+   "expect": "timestamps",
+   "name": "timestamps-no-z",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{},\"hmac\":\"12f746bea7c1b5c6e3d85d65f030dd5a31962cf0278ca128345851fed2e09cf0\"}"
+  },
+  {
+   "expect": "timestamps",
+   "name": "timestamps-month13",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-13-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{},\"hmac\":\"21be6be0e875d9bd17f9e6c4d96341155e9618e53ec951dbfee516bc2ada4876\"}"
+  },
+  {
+   "expect": "timestamps",
+   "name": "timestamps-year2023",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2023-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{},\"hmac\":\"0ab48afa7cca1c73be60071c61b145cf494a71c939c7eaeba90005bead2830f8\"}"
+  },
+  {
+   "expect": "timestamps",
+   "name": "timestamps-feb30",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-02-30T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{},\"hmac\":\"7abab569fdf54bd8bb623137ff9684ebde41f06c0c9e0a52be0624bbd3c6baf6\"}"
+  },
+  {
+   "expect": "timestamps",
+   "name": "timestamps-fraction",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30.5Z\",\"params\":{},\"hmac\":\"869ca3b3a03dde9ddd95818d7a7f30e3e4d4be0983101c16bf92f29ae848f35d\"}"
+  },
+  {
+   "expect": "timestamps",
+   "name": "timestamps-hour25",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T25:56:30Z\",\"params\":{},\"hmac\":\"3c27d86b1ecce4126091239f537ed11d46cf753733fffd8b47fb94881a6f462f\"}"
+  },
+  {
+   "expect": "timestamps",
+   "name": "timestamps-space",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04 13:56:30Z\",\"params\":{},\"hmac\":\"df0b9117364b5bd2d48ce47f008bed27bee5a499c5142e8b51c0b37d61dd2f48\"}"
+  },
+  {
+   "expect": "timestamps",
+   "name": "timestamps-lowercase",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04t13:56:30z\",\"params\":{},\"hmac\":\"26d39b03a67aedf92a788acf14786935e020a9f3184c34ec7ec7c251e5fd0a25\"}"
+  },
+  {
+   "expect": "timestamps",
+   "name": "timestamps-offset",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30+00:00\",\"params\":{},\"hmac\":\"fb49e7bb646fe9dbd10895034fcac27e9deb310e8fc8236ef1a7f5d2ee497fa9\"}"
+  },
+  {
+   "expect": "timestamps",
+   "name": "timestamps-not-string",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":5,\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{},\"hmac\":\"641d4c59102c68e5bf9100331a717d60da1c81ceb24d84a03fbe0160bd1b131e\"}"
+  },
+  {
+   "expect": "lifetime",
+   "name": "lifetime-zero",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:46:30Z\",\"params\":{},\"hmac\":\"5019a81477d3eb02214159fe66e964a5d1be62737df9e3dbe15ce8352268691f\"}"
+  },
+  {
+   "expect": "lifetime",
+   "name": "lifetime-too-long",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T14:16:31Z\",\"params\":{},\"hmac\":\"37de41afe5b50a22e825b59e60ffc65e34ad236d6b96738c209d3c3998417095\"}"
+  },
+  {
+   "expect": "ok",
+   "name": "lifetime-max-ok",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T14:16:30Z\",\"params\":{},\"hmac\":\"38ab84bdde3fa67e316095c2fe2590c46839d995ce8cc91556fa51b3c3e1a7ea\"}"
+  },
+  {
+   "expect": "lifetime",
+   "name": "lifetime-negative",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:45:00Z\",\"params\":{},\"hmac\":\"7e628a30cb296916c87493d116e38b1b00bba3f5432e44fc52bbdcfbf98e9a2d\"}"
+  },
+  {
+   "expect": "params-type",
+   "name": "params-type-list",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":[1],\"hmac\":\"641d4c59102c68e5bf9100331a717d60da1c81ceb24d84a03fbe0160bd1b131e\"}"
+  },
+  {
+   "expect": "params-type",
+   "name": "params-type-string",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":\"x\",\"hmac\":\"641d4c59102c68e5bf9100331a717d60da1c81ceb24d84a03fbe0160bd1b131e\"}"
+  },
+  {
+   "expect": "params-keys",
+   "name": "params-keys-missing",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"preflight\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"ngl\":8},\"hmac\":\"8d732abce222d2554cb7fc905d6ffd1f31faaecc1ba07bd1db2e40e7bc191b1d\"}"
+  },
+  {
+   "expect": "params-keys",
+   "name": "params-keys-extra",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"preflight\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"ngl\":8,\"ctx\":4096,\"cmd\":\"calc\"},\"hmac\":\"71127a0b39f93a6de30b908799982f70f14cbe081452bffe32bb5a3a7edfdbd6\"}"
+  },
+  {
+   "expect": "params-keys",
+   "name": "params-keys-on-stop",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"force\":true},\"hmac\":\"b52cd9e168482aad0b4ac00ef9855944cf7bccdb3df74b8f8a8e985982a44511\"}"
+  },
+  {
+   "expect": "params-keys",
+   "name": "params-keys-misspelled",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"preflight\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"ngl\":8,\"cxt\":4096},\"hmac\":\"e25135b84f2b2e3a6b4f874e97e2e5f564d2853bc97dd4f76954118d00d31118\"}"
+  },
+  {
+   "expect": "params-value:ngl",
+   "name": "params-value-ngl-21",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"preflight\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"ngl\":21,\"ctx\":4096},\"hmac\":\"fa88ea4aecdffc7244a7c983119dc79ac857e396e9d8b55339e324d1b51be078\"}"
+  },
+  {
+   "expect": "params-value:ngl",
+   "name": "params-value-ngl-neg",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"preflight\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"ngl\":-1,\"ctx\":4096},\"hmac\":\"b15eda7bf9bbe5c249ed600b461f99a464dad0853da8a6400035062ffa54b0bd\"}"
+  },
+  {
+   "expect": "params-value:ngl",
+   "name": "params-value-ngl-string",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"preflight\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"ngl\":\"8\",\"ctx\":4096},\"hmac\":\"303784263dab197341cc21fd2afe827fe3508dcf6c0e4c871543c2aaafc8bbac\"}"
+  },
+  {
+   "expect": "params-value:ngl",
+   "name": "params-value-ngl-bool",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"preflight\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"ngl\":true,\"ctx\":4096},\"hmac\":\"1f6b08ba05198ef9e0b2926812dbcc52ff721a16d07eeb91ddcd998565f5b144\"}"
+  },
+  {
+   "expect": "params-value:ngl",
+   "name": "params-value-ngl-list",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"preflight\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"ngl\":[8],\"ctx\":4096},\"hmac\":\"303784263dab197341cc21fd2afe827fe3508dcf6c0e4c871543c2aaafc8bbac\"}"
+  },
+  {
+   "expect": "params-value:ngl",
+   "name": "params-value-ngl-null",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"preflight\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"ngl\":null,\"ctx\":4096},\"hmac\":\"54d05803b2b23ee115f5fad73cc2cce8ebc7c9c0200d95cf4412fe00a3583875\"}"
+  },
+  {
+   "expect": "params-value:ctx",
+   "name": "params-value-ctx-5000",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"preflight\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"ngl\":8,\"ctx\":5000},\"hmac\":\"a340357b2d1564d656e265f3b73a76be43cc439df8446905044ad692c4521228\"}"
+  },
+  {
+   "expect": "params-value:ctx",
+   "name": "params-value-ctx-16384",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"preflight\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"ngl\":8,\"ctx\":16384},\"hmac\":\"2297ae0f46f20a7686c5b070cbda155444d36b80e4823b5ec4f9fab6108a4c10\"}"
+  },
+  {
+   "expect": "params-value:ctx",
+   "name": "params-value-ctx-string",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"preflight\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"ngl\":8,\"ctx\":\"4096\"},\"hmac\":\"303784263dab197341cc21fd2afe827fe3508dcf6c0e4c871543c2aaafc8bbac\"}"
+  },
+  {
+   "expect": "params-value:idle_minutes",
+   "name": "params-value-idle-4",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-start\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"ngl\":8,\"ctx\":4096,\"idle_minutes\":4},\"hmac\":\"f78fce57ba6dc6273ccbf2453218a66db370266f1534b00dafd53ee79c789a84\"}"
+  },
+  {
+   "expect": "params-value:idle_minutes",
+   "name": "params-value-idle-121",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-start\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"ngl\":8,\"ctx\":4096,\"idle_minutes\":121},\"hmac\":\"77d47482c3c325f9c73eba828c8d8c6f9e03339a5be8516323d77cf36761a832\"}"
+  },
+  {
+   "expect": "params-value:scope",
+   "name": "params-value-scope-bad",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"verify-integrity\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"scope\":\"everything\"},\"hmac\":\"fa088dfcd1e37f9e71e6806b7488b73d93c1c2ada5f9e423f78a9192adce757e\"}"
+  },
+  {
+   "expect": "params-value:scope",
+   "name": "params-value-scope-bool",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"verify-integrity\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"scope\":true},\"hmac\":\"0ea09070188c6ef76e5040dfb8c04e7bd821f90b61edff7f5059d11133c05525\"}"
+  },
+  {
+   "expect": "params-value:suite",
+   "name": "params-value-health-suite",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"health\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"suite\":\"other\"},\"hmac\":\"21d1eb9c20f336ba7b9f11dccab929e68cb147dc8dc652f675950099d837ceb7\"}"
+  },
+  {
+   "expect": "params-value:suite",
+   "name": "params-value-suite-traversal",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"run-suite\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"suite\":\"../x\",\"suite_sha256\":\"abababababababababababababababababababababababababababababababab\",\"max_minutes\":5},\"hmac\":\"53e0407c22ecb513165a309cadff29d6f7f2211899073622e1a06781f1bd29ab\"}"
+  },
+  {
+   "expect": "params-value:suite",
+   "name": "params-value-suite-short",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"run-suite\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"suite\":\"A\",\"suite_sha256\":\"abababababababababababababababababababababababababababababababab\",\"max_minutes\":5},\"hmac\":\"469c732d1a0a68311253e4e69312b409dc6b3fbba61c39506b8fea4a604d711c\"}"
+  },
+  {
+   "expect": "params-value:suite",
+   "name": "params-value-suite-long",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"run-suite\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"suite\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\"suite_sha256\":\"abababababababababababababababababababababababababababababababab\",\"max_minutes\":5},\"hmac\":\"81e2a2aad0b4ff96993b0e53a41df499dd83ebc2ef48b392b152439d23bae3c8\"}"
+  },
+  {
+   "expect": "params-value:suite_sha256",
+   "name": "params-value-sha-upper",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"run-suite\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"suite\":\"good-name\",\"suite_sha256\":\"ABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABAB\",\"max_minutes\":5},\"hmac\":\"fd49c7b6c69a57235429d1f60bed493f1bc32e6bc62b851e2a118918cf419485\"}"
+  },
+  {
+   "expect": "params-value:suite_sha256",
+   "name": "params-value-sha-short",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"run-suite\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"suite\":\"good-name\",\"suite_sha256\":\"ababababababababababababababababababababababababababababababab\",\"max_minutes\":5},\"hmac\":\"1e73ecfd5a8562cf73ec74c3473ad0476fab8a0ebe1bc12f82b843a509cc5276\"}"
+  },
+  {
+   "expect": "params-value:max_minutes",
+   "name": "params-value-minutes-0",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"run-suite\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"suite\":\"good-name\",\"suite_sha256\":\"abababababababababababababababababababababababababababababababab\",\"max_minutes\":0},\"hmac\":\"3038659e88e11839801c05123e1eba251c9b1c29ba476cdb54de7add3d2f983f\"}"
+  },
+  {
+   "expect": "params-value:max_minutes",
+   "name": "params-value-minutes-121",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"run-suite\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"suite\":\"good-name\",\"suite_sha256\":\"abababababababababababababababababababababababababababababababab\",\"max_minutes\":121},\"hmac\":\"f8815e11c4ccfd7d90cc4b35bdface95e52fdc280607bd62829a0f90e8dc86c1\"}"
+  },
+  {
+   "expect": "params-value:what",
+   "name": "params-value-collect-what",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"collect\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"what\":\"secrets\"},\"hmac\":\"85c3a01db7b282449190c21c6c8110101d81ec1d647f41d8310db16a1956c53d\"}"
+  },
+  {
+   "expect": "params-value:ngl_list",
+   "name": "params-value-sweep-empty",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"sweep\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"ngl_list\":[],\"ctx_list\":[4096],\"gen_tokens\":64},\"hmac\":\"97053eba718698da25060176ac7de95e393a089507eb4c9c722d374ed64c994e\"}"
+  },
+  {
+   "expect": "params-value:ngl_list",
+   "name": "params-value-sweep-dupe",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"sweep\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"ngl_list\":[8,8],\"ctx_list\":[4096],\"gen_tokens\":64},\"hmac\":\"6d3f89808970b666f8e2529fc354630538d3bbf18f3e3d15a23af6e8aa44535d\"}"
+  },
+  {
+   "expect": "params-value:ngl_list",
+   "name": "params-value-sweep-7",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"sweep\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"ngl_list\":[0,2,4,6,8,10,12],\"ctx_list\":[4096],\"gen_tokens\":64},\"hmac\":\"d2e02ff20a6917991c9cfc14ba41297f21752a8b083e15d3db889db0e1a1400d\"}"
+  },
+  {
+   "expect": "params-value:ngl_list",
+   "name": "params-value-sweep-ngl-99",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"sweep\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"ngl_list\":[8,99],\"ctx_list\":[4096],\"gen_tokens\":64},\"hmac\":\"4a1792f0c6716e1b9da5139d72ac0f9ff30502fe25bea72c04d0d5b5f52c33ec\"}"
+  },
+  {
+   "expect": "params-value:ctx_list",
+   "name": "params-value-sweep-ctx-empty",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"sweep\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"ngl_list\":[8],\"ctx_list\":[],\"gen_tokens\":64},\"hmac\":\"010f21de20ce728aea5ab2a768fcf0e22467d0d02f96c11c1a5ed7fc1cb497c6\"}"
+  },
+  {
+   "expect": "params-value:ctx_list",
+   "name": "params-value-sweep-ctx-dupe",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"sweep\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"ngl_list\":[8],\"ctx_list\":[4096,4096],\"gen_tokens\":64},\"hmac\":\"c4adf4c2bcc60f4de1e9aadddb5c04ec714453735b0ee02dcc0c848762cb1c38\"}"
+  },
+  {
+   "expect": "params-value:ctx_list",
+   "name": "params-value-sweep-ctx-bad",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"sweep\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"ngl_list\":[8],\"ctx_list\":[3000],\"gen_tokens\":64},\"hmac\":\"73377af30c5dd55055030cf39426cc0915b072304120459d41d654a58921b50d\"}"
+  },
+  {
+   "expect": "params-value:gen_tokens",
+   "name": "params-value-sweep-gen-15",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"sweep\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"ngl_list\":[8],\"ctx_list\":[4096],\"gen_tokens\":15},\"hmac\":\"5e2b10398cd3843dbb2d4f56b91a1e5997c43dda4587e1da9db768552a62ddab\"}"
+  },
+  {
+   "expect": "params-value:gen_tokens",
+   "name": "params-value-sweep-gen-257",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"sweep\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"ngl_list\":[8],\"ctx_list\":[4096],\"gen_tokens\":257},\"hmac\":\"63bb1291ec8aaaae5e57a114c014c3e6bf42d0fb0e4aaf980598dbe769fa5225\"}"
+  },
+  {
+   "expect": "params-value:combos",
+   "name": "params-value-sweep-combos-12",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"sweep\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"ngl_list\":[4,8,12,16,18,20],\"ctx_list\":[4096,8192],\"gen_tokens\":64},\"hmac\":\"45d247534992caba5e3e03841fc8d7d13a80eb5676881149c41d82cbcf6038eb\"}"
+  },
+  {
+   "expect": "params-type",
+   "name": "params-value-sweep-params-string",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"sweep\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":\"notadict\",\"hmac\":\"ddfc04a24d299bc6d6ada4b85f409bd5e81f1e50d57d8401ce6305bda8646ab7\"}"
+  },
+  {
+   "expect": "hmac-format",
+   "name": "hmac-format-short",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{},\"hmac\":\"xyz\"}"
+  },
+  {
+   "expect": "hmac-format",
+   "name": "hmac-format-upper",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{},\"hmac\":\"641D4C59102C68E5BF9100331A717D60DA1C81CEB24D84A03FBE0160BD1B131E\"}"
+  },
+  {
+   "expect": "hmac",
+   "name": "hmac-flipped",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{},\"hmac\":\"641d4c59102c68e5bf9100331a717d60da1c81ceb24d84a03fbe0160bd1b1310\"}"
+  },
+  {
+   "expect": "hmac",
+   "name": "hmac-other-key",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{},\"hmac\":\"d12e666632ba9281c3e160d37d332bc58c09f48ef6dff63cb689aaa8ce22bdea\"}"
+  },
+  {
+   "expect": "hmac",
+   "name": "hmac-param-tampered",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"preflight\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"ngl\":12,\"ctx\":4096},\"hmac\":\"303784263dab197341cc21fd2afe827fe3508dcf6c0e4c871543c2aaafc8bbac\"}"
+  },
+  {
+   "expect": "hmac",
+   "name": "hmac-type-swapped",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{},\"hmac\":\"303784263dab197341cc21fd2afe827fe3508dcf6c0e4c871543c2aaafc8bbac\"}"
+  },
+  {
+   "expect": "hmac",
+   "name": "hmac-expiry-extended",
+   "now": 1793800000,
+   "seen": [],
+   "stem": "job-aaaa-0001",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"job-aaaa-0001\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T14:15:00Z\",\"params\":{},\"hmac\":\"641d4c59102c68e5bf9100331a717d60da1c81ceb24d84a03fbe0160bd1b131e\"}"
+  }
+ ],
+ "key": "5121d00040420da0fb542bc50c173997427c112554d178b787483ae6ceac0002",
+ "now": 1793800000,
+ "otherKey": "b620d22023a45e2df6fcaf075d1d1a1a90351f82b043031e878f25652c10da48"
+}

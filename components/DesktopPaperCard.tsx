@@ -1,11 +1,12 @@
 import React from "react";
 import { StyleSheet, Text, View, Pressable, Linking } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { Paper } from "@/types/models";
 import { colors as defaultColors, radius, spacing } from "@/constants/theme";
 import { useTheme } from "@/context/ThemeContext";
+import { backendPaperRef } from "@/services/analysisClient";
 
 interface DesktopPaperCardProps {
   paper: Paper;
@@ -36,7 +37,7 @@ export function DesktopPaperCard({
     e?.stopPropagation?.();
     router.push({
       pathname: "/research/copilot",
-      params: { paperId: paper.id, title: paper.title }
+      params: { ref: backendPaperRef(paper) ?? "", title: paper.title }
     } as never);
   };
 
@@ -69,16 +70,14 @@ export function DesktopPaperCard({
           {paper.pubYear ? (
             <Text style={styles.yearText}>• {paper.pubYear}</Text>
           ) : null}
-          <View style={styles.verifiedTag}>
-            <Ionicons name="shield-checkmark" size={11} color="#10B981" />
-            <Text style={styles.verifiedTagText}>Peer-Grounded</Text>
-          </View>
         </View>
 
         <View style={styles.metaRight}>
-          <Text style={styles.readingTimeText}>
-            <Ionicons name="time-outline" size={12} color={colors.subdued} /> {paper.readingTime || "3 min read"}
-          </Text>
+          {paper.readingTime ? (
+            <Text style={styles.readingTimeText}>
+              <Ionicons name="time-outline" size={12} color={colors.subdued} /> {paper.readingTime}
+            </Text>
+          ) : null}
         </View>
       </View>
 
@@ -89,7 +88,7 @@ export function DesktopPaperCard({
 
       {/* Authors & Organization */}
       <Text style={styles.authors} numberOfLines={1}>
-        <Ionicons name="people-outline" size={12} color={colors.subdued} /> {paper.authorName || "Research Team"}
+        <Ionicons name="people-outline" size={12} color={colors.subdued} /> {paper.authorName || "Authors not listed"}
         {paper.organization ? ` • ${paper.organization}` : ""}
       </Text>
 
@@ -116,10 +115,12 @@ export function DesktopPaperCard({
             <Ionicons name="arrow-forward" size={13} color={colors.primary} />
           </Pressable>
 
-          <Pressable style={styles.actionIconBtn} onPress={openCopilot}>
-            <Ionicons name="sparkles" size={14} color="#6366F1" />
-            <Text style={styles.actionIconBtnText}>Copilot</Text>
-          </Pressable>
+          {backendPaperRef(paper) ? (
+            <Pressable style={styles.actionIconBtn} onPress={openCopilot} accessibilityRole="button" accessibilityLabel="Ask the Research Copilot about this paper">
+              <Ionicons name="sparkles" size={14} color="#6366F1" />
+              <Text style={styles.actionIconBtnText}>Copilot</Text>
+            </Pressable>
+          ) : null}
 
           {paper.originalLink ? (
             <Pressable style={styles.actionIconBtn} onPress={openSource}>

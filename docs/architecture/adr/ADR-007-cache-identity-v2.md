@@ -6,7 +6,18 @@
 
 ## Context
 
-The audit proved that changing tenant, project, query, depth, model, chunk text or paper identity invalidates cached results. Two gaps remain: the paper title is not in the key (C2) and cached bodies can carry a stale paper header (C4). AI cost dominates at scale and most requests concern the same public papers.
+The audit proved that changing tenant, project, query, depth, model, chunk text or paper identity invalidates cached results. Two gaps were found: the paper title was not in the key (C2) and cached bodies could carry a stale paper header (C4). Both have a fix **implemented in the local working tree** of branch `p0-fixes`, without a schema bump (the title and coverage reach the structured-analysis key; a cache hit has its paper header, coverage notice and document hash refreshed from the current request), together with a bump of `PROMPT_VERSION` / `INTEL_PROMPT_VERSION` to 2026.3 / 2026.2-intel for the prompt-safety and grounding changes, which orphans older entries (they expire by TTL; no flush). What remains of this ADR is the v2 design below: provider and validator version in the key, and the shared public-paper cache.
+
+### Delivery state of the C2 / C4 / coverage-identity fix (as of 2026-11-01; update this table when the state changes)
+
+| Stage | State |
+|---|---|
+| Implemented locally | **Yes** (working tree of `D:\shords`, branch `p0-fixes`; tests pass) |
+| Committed locally | **No** (uncommitted; local `HEAD` `ab4d702` does not contain it) |
+| Pushed to PR #1 | **No** (the remote PR head is `5c44517`, which does not contain it) |
+| Merged | **No** (production `main` is `40989e1`) |
+
+Do not describe this fix as "in PR #1" or "merged" until the corresponding row above is true. The fixes for security audit V-1, V-2, V-3, V-10 and V-12 are different: they are already on the PR head. AI cost dominates at scale and most requests concern the same public papers.
 
 ## Decision
 

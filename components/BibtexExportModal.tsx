@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View, Clipboard, Alert } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "@/context/ThemeContext";
 import { colors as defaultColors, radius, spacing } from "@/constants/theme";
 import { Paper, CitationFormat } from "@/types/models";

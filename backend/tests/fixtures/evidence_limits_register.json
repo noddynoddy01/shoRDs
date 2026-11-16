@@ -1,0 +1,451 @@
+{
+  "_kind": "SYNTHETIC_LIMITS_REGISTER_NOT_AN_ACCURACY_MEASURE",
+  "_note": "Hand-written probes of known guard limitations, added in Phase 3. `truth` is the author's reading of whether the statement restates the passage. `expect` is what the guard does TODAY. A case whose truth is unfaithful but which is kept is a KNOWN_MISS; a faithful case that is dropped is a KNOWN_FALSE_DROP. If a guard change alters any of these, the test fails on purpose: review the change, bump INTEL_PROMPT_VERSION, re-pin the fingerprint, and update this file. Counts over these cases are not rates.",
+  "papers": {
+    "L01": [
+      {
+        "chunkId": "c1",
+        "text": "Our method reduces word error rate by 20% on the noisy test set. The model was trained for 3 epochs on 12 GPUs."
+      }
+    ],
+    "L02": [
+      {
+        "chunkId": "c1",
+        "text": "Experiment No. 5 shows that accuracy reaches 91.0 percent on the held-out set."
+      }
+    ],
+    "L03": [
+      {
+        "chunkId": "c1",
+        "text": "Without loss of generality we assume i.i.d. samples, and accuracy reaches 91.0 percent."
+      }
+    ],
+    "L04": [
+      {
+        "chunkId": "c1",
+        "text": "Accuracy reached 87.4 percent."
+      }
+    ],
+    "W01": [
+      {
+        "chunkId": "c1",
+        "text": "Model A reaches 91.0 percent accuracy while Model B reaches 84.5 percent accuracy on the same split."
+      }
+    ],
+    "W02": [
+      {
+        "chunkId": "c1",
+        "text": "Precision was 0.82 and recall was 0.64 on the validation set."
+      }
+    ],
+    "W03": [
+      {
+        "chunkId": "c1",
+        "text": "The patch added 12 ms of latency per request."
+      }
+    ],
+    "W04": [
+      {
+        "chunkId": "c1",
+        "text": "Of the 200 participants, 12 dropped out."
+      }
+    ],
+    "P01": [
+      {
+        "chunkId": "c1",
+        "text": "Training used 50 epochs on the full corpus."
+      }
+    ],
+    "P02": [
+      {
+        "chunkId": "c1",
+        "text": "Throughput rose from 100 to 200 requests per second."
+      }
+    ],
+    "P03": [
+      {
+        "chunkId": "c1",
+        "text": "Accuracy was 25 percent on the hard subset."
+      }
+    ],
+    "R01": [
+      {
+        "chunkId": "c1",
+        "text": "The proposed system underperforms the baseline on recall."
+      }
+    ],
+    "R02": [
+      {
+        "chunkId": "c1",
+        "text": "The effect was larger in older adults than in younger adults."
+      }
+    ],
+    "R03": [
+      {
+        "chunkId": "c1",
+        "text": "Higher sleep duration was associated with lower anxiety scores."
+      }
+    ],
+    "R04": [
+      {
+        "chunkId": "c1",
+        "text": "Sleep duration was associated with lower anxiety scores in 340 adults."
+      }
+    ],
+    "R05": [
+      {
+        "chunkId": "c1",
+        "text": "The difference between groups was not statistically significant (p = 0.21)."
+      }
+    ],
+    "X01": [
+      {
+        "chunkId": "c1",
+        "text": "On dataset A the method improved F1 by 4.0 points. On dataset B it did not improve F1."
+      }
+    ],
+    "X02": [
+      {
+        "chunkId": "c1",
+        "text": "On dataset A the method improved F1 by 4.0 points. On dataset B it did not improve F1."
+      }
+    ],
+    "X03": [
+      {
+        "chunkId": "c1",
+        "text": "In a sample of 30 undergraduates, the intervention improved recall by 12 percent."
+      }
+    ],
+    "X04": [
+      {
+        "chunkId": "c1",
+        "text": "In mice, compound X reduced tumour volume by 40 percent."
+      }
+    ],
+    "X05": [
+      {
+        "chunkId": "c1",
+        "text": "If the learning rate is below 0.001, training converges within 10 epochs."
+      }
+    ],
+    "X06": [
+      {
+        "chunkId": "c1",
+        "text": "Accuracy was 80.0 percent versus 70.0 percent for the weak baseline."
+      }
+    ]
+  },
+  "cases": [
+    {
+      "id": "L01",
+      "group": "false-drop-candidate",
+      "truth": "faithful",
+      "paper": "L01",
+      "text": "The method improves word error rate by 20% on the noisy test set.",
+      "cites": [
+        "c1"
+      ],
+      "expect": {
+        "kept": false,
+        "reason": "REVERSED_MEANING"
+      },
+      "known": "KNOWN_FALSE_DROP"
+    },
+    {
+      "id": "L02",
+      "group": "false-drop-candidate",
+      "truth": "faithful",
+      "paper": "L02",
+      "text": "Experiment 5 shows accuracy reaches 91.0 percent on the held-out set.",
+      "cites": [
+        "c1"
+      ],
+      "expect": {
+        "kept": false,
+        "reason": "REVERSED_MEANING"
+      },
+      "known": "KNOWN_FALSE_DROP"
+    },
+    {
+      "id": "L03",
+      "group": "false-drop-candidate",
+      "truth": "faithful",
+      "paper": "L03",
+      "text": "Accuracy reaches 91.0 percent assuming i.i.d. samples.",
+      "cites": [
+        "c1"
+      ],
+      "expect": {
+        "kept": false,
+        "reason": "REVERSED_MEANING"
+      },
+      "known": "KNOWN_FALSE_DROP"
+    },
+    {
+      "id": "L04",
+      "group": "false-drop-candidate",
+      "truth": "faithful",
+      "paper": "L04",
+      "text": "Accuracy reached 0.874.",
+      "cites": [
+        "c1"
+      ],
+      "expect": {
+        "kept": false,
+        "reason": "STATEMENT_NUMBER_NOT_IN_EVIDENCE"
+      },
+      "known": "KNOWN_FALSE_DROP"
+    },
+    {
+      "id": "W01",
+      "group": "wrong-attribution",
+      "truth": "unfaithful",
+      "paper": "W01",
+      "text": "Model B reaches 91.0 percent accuracy while Model A reaches 84.5 percent accuracy on the same split.",
+      "cites": [
+        "c1"
+      ],
+      "expect": {
+        "kept": true
+      },
+      "known": "KNOWN_MISS"
+    },
+    {
+      "id": "W02",
+      "group": "wrong-attribution",
+      "truth": "unfaithful",
+      "paper": "W02",
+      "text": "Recall was 0.82 and precision was 0.64 on the validation set.",
+      "cites": [
+        "c1"
+      ],
+      "expect": {
+        "kept": true
+      },
+      "known": "KNOWN_MISS"
+    },
+    {
+      "id": "W03",
+      "group": "wrong-attribution",
+      "truth": "unfaithful",
+      "paper": "W03",
+      "text": "The patch added 12 seconds of latency per request.",
+      "cites": [
+        "c1"
+      ],
+      "expect": {
+        "kept": true
+      },
+      "known": "KNOWN_MISS"
+    },
+    {
+      "id": "W04",
+      "group": "wrong-attribution",
+      "truth": "unfaithful",
+      "paper": "W04",
+      "text": "12 percent of the participants dropped out.",
+      "cites": [
+        "c1"
+      ],
+      "expect": {
+        "kept": true
+      },
+      "known": "KNOWN_MISS"
+    },
+    {
+      "id": "P01",
+      "group": "paraphrased-number",
+      "truth": "unfaithful",
+      "paper": "P01",
+      "text": "Training used five epochs on the full corpus.",
+      "cites": [
+        "c1"
+      ],
+      "expect": {
+        "kept": true
+      },
+      "known": "KNOWN_MISS"
+    },
+    {
+      "id": "P02",
+      "group": "paraphrased-number",
+      "truth": "faithful",
+      "paper": "P02",
+      "text": "Throughput doubled.",
+      "cites": [
+        "c1"
+      ],
+      "expect": {
+        "kept": true
+      }
+    },
+    {
+      "id": "P03",
+      "group": "paraphrased-number",
+      "truth": "unfaithful",
+      "paper": "P03",
+      "text": "A quarter of hard items were solved, and accuracy was 75 percent.",
+      "cites": [
+        "c1"
+      ],
+      "expect": {
+        "kept": false,
+        "reason": "STATEMENT_NUMBER_NOT_IN_EVIDENCE"
+      }
+    },
+    {
+      "id": "R01",
+      "group": "subtle-reversal",
+      "truth": "unfaithful",
+      "paper": "R01",
+      "text": "The proposed system beats the baseline on recall.",
+      "cites": [
+        "c1"
+      ],
+      "expect": {
+        "kept": true
+      },
+      "known": "KNOWN_MISS"
+    },
+    {
+      "id": "R02",
+      "group": "subtle-reversal",
+      "truth": "unfaithful",
+      "paper": "R02",
+      "text": "The effect was larger in younger adults than in older adults.",
+      "cites": [
+        "c1"
+      ],
+      "expect": {
+        "kept": true
+      },
+      "known": "KNOWN_MISS"
+    },
+    {
+      "id": "R03",
+      "group": "subtle-reversal",
+      "truth": "unfaithful",
+      "paper": "R03",
+      "text": "Lower anxiety scores caused higher sleep duration.",
+      "cites": [
+        "c1"
+      ],
+      "expect": {
+        "kept": true
+      },
+      "known": "KNOWN_MISS"
+    },
+    {
+      "id": "R04",
+      "group": "subtle-reversal",
+      "truth": "unfaithful",
+      "paper": "R04",
+      "text": "Longer sleep reduces anxiety in 340 adults.",
+      "cites": [
+        "c1"
+      ],
+      "expect": {
+        "kept": true
+      },
+      "known": "KNOWN_MISS"
+    },
+    {
+      "id": "R05",
+      "group": "subtle-reversal",
+      "truth": "unfaithful",
+      "paper": "R05",
+      "text": "The difference between groups was statistically significant (p = 0.21).",
+      "cites": [
+        "c1"
+      ],
+      "expect": {
+        "kept": false,
+        "reason": "REVERSED_MEANING"
+      }
+    },
+    {
+      "id": "X01",
+      "group": "context-dependent",
+      "truth": "unfaithful",
+      "paper": "X01",
+      "text": "The method improved F1 by 4.0 points.",
+      "cites": [
+        "c1"
+      ],
+      "expect": {
+        "kept": true
+      },
+      "known": "KNOWN_MISS"
+    },
+    {
+      "id": "X02",
+      "group": "context-dependent",
+      "truth": "unfaithful",
+      "paper": "X02",
+      "text": "The method improved F1 on dataset B by 4.0 points.",
+      "cites": [
+        "c1"
+      ],
+      "expect": {
+        "kept": true
+      },
+      "known": "KNOWN_MISS"
+    },
+    {
+      "id": "X03",
+      "group": "context-dependent",
+      "truth": "unfaithful",
+      "paper": "X03",
+      "text": "The intervention improves recall by 12 percent.",
+      "cites": [
+        "c1"
+      ],
+      "expect": {
+        "kept": true
+      },
+      "known": "KNOWN_MISS"
+    },
+    {
+      "id": "X04",
+      "group": "context-dependent",
+      "truth": "unfaithful",
+      "paper": "X04",
+      "text": "Compound X reduced tumour volume by 40 percent.",
+      "cites": [
+        "c1"
+      ],
+      "expect": {
+        "kept": true
+      },
+      "known": "KNOWN_MISS"
+    },
+    {
+      "id": "X05",
+      "group": "context-dependent",
+      "truth": "unfaithful",
+      "paper": "X05",
+      "text": "Training converges within 10 epochs.",
+      "cites": [
+        "c1"
+      ],
+      "expect": {
+        "kept": true
+      },
+      "known": "KNOWN_MISS"
+    },
+    {
+      "id": "X06",
+      "group": "context-dependent",
+      "truth": "unfaithful",
+      "paper": "X06",
+      "text": "Accuracy was 80.0 percent versus 70.0 percent for the strongest baseline.",
+      "cites": [
+        "c1"
+      ],
+      "expect": {
+        "kept": true
+      },
+      "known": "KNOWN_MISS"
+    }
+  ]
+}

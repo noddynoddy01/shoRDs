@@ -1,9 +1,6 @@
 import React from "react";
 import { StyleSheet, Text, View, ScrollView, Pressable } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
-import { Logo } from "@/components/Logo";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors as defaultColors, radius, spacing } from "@/constants/theme";
 import { useTheme } from "@/context/ThemeContext";
 import { domains } from "@/data/samplePapers";
@@ -12,80 +9,48 @@ interface DesktopNavSidebarProps {
   currentDomain?: string;
   onSelectDomain: (domain?: string) => void;
   onRefreshFeed: () => void;
-  onOpenSettings: () => void;
-  onOpenSubscription: () => void;
   isMuted: boolean;
   onToggleMute: () => void;
-  userProfile?: { name: string; email: string } | null;
 }
 
-export function DesktopNavSidebar({
-  currentDomain,
-  onSelectDomain,
-  onRefreshFeed,
-  onOpenSettings,
-  onOpenSubscription,
-  isMuted,
-  onToggleMute,
-  userProfile
-}: DesktopNavSidebarProps) {
+/**
+ * The feed's own column: refresh, audio and the domain filter. Site navigation lives in the global rail (components/nav/AppRail),
+ * and the account/plan controls live in the rail's account menu and Profile, so none of them is repeated here.
+ */
+export function DesktopNavSidebar({ currentDomain, onSelectDomain, onRefreshFeed, isMuted, onToggleMute }: DesktopNavSidebarProps) {
   const { colors, fontSizeScale } = useTheme();
   const styles = getStyles(colors, fontSizeScale);
 
-  const navItems = [
-    { label: "Feed", icon: "newspaper-outline" as const, route: "/(tabs)" },
-    { label: "Explore", icon: "compass-outline" as const, route: "/(tabs)/explore" },
-    { label: "Search", icon: "search-outline" as const, route: "/search" },
-    { label: "Profile", icon: "person-outline" as const, route: "/(tabs)/profile" }
-  ];
-
   return (
     <View style={styles.container}>
-      {/* Brand Header */}
       <View style={styles.brandRow}>
-        <Logo />
+        <Text style={styles.filterTitle} accessibilityRole="header">Feed</Text>
       </View>
 
       <ScrollView style={styles.scrollArea} showsVerticalScrollIndicator={false}>
-        {/* Navigation Items */}
-        <View style={styles.section}>
-          <Text style={styles.sectionHeader}>NAVIGATION</Text>
-          {navItems.map((item, idx) => (
-            <Pressable
-              key={idx}
-              style={styles.navItem}
-              onPress={() => router.push(item.route as never)}
-            >
-              <Ionicons name={item.icon} size={18} color={colors.primary} />
-              <Text style={styles.navText}>{item.label}</Text>
-            </Pressable>
-          ))}
-        </View>
-
-        {/* Quick Actions */}
         <View style={styles.section}>
           <Text style={styles.sectionHeader}>ACTIONS</Text>
-          <Pressable style={styles.actionBtn} onPress={onRefreshFeed}>
+          <Pressable style={styles.actionBtn} onPress={onRefreshFeed} accessibilityRole="button" accessibilityLabel="Refresh the feed">
             <Ionicons name="refresh-outline" size={16} color={colors.text} />
-            <Text style={styles.actionBtnText}>Refresh Feed</Text>
+            <Text style={styles.actionBtnText}>Refresh feed</Text>
           </Pressable>
 
-          <Pressable style={styles.actionBtn} onPress={onToggleMute}>
+          <Pressable style={styles.actionBtn} onPress={onToggleMute} accessibilityRole="button" accessibilityLabel={isMuted ? "Unmute audio" : "Mute audio"}>
             <Ionicons name={isMuted ? "volume-mute" : "volume-high"} size={16} color={colors.text} />
-            <Text style={styles.actionBtnText}>{isMuted ? "Unmute Audio" : "Mute Audio"}</Text>
+            <Text style={styles.actionBtnText}>{isMuted ? "Unmute audio" : "Mute audio"}</Text>
           </Pressable>
         </View>
 
-        {/* Topics / Domains */}
         <View style={styles.section}>
           <Text style={styles.sectionHeader}>RESEARCH DOMAINS</Text>
           <Pressable
             style={[styles.domainItem, !currentDomain && styles.domainItemActive]}
             onPress={() => onSelectDomain(undefined)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: !currentDomain }}
+            aria-pressed={!currentDomain}
           >
-            <Text style={[styles.domainText, !currentDomain && styles.domainTextActive]}>
-              All Discoveries
-            </Text>
+            <Text style={[styles.domainText, !currentDomain && styles.domainTextActive]}>All discoveries</Text>
           </Pressable>
 
           {domains.map((d) => {
@@ -95,49 +60,16 @@ export function DesktopNavSidebar({
                 key={d}
                 style={[styles.domainItem, isActive && styles.domainItemActive]}
                 onPress={() => onSelectDomain(d)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isActive }}
+                aria-pressed={isActive}
               >
-                <Text style={[styles.domainText, isActive && styles.domainTextActive]}>
-                  {d}
-                </Text>
+                <Text style={[styles.domainText, isActive && styles.domainTextActive]}>{d}</Text>
               </Pressable>
             );
           })}
         </View>
       </ScrollView>
-
-      {/* Footer Profile & Plan */}
-      <View style={styles.footer}>
-        <Pressable style={styles.subBanner} onPress={onOpenSubscription}>
-          <LinearGradient
-            colors={["#F59E0B22", "#F59E0B08"]}
-            style={styles.subBannerGrad}
-          >
-            <Ionicons name="sparkles" size={14} color="#F59E0B" />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.subTitle}>Research Analysis</Text>
-              <Text style={styles.subDesc}>Claude Sonnet 5.5</Text>
-            </View>
-          </LinearGradient>
-        </Pressable>
-
-        <Pressable style={styles.profileRow} onPress={onOpenSettings}>
-          <LinearGradient
-            colors={["#06B6D4", "#8B5CF6"]}
-            style={styles.profileAvatar}
-          >
-            <Text style={styles.profileInitials}>
-              {userProfile?.name ? userProfile.name.slice(0, 2).toUpperCase() : "AP"}
-            </Text>
-          </LinearGradient>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.profileName} numberOfLines={1}>
-              {userProfile?.name || "Abhinav Prakash"}
-            </Text>
-            <Text style={styles.profileRole}>Research Scientist</Text>
-          </View>
-          <Ionicons name="settings-outline" size={16} color={colors.subdued} />
-        </Pressable>
-      </View>
     </View>
   );
 }
@@ -221,61 +153,10 @@ function getStyles(colors: typeof defaultColors, scale: number) {
       color: colors.primary,
       fontWeight: "700"
     },
-    footer: {
-      padding: spacing.md,
-      borderTopWidth: 1,
-      borderColor: colors.border
-    },
-    subBanner: {
-      borderRadius: radius.md,
-      overflow: "hidden",
-      marginBottom: spacing.sm
-    },
-    subBannerGrad: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: spacing.xs,
-      padding: spacing.sm,
-      borderRadius: radius.md,
-      borderWidth: 1,
-      borderColor: "#F59E0B44"
-    },
-    subTitle: {
-      color: "#F59E0B",
-      fontSize: 10 * scale,
-      fontWeight: "800",
-      letterSpacing: 0.5
-    },
-    subDesc: {
-      color: colors.subdued,
-      fontSize: 9 * scale,
-      marginTop: 1
-    },
-    profileRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: spacing.sm
-    },
-    profileAvatar: {
-      width: 32,
-      height: 32,
-      borderRadius: radius.pill,
-      alignItems: "center",
-      justifyContent: "center"
-    },
-    profileInitials: {
-      color: "#FFF",
-      fontSize: 11 * scale,
-      fontWeight: "800"
-    },
-    profileName: {
+    filterTitle: {
       color: colors.text,
-      fontSize: 12 * scale,
-      fontWeight: "700"
-    },
-    profileRole: {
-      color: colors.subdued,
-      fontSize: 10 * scale
+      fontSize: 16 * scale,
+      fontWeight: "800"
     }
   });
 }

@@ -1,7 +1,7 @@
 /**
  * RUNTIME STATUS (Phase 6 audit): this gateway is NOT on the production request path.
- * Production (`node backend/start_local_server.js`) executes AI calls through backend/llm/runCopilot.js ->
- * backend/llm/anthropicClient.js, with a Redis cache + single-flight de-duplication (backend/llm/resultCache.js) and
+ * Production (`node backend/start_local_server.js`) executes AI calls through backend/llm/aiPipeline.js ->
+ * backend/llm/anthropicClient.js (through the spend gate backend/llm/aiBudget.js), with a Redis cache + single-flight de-duplication (backend/llm/resultCache.js) and
  * Redis rate limiting (backend/security/rateLimit.js) wired to real servers. This TypeScript gateway sits on stub
  * adapters (services/postgresDatabaseAdapter.ts, services/redisCacheAdapter.ts), has no build step in the production
  * image, and is kept only as a design reference / for its type-level tests. Do not route traffic through it, and do not

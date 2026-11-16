@@ -1,7 +1,7 @@
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { Chip } from "@/components/Chip";
 import { ProfileHeader } from "@/components/ProfileHeader";
 import { ResearchCard } from "@/components/ResearchCard";
@@ -12,6 +12,7 @@ import { getAllPapers } from "@/services/papersStore";
 import { getSavedPaperIds } from "@/services/savedPapers";
 import { getUploadedPaperCount } from "@/services/uploadedPapers";
 import { useTheme } from "@/context/ThemeContext";
+import { useProfile } from "@/context/ProfileContext";
 import { Paper, UserProfile } from "@/types/models";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { GlassButton } from "@/components/GlassButton";
@@ -21,6 +22,7 @@ const SIGNED_OUT_PROFILE: UserProfile = { id: "", name: "Not signed in", email: 
 
 export default function ProfileScreen() {
   const { colors, fontSizeScale, theme } = useTheme();
+  const { profile: shordsProfile } = useProfile();
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [uploadCount, setUploadCount] = useState(0);
   const [papers, setPapers] = useState<Paper[]>([]);
@@ -121,6 +123,23 @@ export default function ProfileScreen() {
           ) : (
             <Text style={styles.emptyText}>Bookmark papers from feeds to archive them here.</Text>
           )}
+        </View>
+
+        {/* shoRDs community profile: stored on the shoRDs server, separate from the on-device reading profile above */}
+        <View style={{ gap: 8, marginBottom: spacing.md }}>
+          {([
+            ...(shordsProfile ? [{ label: "View my community profile", icon: "person-circle-outline", to: `/profile/${shordsProfile.uid}` }] : []),
+            { label: shordsProfile?.own?.onboardingCompleted ? "Edit community profile" : "Set up community profile", icon: "create-outline", to: shordsProfile?.own?.onboardingCompleted ? "/profile/edit" : "/onboarding" },
+            { label: "Notifications", icon: "notifications-outline", to: "/notifications" },
+            { label: "shoRDs Assistant (app help)", icon: "help-circle-outline", to: "/assistant" }
+          ] as { label: string; icon: keyof typeof Ionicons.glyphMap; to: string }[]).map((r) => (
+            <Pressable key={r.to} onPress={() => router.push(r.to as never)} accessibilityRole="button" accessibilityLabel={r.label}
+              style={{ flexDirection: "row", alignItems: "center", gap: 10, padding: 14, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card }}>
+              <Ionicons name={r.icon} size={20} color={colors.text} />
+              <Text style={{ color: colors.text, fontSize: 14 * fontSizeScale, fontWeight: "600", flex: 1 }}>{r.label}</Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.subdued} />
+            </Pressable>
+          ))}
         </View>
 
         {/* Contact Operations Card (Strictly Email) */}

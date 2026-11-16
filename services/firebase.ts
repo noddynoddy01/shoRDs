@@ -6,6 +6,7 @@ import {
   GoogleAuthProvider,
   initializeAuth,
   signInWithCredential,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
   updateProfile
@@ -94,6 +95,12 @@ export async function signupWithEmail(
 }
 
 /** Web only (popup). Native Google sign-in needs an OAuth client and is not available in this build. */
+/** Firebase sends the reset e-mail itself. It reports success whether or not the address has an account, so nothing here can reveal who is registered. */
+export async function requestPasswordReset(email: string) {
+  if (!auth) throw new Error("Firebase is not configured.");
+  await sendPasswordResetEmail(auth, email);
+}
+
 export async function loginWithGooglePopup() {
   if (!auth) throw new Error("Firebase is not configured.");
   return signInWithPopup(auth, new GoogleAuthProvider());

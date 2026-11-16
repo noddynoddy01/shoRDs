@@ -1,0 +1,123 @@
+{
+ "cases": [
+  {
+   "expect": "ok",
+   "name": "ok",
+   "text": "{\"schema\": \"shords-pilot-suite/1\", \"name\": \"synthetic-v1\", \"provenance\": \"synthetic\", \"items\": [{\"id\": \"q1\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}]}"
+  },
+  {
+   "expect": "ok",
+   "name": "licensed-ok",
+   "text": "{\"schema\": \"shords-pilot-suite/1\", \"name\": \"synthetic-v1\", \"provenance\": \"licensed\", \"items\": [{\"id\": \"q1\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}], \"licence_ref\": \"CC-BY-4.0 / arXiv:0000.00000 / owner-approved 2026-11-04\"}"
+  },
+  {
+   "expect": "suite-licence-ref",
+   "name": "licensed-no-ref",
+   "text": "{\"schema\": \"shords-pilot-suite/1\", \"name\": \"synthetic-v1\", \"provenance\": \"licensed\", \"items\": [{\"id\": \"q1\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}]}"
+  },
+  {
+   "expect": "suite-provenance",
+   "name": "provenance-bad",
+   "text": "{\"schema\": \"shords-pilot-suite/1\", \"name\": \"synthetic-v1\", \"provenance\": \"scraped\", \"items\": [{\"id\": \"q1\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}]}"
+  },
+  {
+   "expect": "suite-schema",
+   "name": "schema-bad",
+   "text": "{\"schema\": \"x\", \"name\": \"synthetic-v1\", \"provenance\": \"synthetic\", \"items\": [{\"id\": \"q1\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}]}"
+  },
+  {
+   "expect": "suite-name",
+   "name": "name-bad",
+   "text": "{\"schema\": \"shords-pilot-suite/1\", \"name\": \"Bad Name\", \"provenance\": \"synthetic\", \"items\": [{\"id\": \"q1\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}]}"
+  },
+  {
+   "expect": "suite-items",
+   "name": "items-empty",
+   "text": "{\"schema\": \"shords-pilot-suite/1\", \"name\": \"synthetic-v1\", \"provenance\": \"synthetic\", \"items\": []}"
+  },
+  {
+   "expect": "suite-items",
+   "name": "items-not-list",
+   "text": "{\"schema\": \"shords-pilot-suite/1\", \"name\": \"synthetic-v1\", \"provenance\": \"synthetic\", \"items\": \"x\"}"
+  },
+  {
+   "expect": "suite-items",
+   "name": "items-51",
+   "text": "{\"schema\": \"shords-pilot-suite/1\", \"name\": \"synthetic-v1\", \"provenance\": \"synthetic\", \"items\": [{\"id\": \"i0\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i1\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i2\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i3\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i4\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i5\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i6\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i7\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i8\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i9\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i10\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i11\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i12\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i13\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i14\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i15\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i16\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i17\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i18\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i19\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i20\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i21\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i22\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i23\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i24\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i25\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i26\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i27\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i28\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i29\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i30\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i31\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i32\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i33\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i34\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i35\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i36\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i37\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i38\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i39\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i40\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i41\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i42\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i43\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i44\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i45\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i46\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i47\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i48\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i49\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i50\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}]}"
+  },
+  {
+   "expect": "ok",
+   "name": "items-50-ok",
+   "text": "{\"schema\": \"shords-pilot-suite/1\", \"name\": \"synthetic-v1\", \"provenance\": \"synthetic\", \"items\": [{\"id\": \"i0\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i1\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i2\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i3\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i4\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i5\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i6\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i7\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i8\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i9\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i10\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i11\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i12\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i13\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i14\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i15\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i16\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i17\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i18\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i19\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i20\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i21\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i22\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i23\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i24\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i25\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i26\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i27\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i28\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i29\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i30\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i31\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i32\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i33\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i34\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i35\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i36\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i37\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i38\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i39\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i40\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i41\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i42\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i43\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i44\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i45\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i46\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i47\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i48\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"i49\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}]}"
+  },
+  {
+   "expect": "suite-item-keys",
+   "name": "item-extra-key",
+   "text": "{\"schema\": \"shords-pilot-suite/1\", \"name\": \"synthetic-v1\", \"provenance\": \"synthetic\", \"items\": [{\"id\": \"q1\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8, \"extra\": 1}]}"
+  },
+  {
+   "expect": "suite-item-keys",
+   "name": "item-missing-key",
+   "text": "{\"schema\": \"shords-pilot-suite/1\", \"name\": \"synthetic-v1\", \"provenance\": \"synthetic\", \"items\": [{\"id\": \"a\", \"system\": \"s\", \"user\": \"u\"}]}"
+  },
+  {
+   "expect": "suite-item-id",
+   "name": "item-id-dupe",
+   "text": "{\"schema\": \"shords-pilot-suite/1\", \"name\": \"synthetic-v1\", \"provenance\": \"synthetic\", \"items\": [{\"id\": \"a\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}, {\"id\": \"a\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}]}"
+  },
+  {
+   "expect": "suite-item-id",
+   "name": "item-id-bad",
+   "text": "{\"schema\": \"shords-pilot-suite/1\", \"name\": \"synthetic-v1\", \"provenance\": \"synthetic\", \"items\": [{\"id\": \"a b\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 8}]}"
+  },
+  {
+   "expect": "suite-item-max-tokens",
+   "name": "item-tokens-0",
+   "text": "{\"schema\": \"shords-pilot-suite/1\", \"name\": \"synthetic-v1\", \"provenance\": \"synthetic\", \"items\": [{\"id\": \"q1\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 0}]}"
+  },
+  {
+   "expect": "suite-item-max-tokens",
+   "name": "item-tokens-1025",
+   "text": "{\"schema\": \"shords-pilot-suite/1\", \"name\": \"synthetic-v1\", \"provenance\": \"synthetic\", \"items\": [{\"id\": \"q1\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": 1025}]}"
+  },
+  {
+   "expect": "suite-item-max-tokens",
+   "name": "item-tokens-bool",
+   "text": "{\"schema\": \"shords-pilot-suite/1\", \"name\": \"synthetic-v1\", \"provenance\": \"synthetic\", \"items\": [{\"id\": \"q1\", \"system\": \"You are terse.\", \"user\": \"Say ready.\", \"max_tokens\": true}]}"
+  },
+  {
+   "count": 40001,
+   "expect": "suite-item-text",
+   "fill": "x",
+   "name": "item-user-long",
+   "post": "\", \"max_tokens\": 8}]}",
+   "pre": "{\"schema\": \"shords-pilot-suite/1\", \"name\": \"synthetic-v1\", \"provenance\": \"synthetic\", \"items\": [{\"id\": \"q1\", \"system\": \"You are terse.\", \"user\": \""
+  },
+  {
+   "count": 40000,
+   "expect": "ok",
+   "fill": "x",
+   "name": "item-user-max-ok",
+   "post": "\", \"max_tokens\": 8}]}",
+   "pre": "{\"schema\": \"shords-pilot-suite/1\", \"name\": \"synthetic-v1\", \"provenance\": \"synthetic\", \"items\": [{\"id\": \"q1\", \"system\": \"You are terse.\", \"user\": \""
+  },
+  {
+   "count": 20001,
+   "expect": "suite-item-text",
+   "fill": "x",
+   "name": "item-system-long",
+   "post": "\", \"user\": \"Say ready.\", \"max_tokens\": 8}]}",
+   "pre": "{\"schema\": \"shords-pilot-suite/1\", \"name\": \"synthetic-v1\", \"provenance\": \"synthetic\", \"items\": [{\"id\": \"q1\", \"system\": \""
+  },
+  {
+   "expect": "suite-json",
+   "name": "not-json",
+   "text": "{"
+  },
+  {
+   "expect": "ok",
+   "name": "escapes-ok",
+   "text": "{\"schema\": \"shords-pilot-suite/1\", \"name\": \"synthetic-v1\", \"provenance\": \"synthetic\", \"items\": [{\"id\": \"q1\", \"system\": \"You are terse.\", \"user\": \"line1\\nline2 \\u00e9 \\\"quoted\\\"\", \"max_tokens\": 8}]}"
+  }
+ ]
+}

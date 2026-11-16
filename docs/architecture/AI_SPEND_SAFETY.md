@@ -28,7 +28,7 @@ Defaults below are **engineering placeholders chosen to be safe, not business de
 | `AI_BUDGET_MODE` | `enforce` | `observe` records but does not block (use only to measure) |
 | `AI_BUDGET_GLOBAL_DAILY_USD` | 25 | whole-service daily ceiling |
 | `AI_BUDGET_TENANT_DAILY_USD` | 5 | per tenant per UTC day |
-| `AI_BUDGET_PROJECT_DAILY_USD` | 2 | per project per UTC day |
+| `AI_BUDGET_PROJECT_DAILY_USD` | 2 | per project per UTC day. A request with no project (the caller's personal scope) is **not** charged a project budget - the internal placeholder id `none` never becomes a shared bucket; it is still bound by the global, tenant and user limits |
 | `AI_BUDGET_USER_DAILY_USD` | 2 | per user per UTC day |
 | `AI_BUDGET_REQUEST_MAX_USD` | 1.25 | worst-case cost of one request |
 | `AI_BUDGET_{GLOBAL,TENANT,PROJECT,USER}_DAILY_CALLS` | unset (no cap) | optional call-count caps |
@@ -38,6 +38,7 @@ Defaults below are **engineering placeholders chosen to be safe, not business de
 | `AI_REQUEST_MAX_INPUT_TOKENS_BOUND` | 600000 | upper bound used in the worst-case estimate |
 | `AI_MAX_PROVIDER_RETRIES` | 1 | integer 0-3 |
 | `AI_BREAKER_FAILURES` / `AI_BREAKER_COOLDOWN_SEC` / `AI_BREAKER_CREDENTIAL_COOLDOWN_SEC` | 5 / 30 / 300 | breaker |
+| `ANTHROPIC_PRICE_INPUT_PER_MTOK` / `ANTHROPIC_PRICE_OUTPUT_PER_MTOK` | unset (built-in price table) | optional USD-per-million-token override. Both empty = unset. Both positive decimals = replaces the price of every model. Zero, negative, non-numeric or only one set stops startup; such a value is never applied, so the cost bound always uses a real positive price and an unpriced model is refused. There is no minimum price: costs are counted in whole micro-USD (USD per million tokens equals micro-USD per token) and rounded UP, so even a tiny positive price charges at least 1 micro-USD per call that used tokens, and the ceilings still fill (below 1 USD per million tokens this over-counts by less than 1 micro-USD per call). A price so large that a request's worst case is not an exactly representable integer is refused with `COST_UNBOUNDED` |
 | `ADMIN_UIDS` | unset | comma-separated Firebase UIDs allowed to use the admin endpoints |
 
 A malformed budget value makes the server refuse to start rather than silently run unbounded. A USD budget may be set to `unlimited` explicitly (not recommended).

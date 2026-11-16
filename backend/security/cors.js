@@ -14,7 +14,12 @@
  *   page cannot cause a state-changing request to execute even though it could not read the reply.
  */
 
-const ALLOWED_METHODS = "GET, POST, DELETE, OPTIONS";
+// Exactly the methods app.js and social/routes.js route (plus OPTIONS for the preflight itself): every routed method must be listed here
+// or a browser preflight for it fails (PUT: project members, admin kill switch, profile and mentorship updates; DELETE: assistant
+// history and un-blocking), and nothing else is, so no unused verb is pre-approved.
+// Add a method here in the same change that adds a route for it (cors.test.js fails otherwise). The origin allow-list and the
+// allowed headers are separate.
+const ALLOWED_METHODS = "GET, POST, PUT, DELETE, OPTIONS";
 const ALLOWED_HEADERS = "Content-Type, Authorization, Idempotency-Key";
 const LOCALHOST_RE = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d{1,5})?$/i;
 

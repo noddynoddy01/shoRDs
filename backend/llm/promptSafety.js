@@ -21,7 +21,8 @@ const OPEN = "[<\\uFF1C\\uFE64]";
 const CLOSE = "[>\\uFF1E\\uFE65]";
 
 // step 1: known tag, any look-alike spacing/case/bracket; attribute run capped so the scan is bounded.
-const KNOWN_TAG = new RegExp(`${OPEN}[\\s/]*(?:${TAG_NAMES.join("|")})\\b[^<>\\uFF1C\\uFF1E\\uFE64\\uFE65]{0,200}${CLOSE}?`, "gi");
+const TAG_ATTRIBUTE_MAX = 200;
+const KNOWN_TAG = new RegExp(`${OPEN}[\\s/]*(?:${TAG_NAMES.join("|")})\\b[^<>\\uFF1C\\uFF1E\\uFE64\\uFE65]{0,${TAG_ATTRIBUTE_MAX}}${CLOSE}?`, "gi");
 // step 2: any remaining opening bracket, except when it is followed (after <=3 spaces) by something that cannot start a tag name.
 const OTHER_OPEN = new RegExp(`${OPEN}(?!\\s{0,3}[=\\d.+\\-\\u2212(\\[])`, "g");
 
@@ -38,4 +39,11 @@ function safeTitleAttribute(title) {
   return neutralizeTags(capped).replace(/"/g, "'");
 }
 
-module.exports = { neutralizeTags, safeTitleAttribute, MAX_TITLE_CHARS };
+/**
+ * The numeric limits and the tag list that define what is removed or cut. Exported (read-only) so the prompt/cache fingerprint guard
+ * in cacheIdentityAudit.test.js can include their VALUES: changing one changes what the model receives, so it must change the
+ * pinned fingerprint and force a PROMPT_VERSION / INTEL_PROMPT_VERSION bump. Built from the constants above, so it cannot drift.
+ */
+const LIMITS = Object.freeze({ MAX_TITLE_CHARS, TAG_ATTRIBUTE_MAX, TAG_NAMES: Object.freeze([...TAG_NAMES]) });
+
+module.exports = { neutralizeTags, safeTitleAttribute, MAX_TITLE_CHARS, LIMITS };

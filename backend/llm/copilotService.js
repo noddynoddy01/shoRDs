@@ -18,7 +18,12 @@ const { isCanonicalPaperId, parseChunkId } = require("../papers/identity");
 const { neutralizeTags } = require("./promptSafety");
 
 const LOCAL_MODEL_ID = "local-deterministic-v1";
-const PROMPT_VERSION = "2026.2";
+/**
+ * Part of every question cache key (aiPipeline.js -> buildCacheKey). Bump it whenever the TEXT the model receives or the way its
+ * answer is accepted changes, so an answer produced under the old behaviour can never be served again.
+ *   2026.3  untrusted text is escaped by the linear promptSafety.neutralizeTags (look-alike delimiters removed, other "<" escaped)
+ */
+const PROMPT_VERSION = "2026.3";
 
 const MAX_QUERY_CHARS = 2000;
 const MAX_ID_CHARS = 200;

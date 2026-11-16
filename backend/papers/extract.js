@@ -34,6 +34,27 @@ function normalizeSectionName(heading) {
   return "OTHER";
 }
 
+/**
+ * Section name for a section that may sit under parent headings (e.g. "Materials and methods > Questionnaire").
+ * Classifying by the leaf heading alone sent every sub-section ("Questionnaire", "Characteristics of participants") to OTHER, so
+ * papers whose Methods and Results have sub-headings lost both. Rule: a specific leaf (limitations, future work, conclusion,
+ * discussion, availability/references) wins; otherwise the top-level heading decides; otherwise the leaf; otherwise the
+ * nearest classified ancestor.
+ */
+const SPECIFIC_LEAF = new Set(["LIMITATIONS", "FUTURE_WORK", "CONCLUSION", "DISCUSSION", "REFERENCES", "ABSTRACT"]);
+function classifySectionPath(pathOrHeading, leaf) {
+  const path = Array.isArray(pathOrHeading) ? pathOrHeading.filter(Boolean) : String(pathOrHeading || "").split(" > ").filter(Boolean);
+  const own = normalizeSectionName(leaf || path[path.length - 1] || "");
+  if (SPECIFIC_LEAF.has(own)) return own;
+  if (path.length > 1) {
+    const top = normalizeSectionName(path[0]);
+    if (top !== "OTHER") return top === "REFERENCES" ? "REFERENCES" : top;
+  }
+  if (own !== "OTHER") return own;
+  for (let i = path.length - 2; i >= 0; i--) { const n = normalizeSectionName(path[i]); if (n !== "OTHER") return n; }
+  return "OTHER";
+}
+
 function cleanText(s) {
   return String(s).replace(/\s+/g, " ").replace(/\s+([.,;:!?)\]])/g, "$1").replace(/([(\[])\s+/g, "$1").trim();
 }
@@ -91,7 +112,7 @@ function extractJats(xml) {
     const heading = titleChild ? cleanText(markup.textOf(titleChild)) : "";
     const full = [...path, heading].filter(Boolean);
     const paragraphs = paragraphsIn(sec);
-    if (paragraphs.length) sections.push({ heading: full.join(" > ") || "Body", leaf: heading, level, paragraphs });
+    if (paragraphs.length) sections.push({ heading: full.join(" > ") || "Body", leaf: heading, path: full, level, paragraphs });
     for (const sub of markup.childEls(sec, "sec")) visitSec(sub, full, level + 1);
   }
 
@@ -173,7 +194,7 @@ function extractHtmlArticle(html) {
     }
     if (paras.length) {
       const full = [...parentHeadings(sec), heading].filter(Boolean);
-      sections.push({ heading: full.join(" > ") || "Body", leaf: heading, level: full.length || 1, paragraphs: paras });
+      sections.push({ heading: full.join(" > ") || "Body", leaf: heading, path: full, level: full.length || 1, paragraphs: paras });
     }
   }
 
@@ -189,4 +210,4 @@ function extractHtmlArticle(html) {
   return { ok: true, format: "HTML", title, abstract, sections, tables, figures };
 }
 
-module.exports = { extractJats, extractHtmlArticle, normalizeSectionName, cleanText };
+module.exports = { extractJats, extractHtmlArticle, normalizeSectionName, classifySectionPath, cleanText };

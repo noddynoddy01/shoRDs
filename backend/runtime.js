@@ -24,7 +24,9 @@ const { createAnalysisProcessor } = require("./jobs/analysisProcessor");
 const { createProviders } = require("./papers/providers");
 const { createPaperService, PaperError } = require("./papers/paperService");
 const { createAiPipeline } = require("./llm/aiPipeline");
+const { loadRawCaptureConfig, createRawCapture } = require("./eval/rawCapture");
 const { createUsageLedger } = require("./llm/usageLedger");
+const { createAssistantService } = require("./assistant/service");
 const { createAiBudget, createRedisBudgetStore, createLedgerSeeder } = require("./llm/aiBudget");
 const { createReadinessChecker, createAiProbe } = require("./readiness");
 const { createApp } = require("./app");
@@ -92,7 +94,15 @@ function createRuntime(env = process.env, overrides = {}) {
   // Spend control: every paid model call passes this gate first. A malformed AI_BUDGET_* value throws here (fail at startup).
   // Postgres (ai_usage) is the authoritative record; Redis coordinates reservations. If Redis is unreachable paid calls are refused.
   const budget = overrides.budget || createAiBudget({ store: createRedisBudgetStore(appRedis), seedFromLedger: createLedgerSeeder(appPool), env, logger, now: overrides.now });
-  const pipeline = createAiPipeline({ paperService, cache, ledger, telemetry, client: overrides.client, budget, env, replicaId, logger, now: overrides.now });
+  // Benchmark-only raw model output capture: null (off) unless a local benchmark process sets the capture variables; throws here (at
+  // start-up) if they are set in a deployed environment. See backend/eval/rawCapture.js.
+  const captureCfg = loadRawCaptureConfig(env);
+  const rawCapture = captureCfg ? createRawCapture(captureCfg) : null;
+  if (rawCapture) logger.warn("[BenchmarkCapture] ENABLED: the model's raw output and the paper text are written to a local directory. This is for local benchmark runs only.");
+  const pipeline = createAiPipeline({ paperService, cache, ledger, telemetry, client: overrides.client, budget, env, replicaId, logger, now: overrides.now, captureRaw: rawCapture ? (entry) => rawCapture.record(entry) : null });
+  // The shoRDs Assistant (app help, not the Research Copilot): same spend gate and usage ledger as every other AI call. Loading the
+  // knowledge base here makes a broken knowledge base fail at start-up rather than at answer time.
+  const assistant = createAssistantService({ pool: appPool, budget, ledger, client: overrides.client, env, replicaId, logger, now: overrides.now });
   const processor = createAnalysisProcessor({ pipeline });
   const worker = workerEnabled && pool && redis
     ? createWorker({
@@ -140,6 +150,7 @@ function createRuntime(env = process.env, overrides = {}) {
     pipeline,
     budget,
     ledger,
+    assistant,
     readiness,
     workerStats: worker ? () => worker.stats() : null,
     client: overrides.client,

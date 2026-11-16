@@ -18,7 +18,7 @@ import {
   Alert
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, spacing, radius } from "@/constants/theme";
 
 import { usePaperStore } from "@/services/papersStore";
@@ -26,12 +26,15 @@ import { SourceQualityCard } from "@/components/SourceQualityCard";
 import { EvidenceInspectorDrawer } from "@/components/EvidenceInspectorDrawer";
 import { OriginalFigureCard } from "@/components/OriginalFigureCard";
 import { AudioBriefPlayer } from "@/components/AudioBriefPlayer";
+import { AnalysisPanel } from "@/components/research/AnalysisPanel";
+import { AskCopilotLink } from "@/components/research/AskCopilotLink";
 
 import {
   generateGroundedResearchBriefAsync,
   GroundedResearchBrief
 } from "@/services/paperSummarizer";
 import { GroundedClaim } from "@/services/claimVerification";
+import { OfflineResearchService } from "@/services/offlineResearchService";
 import {
   generateNarrationScript,
   NarrationScriptPayload
@@ -49,6 +52,7 @@ export default function PaperDetailScreen() {
   const [selectedClaim, setSelectedClaim] = useState<GroundedClaim | null>(null);
   const [selectedSection, setSelectedSection] = useState<{ title: string; content: string } | null>(null);
   const [inspectorVisible, setInspectorVisible] = useState(false);
+  const [savedOffline, setSavedOffline] = useState(false);
 
   // An id that is not in the store is "not found". A made-up placeholder paper must never be shown as real.
   const paper: Paper | null = id ? papers.find((p: Paper) => p.id === id) || null : null;
@@ -96,6 +100,39 @@ export default function PaperDetailScreen() {
     }
     loadResearchBrief();
   }, [paper?.id, paper?.pdfUri]);
+
+  useEffect(() => {
+    if (!paper) return;
+    OfflineResearchService.initAsync().then(() => setSavedOffline(OfflineResearchService.isSavedOffline(paper.id))).catch(() => {});
+  }, [paper?.id]);
+
+  // Saves the brief, its cited passages and the metadata. It does not download the PDF, and says so.
+  const handleToggleOffline = async () => {
+    if (!paper || !brief) return;
+    try {
+      if (savedOffline) {
+        await OfflineResearchService.removeAsync(paper.id);
+        setSavedOffline(false);
+        return;
+      }
+      await OfflineResearchService.saveBriefAsync({
+        paperId: paper.id,
+        title: cleanTitle,
+        authors: paper.authorName ? [paper.authorName] : [],
+        venue: (paper as any).venue || paper.organization,
+        year: paper.pubYear,
+        doi: (paper as any).doi,
+        sourceUrl: (paper as any).originalLink || paper.pdfUri,
+        domain: paper.domain,
+        isOpenAccess: typeof (paper as any).is_open_access === "boolean" ? (paper as any).is_open_access : null,
+        license: (paper as any).license ?? null,
+        brief
+      });
+      setSavedOffline(true);
+    } catch {
+      Alert.alert("Could not save", "The brief could not be saved on this device.");
+    }
+  };
 
   const handleOpenOriginalPaper = () => {
     if (!paper) return;
@@ -198,6 +235,20 @@ export default function PaperDetailScreen() {
             return line ? <Text style={styles.venueText}>{line}</Text> : null;
           })()}
 
+          {/* Where this brief comes from. It is not the cited AI analysis and has not been checked claim by claim. */}
+          <Text style={styles.briefOriginText}>
+            Built on this device by fixed rules from the text above. It is not an AI analysis and has not been checked claim by claim against the paper.
+          </Text>
+
+          {brief ? (
+            <Pressable style={styles.secondaryActionBtn} onPress={handleToggleOffline}>
+              <Ionicons name={savedOffline ? "checkmark-circle" : "download-outline"} size={16} color={colors.primary || "#818CF8"} />
+              <Text style={styles.secondaryActionBtnText}>
+                {savedOffline ? "Saved for offline reading (brief only, no PDF)" : "Save brief for offline reading (no PDF)"}
+              </Text>
+            </Pressable>
+          ) : null}
+
           {/* Primary Action Button: Read Original Paper */}
           <Pressable style={styles.primaryActionBtn} onPress={handleOpenOriginalPaper}>
             <Ionicons name="document-text" size={16} color="#FFF" />
@@ -290,6 +341,12 @@ export default function PaperDetailScreen() {
             ))}
           </View>
         )}
+
+        {/* Cited AI analysis: starts only when the user presses its button; nothing is requested when this screen opens. */}
+        <AnalysisPanel paper={paper} />
+
+        {/* Research Copilot: ask questions about this paper. Offered only when the record has a DOI, PubMed id or arXiv id the server can resolve. */}
+        <AskCopilotLink paper={paper} />
 
         {/* Bottom CTA Button */}
         <Pressable style={[styles.primaryActionBtn, { marginVertical: spacing.lg }]} onPress={handleOpenOriginalPaper}>
@@ -436,6 +493,28 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.muted || "#94A3B8",
     marginBottom: spacing.md
+  },
+  briefOriginText: {
+    fontSize: 11,
+    color: colors.muted,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs
+  },
+  secondaryActionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: colors.primary || "#818CF8",
+    paddingVertical: spacing.sm,
+    borderRadius: radius.sm,
+    marginBottom: spacing.sm
+  },
+  secondaryActionBtnText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.primary || "#818CF8",
+    marginLeft: 6
   },
   primaryActionBtn: {
     flexDirection: "row",

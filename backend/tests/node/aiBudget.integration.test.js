@@ -297,6 +297,35 @@ test("AI spend safety: stores, Postgres authority and the HTTP API (real Redis +
     await R.close();
   });
 
+  await t.test("no-project questions over HTTP (real Redis): two users do not share a project budget, each keeps its own caps, and a client cannot name the placeholder as a project", async () => {
+    await resetInfra();
+    // each answer costs $0.40 and the worst-case reservation is about $0.33: a $0.5 project cap shared through the placeholder id would refuse user two
+    const model = modelStub({ costUsd: 0.4, costStatus: "ESTIMATED", usage: { inputTokens: 500, outputTokens: 60, totalTokens: 560 } });
+    const R = await startReplica({ keys, env: { ...baseEnv, AI_BUDGET_PROJECT_DAILY_USD: "0.5" }, overrides: { client: model } });
+    const askPersonal = (who, query) => R.call("POST", "/api/v1/copilot/query", { token: tok(who), body: { query, paperId: PAPER }, headers: ipHeader() });
+    const u1 = uniq("solo-"), u2 = uniq("solo-");
+    const r1 = await askPersonal(u1, "What was the effect on blood pressure?");
+    const r2 = await askPersonal(u2, "What was the effect on blood pressure?");
+    assert.equal(r1.json.fallbackUsed, false, JSON.stringify(r1.json).slice(0, 200));
+    assert.equal(r2.json.fallbackUsed, false, JSON.stringify(r2.json).slice(0, 200));
+    assert.equal(model.calls.length, 2, "both unrelated users reached the provider");
+    // the keys Redis holds: global, tenant and user counters exist, and there is no counter for a project called 'none'
+    const keysNow = await redis.command("KEYS", "shords:aib:v1:*");
+    assert.ok(keysNow.some((k) => /:global:all:/.test(k)) && keysNow.some((k) => /:tenant:/.test(k)) && keysNow.some((k) => /:user:/.test(k)));
+    assert.ok(!keysNow.some((k) => /:project:none:/.test(k)), `no project counter for the placeholder: ${keysNow.join(",")}`);
+    // a real project with the same cap is still enforced: its second member's call is refused by the project budget
+    const owner = uniq("owner-"), member = uniq("member-");
+    const projectId = (await R.call("POST", "/api/v1/projects", { token: tok(owner), body: { name: "P" }, headers: ipHeader() })).json.projectId;
+    assert.equal((await R.call("PUT", `/api/v1/projects/${projectId}/members/${member}`, { token: tok(owner), body: { role: "EDITOR" }, headers: ipHeader() })).status, 200);
+    const askIn = (who, query) => R.call("POST", "/api/v1/copilot/query", { token: tok(who), body: { projectId, query, paperId: PAPER }, headers: ipHeader() });
+    assert.equal((await askIn(owner, "First question about the project?")).json.fallbackUsed, false);
+    assert.equal((await askIn(member, "Second question about the project?")).json.fallbackReason, "AI_POLICY_BUDGET_EXCEEDED");
+    // naming the placeholder as a project is refused like any project the caller is not a member of
+    const named = await R.call("POST", "/api/v1/copilot/query", { token: tok(u1), body: { projectId: "none", query: "Anything?", paperId: PAPER }, headers: ipHeader() });
+    assert.equal(named.status, 403);
+    await R.close();
+  });
+
   await t.test("coordination across replicas: a call in flight on replica A holds the user's only concurrency slot, so replica B refuses a second paid call", async () => {
     await resetInfra();
     let release;

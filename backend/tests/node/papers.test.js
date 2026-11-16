@@ -67,7 +67,7 @@ test("identity: chunk ids tie a chunk to exactly one paper", () => {
 });
 
 test("identity parity: services/deduplication.ts (frontend) and backend/papers/identity.js agree on a shared corpus", async () => {
-  const mod = await import(path.join(__dirname, "../../../services/deduplication.ts"));
+  const mod = require(path.join(__dirname, "../../../services/deduplication.ts"));
   const corpus = [
     { doi: "https://doi.org/10.1038/NATURE14539" }, { doi: "10.48550/arXiv.1706.03762" }, { pmid: "25719670" }, { pmid: 25719670 }, { arxivId: "arXiv:1706.03762v5" }, { arxivId: "hep-th/9901001v2" },
     { doi: "not a doi", pmid: "12", title: "x" }, { title: "Résumé: A Study!", authors: ["Doe, Jane"], pubYear: 2020 }, { title: "Attention Is All You Need", authors: ["Vaswani, Ashish"], pubYear: 2017 },
@@ -302,4 +302,22 @@ test("production code never imports the test fixtures", () => {
   roots.forEach(walk);
   assert.ok(files.length > 15);
   for (const f of files) assert.doesNotMatch(fs.readFileSync(f, "utf8"), /paperFixtures|FIXTURE_/, f);
+});
+
+test("sub-sections inherit their top-level heading (Methods/Results with sub-headings are not lost to OTHER)", () => {
+  const xml = `<article><front><article-meta><title-group><article-title>T</article-title></title-group><abstract><p>Abstract text.</p></abstract></article-meta></front><body>
+<sec><title>Introduction</title><p>Intro paragraph.</p></sec>
+<sec><title>Materials and methods</title><sec><title>Study design</title><p>We surveyed students.</p></sec><sec><title>Data collection</title><p>Questionnaires were handed out.</p></sec></sec>
+<sec><title>Results</title><sec><title>Participants</title><p>1,562 students answered.</p></sec></sec>
+<sec><title>Discussion</title><p>We discuss.</p><sec><title>Strengths and limitations</title><p>Single country.</p></sec></sec>
+<sec><title>Data availability</title><p>On request.</p></sec></body></article>`;
+  const doc = extractJats(xml);
+  const { chunks, droppedSections } = chunkDocument("pmid:9", doc);
+  const by = Object.fromEntries(chunks.map((c) => [c.heading, c.section]));
+  assert.equal(by["Materials and methods > Study design"], "METHODOLOGY");
+  assert.equal(by["Materials and methods > Data collection"], "METHODOLOGY"); // not DATASET: the parent says methods
+  assert.equal(by["Results > Participants"], "RESULTS");
+  assert.equal(by["Discussion > Strengths and limitations"], "LIMITATIONS"); // a specific leaf wins over its parent
+  assert.ok(droppedSections.includes("Data availability"));
+  assert.ok(!chunks.some((c) => c.section === "OTHER"));
 });

@@ -62,7 +62,10 @@ export type ApiClientDeps = {
   timeoutMs?: number;
 };
 
-export type RequestOptions = { body?: unknown; query?: Record<string, string | number | boolean | undefined>; signal?: AbortSignal };
+/** The only extra request header a caller may set. It protects an operation that spends money from running twice if a request is repeated. */
+export type RequestHeaders = { "Idempotency-Key"?: string };
+export type RequestOptions = { body?: unknown; query?: Record<string, string | number | boolean | undefined>; signal?: AbortSignal; headers?: RequestHeaders };
+export const IDEMPOTENCY_KEY_RE = /^[A-Za-z0-9_.:-]{1,128}$/;
 
 const PATH_RE = /^\/api\/v1\/[A-Za-z0-9_\-./:%~]*$/;
 const MAX_MESSAGE = 300;
@@ -146,11 +149,14 @@ export function createApiClient(deps: ApiClientDeps) {
   }
 
   async function send(method: string, url: string, token: string, opts: RequestOptions) {
+    const idempotencyKey = opts.headers ? opts.headers["Idempotency-Key"] : undefined;
+    if (idempotencyKey !== undefined && (typeof idempotencyKey !== "string" || !IDEMPOTENCY_KEY_RE.test(idempotencyKey))) throw new ApiError("INVALID_REQUEST", "Invalid Idempotency-Key.");
     const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
     const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
     if (opts.signal && controller) opts.signal.addEventListener("abort", () => controller.abort());
     try {
       const headers: Record<string, string> = { Accept: "application/json", Authorization: `Bearer ${token}` };
+      if (idempotencyKey !== undefined) headers["Idempotency-Key"] = idempotencyKey;
       let body: string | undefined;
       if (opts.body !== undefined) {
         headers["Content-Type"] = "application/json";
@@ -217,7 +223,9 @@ export function createApiClient(deps: ApiClientDeps) {
     request,
     get: <T = Record<string, unknown>>(path: string, opts?: Omit<RequestOptions, "body">) => request<T>("GET", path, opts),
     post: <T = Record<string, unknown>>(path: string, body?: unknown, opts?: Omit<RequestOptions, "body">) => request<T>("POST", path, { ...opts, body: body ?? {} }),
-    put: <T = Record<string, unknown>>(path: string, body?: unknown, opts?: Omit<RequestOptions, "body">) => request<T>("PUT", path, { ...opts, body: body ?? {} })
+    put: <T = Record<string, unknown>>(path: string, body?: unknown, opts?: Omit<RequestOptions, "body">) => request<T>("PUT", path, { ...opts, body: body ?? {} }),
+    /** DELETE carries no body (assistant history, un-blocking). */
+    delete: <T = Record<string, unknown>>(path: string, opts?: Omit<RequestOptions, "body">) => request<T>("DELETE", path, opts)
   };
 }
 

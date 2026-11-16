@@ -30,7 +30,7 @@ export const CopilotResponse: React.FC<CopilotResponseProps> = ({
       <SourcePanel
         sourcesCount={response.sources.length}
         evidenceChunksCount={response.evidence.length}
-        verifiedClaimsCount={response.claims.filter(c => c.verificationStatus === "VERIFIED").length}
+        claimsCount={response.claims.length}
         rejectedClaimsCount={response.claims.filter(c => c.verificationStatus === "UNSUPPORTED").length}
       />
 

@@ -43,7 +43,18 @@ const DEFAULT_POLICIES = {
   // paper retrieval: per user at the route, and one shared budget for calls to the scholarly providers (all replicas, all users)
   RETRIEVAL_USER: "30/60",
   RETRIEVAL_USER_DAILY: "600/86400",
-  RETRIEVAL_PROVIDERS: "240/60"
+  RETRIEVAL_PROVIDERS: "240/60",
+  // community layer (profiles, mentorship, messaging, notifications) and the shoRDs Assistant; all per user
+  PROFILE_WRITE_USER: "20/60",
+  MENTOR_APPLY_USER: "5/3600",
+  MENTOR_REQUEST_USER: "10/3600",
+  MENTORSHIP_ACTION_USER: "30/60",
+  CONVERSATION_CREATE_USER: "20/3600",
+  MESSAGE_SEND_USER: "30/60",
+  REPORT_USER: "10/3600",
+  ADMIN_USER: "60/60",
+  ASSISTANT_USER: "10/60",
+  ASSISTANT_USER_DAILY: "100/86400"
 };
 
 class RateLimiterUnavailable extends Error {

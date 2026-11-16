@@ -1,442 +1,180 @@
-import { useEffect, useRef, useState } from "react";
-import {
-  Animated,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View
-} from "react-native";
-import { Chip } from "@/components/Chip";
-import { GlassButton } from "@/components/GlassButton";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { router, useLocalSearchParams } from "expo-router";
+import { useEffect, useState } from "react";
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Logo } from "@/components/Logo";
-import { Screen } from "@/components/Screen";
-import { colors as defaultColors, radius } from "@/constants/theme";
-import { domains } from "@/data/samplePapers";
+import { PersonaPicker } from "@/components/social/PersonaPicker";
+import { Banner, Button, Card, FadeIn, Input } from "@/components/ui";
+import { radius, spacing, tokens } from "@/constants/theme";
+import { site } from "@/constants/site";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { validateSignIn, validateSignUp } from "@/services/auth/forms";
+import { PERSONA_CHOICES, SelectablePersona, parsePersonaChoice } from "@/services/social/intent";
+import { intent } from "@/services/social/intentStore";
+import { Linking } from "react-native";
 
 /**
- * Sign-in / sign-up. Identity is Firebase only: a successful submit signs the user in with Firebase, and the route guard
- * (app/_layout.tsx) then takes them into the app. There is no local, offline, admin or mentor login, and a failure never
- * creates a profile: the user stays signed out and is told why.
+ * One screen for signing in, creating an account and resetting a password. Identity is Firebase only: a successful submit signs the person in with
+ * Firebase and the route guard (app/_layout.tsx) then takes them on. There is no local, offline, admin or mentor login, and a failure never creates a
+ * profile. Creating an account is two steps: say how you will use shoRDs, then enter your details. The chosen option is only a hint for onboarding.
  */
-type AuthMode = "login" | "signup";
+type Mode = "login" | "signup" | "reset";
 
 export default function AuthScreen() {
-  const { colors, fontSizeScale, theme } = useTheme();
-  const { status, issue, login, register, loginWithGoogle, dismissIssue } = useAuth();
-  const [mode, setMode] = useState<AuthMode>("login");
+  const { colors, fontSizeScale: k } = useTheme();
+  const { width } = useWindowDimensions();
+  const wide = width >= tokens.breakpoints.laptop;
+  const params = useLocalSearchParams<{ mode?: string; persona?: string }>();
+  const { status, issue, login, register, loginWithGoogle, resetPassword, dismissIssue } = useAuth();
+  const [mode, setMode] = useState<Mode>(params.mode === "signup" ? "signup" : "login");
+  const [persona, setPersona] = useState<SelectablePersona | null>(parsePersonaChoice(params.persona) ?? intent.get());
+  const [step, setStep] = useState<1 | 2>(parsePersonaChoice(params.persona) || intent.get() ? 2 : 1);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [interests, setInterests] = useState<string[]>(["AI / ML"]);
+  const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const float = useRef(new Animated.Value(0)).current;
-  const reveal = useRef(new Animated.Value(0)).current;
-
-  const styles = getStyles(colors, fontSizeScale);
+  const [notice, setNotice] = useState<string | null>(null);
   const unconfigured = status === "UNCONFIGURED";
 
   useEffect(() => {
-    Animated.timing(reveal, {
-      toValue: 1,
-      duration: 720,
-      useNativeDriver: true
-    }).start();
+    const fromUrl = parsePersonaChoice(params.persona);
+    if (fromUrl) { setPersona(fromUrl); void intent.set(fromUrl); setStep(2); return; }
+    void intent.hydrate().then((p) => { if (p) { setPersona((cur) => cur ?? p); } });
+  }, [params.persona]);
 
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(float, {
-          toValue: 1,
-          duration: 2400,
-          useNativeDriver: true
-        }),
-        Animated.timing(float, {
-          toValue: 0,
-          duration: 2400,
-          useNativeDriver: true
-        })
-      ])
-    ).start();
-  }, [float, reveal]);
-
-  const logoTranslateY = float.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -10]
-  });
-
-  const logoScale = float.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 1.035]
-  });
-
-  function toggleInterest(interest: string) {
-    setInterests((current) =>
-      current.includes(interest)
-        ? current.filter((item) => item !== interest)
-        : [...current, interest]
-    );
-  }
-
-  function switchMode(next: AuthMode) {
-    setMode(next);
-    setFormError(null);
-    dismissIssue();
-  }
+  const choose = (p: SelectablePersona) => { setPersona(p); void intent.set(p); };
+  const switchMode = (next: Mode) => { setMode(next); setFormError(null); setNotice(null); dismissIssue(); };
 
   async function submit() {
     if (loading || unconfigured) return;
-    setFormError(null);
-    dismissIssue();
-    const problem = mode === "login" ? validateSignIn({ email, password }) : validateSignUp({ name, email, password });
-    if (problem) {
-      setFormError(problem);
+    setFormError(null); setNotice(null); dismissIssue();
+    if (mode === "reset") {
+      if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) { setFormError("Enter the email address you signed up with."); return; }
+      setLoading(true);
+      try {
+        const r = await resetPassword(email);
+        // Firebase does not say whether an address has an account, and neither do we.
+        if (r.ok || (r.issue.code !== "NETWORK" && r.issue.code !== "TOO_MANY_ATTEMPTS" && r.issue.code !== "INVALID_EMAIL" && r.issue.code !== "NOT_CONFIGURED")) setNotice("If an account exists for that address, a password reset link is on its way. Check your inbox and spam folder.");
+      } finally { setLoading(false); }
       return;
     }
+    const problem = mode === "login" ? validateSignIn({ email, password }) : validateSignUp({ name, email, password });
+    if (problem) { setFormError(problem); return; }
+    if (mode === "signup" && !persona) { setStep(1); setFormError("Choose how you would like to use shoRDs first."); return; }
     setLoading(true);
     try {
-      // On success Firebase reports the user, the session becomes SIGNED_IN and the route guard navigates; nothing to do here.
-      // On failure the session stays SIGNED_OUT and `issue` says why.
+      // No interests are collected here any more: they are part of onboarding. Success navigates through the route guard; failure leaves the person signed out with `issue`.
       if (mode === "login") await login(email, password);
-      else await register(name, email, password, interests, { phoneNumber });
-    } finally {
-      setLoading(false);
-    }
+      else await register(name, email, password, [], { phoneNumber: phone });
+    } finally { setLoading(false); }
   }
 
-  async function googleLogin() {
+  async function google() {
     if (loading || unconfigured) return;
-    if (Platform.OS !== "web") {
-      setFormError("Google sign-in is available on the web app. Use your email and password here.");
-      return;
-    }
-    setFormError(null);
-    setLoading(true);
-    try {
-      await loginWithGoogle();
-    } finally {
-      setLoading(false);
-    }
+    if (Platform.OS !== "web") { setFormError("Google sign-in is available on the web app. Use your email and password here."); return; }
+    if (mode === "signup" && !persona) { setStep(1); setFormError("Choose how you would like to use shoRDs first."); return; }
+    setFormError(null); setLoading(true);
+    try { await loginWithGoogle(); } finally { setLoading(false); }
   }
 
   const message = formError || (issue ? issue.message : null);
+  const chosen = PERSONA_CHOICES.find((c) => c.persona === persona);
+  const title = mode === "login" ? "Welcome back" : mode === "reset" ? "Reset your password" : step === 1 ? "How would you like to use shoRDs?" : "Create your account";
+  const sub = mode === "login" ? "Sign in to continue." : mode === "reset" ? "We will email you a link to choose a new password." : step === 1 ? "Pick the option that fits best. You can change it later." : "It takes a minute.";
 
-  const haloGlow = theme === "light" || theme === "sepia"
-    ? "rgba(6, 182, 212, 0.08)"
-    : "rgba(6, 182, 212, 0.12)";
+  const form = (
+    <View style={{ gap: spacing.md }}>
+      {mode === "signup" && step === 1 ? (
+        <>
+          <PersonaPicker value={persona} onChange={choose} columns={wide ? 2 : 1} />
+          <Button label="Continue" disabled={!persona} iconRight="arrow-forward" onPress={() => { setFormError(null); setStep(2); }} />
+        </>
+      ) : (
+        <>
+          {mode === "signup" && chosen ? (
+            <View style={[s.chosen, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+              <Ionicons name={chosen.icon} size={20} color={colors.primary} />
+              <Text style={{ color: colors.text, flex: 1, fontSize: tokens.fontSize.sm * k }}>Signing up as <Text style={{ fontWeight: tokens.weight.bold }}>{chosen.title}</Text></Text>
+              <Pressable onPress={() => setStep(1)} accessibilityRole="button" accessibilityLabel="Change how you will use shoRDs" hitSlop={8}><Text style={{ color: colors.accent, fontWeight: tokens.weight.bold, fontSize: tokens.fontSize.sm * k }}>Change</Text></Pressable>
+            </View>
+          ) : null}
+          {mode === "signup" && persona === "MENTOR" ? <Banner kind="info" text="After you create your account you will complete your profile and then apply for verification. You are listed as a verified mentor only after an administrator approves your application." /> : null}
+          {message ? <Banner text={message} action={issue ? { label: "Dismiss", onPress: () => { setFormError(null); dismissIssue(); } } : undefined} /> : null}
+          {notice ? <Banner kind="success" text={notice} /> : null}
+          {unconfigured && !message ? <Banner kind="warning" text="Sign-in is not configured in this build, so accounts cannot be created or used here." /> : null}
+          {mode === "signup" ? <Input label="Full name" value={name} onChangeText={setName} autoComplete="name" textContentType="name" maxLength={100} returnKeyType="next" /> : null}
+          <Input label="Email" value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" autoComplete="email" textContentType="emailAddress" returnKeyType={mode === "reset" ? "send" : "next"} onSubmitEditing={mode === "reset" ? () => void submit() : undefined} />
+          {mode !== "reset" ? <Input label="Password" value={password} onChangeText={setPassword} password autoCapitalize="none" autoComplete={mode === "login" ? "current-password" : "new-password"} textContentType={mode === "login" ? "password" : "newPassword"} help={mode === "signup" ? "At least 6 characters." : undefined} returnKeyType="go" onSubmitEditing={() => void submit()} /> : null}
+          {mode === "signup" ? <Input label="Phone (optional)" value={phone} onChangeText={setPhone} keyboardType="phone-pad" autoComplete="tel" help="Only used on this device for regional pricing. Never shown to anyone." /> : null}
+          {mode === "login" ? <Pressable onPress={() => switchMode("reset")} accessibilityRole="link" style={{ alignSelf: "flex-end" }} hitSlop={8}><Text style={{ color: colors.accent, fontSize: tokens.fontSize.sm * k, fontWeight: tokens.weight.semibold }}>Forgot password?</Text></Pressable> : null}
+          <Button fullWidth label={mode === "login" ? "Sign in" : mode === "reset" ? "Send reset link" : "Create account"} onPress={() => void submit()} loading={loading} disabled={unconfigured} />
+          {mode !== "reset" ? (
+            <>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}><View style={{ flex: 1, height: 1, backgroundColor: colors.border }} /><Text style={{ color: colors.subdued, fontSize: tokens.fontSize.xs * k }}>or</Text><View style={{ flex: 1, height: 1, backgroundColor: colors.border }} /></View>
+              <Button fullWidth kind="secondary" icon="logo-google" label="Continue with Google" onPress={() => void google()} disabled={loading || unconfigured} />
+            </>
+          ) : null}
+          {mode === "signup" && (site.termsUrl || site.privacyUrl) ? (
+            <Text style={{ color: colors.subdued, fontSize: tokens.fontSize.xs * k, lineHeight: 17 * k }}>
+              By creating an account you agree to the{" "}
+              {site.termsUrl ? <Text style={{ color: colors.accent }} onPress={() => void Linking.openURL(site.termsUrl!)}>terms of use</Text> : null}
+              {site.termsUrl && site.privacyUrl ? " and " : null}
+              {site.privacyUrl ? <Text style={{ color: colors.accent }} onPress={() => void Linking.openURL(site.privacyUrl!)}>privacy policy</Text> : null}.
+            </Text>
+          ) : null}
+        </>
+      )}
+      <View style={{ flexDirection: "row", justifyContent: "center", gap: 6, flexWrap: "wrap" }}>
+        <Text style={{ color: colors.muted, fontSize: tokens.fontSize.sm * k }}>{mode === "login" ? "New to shoRDs?" : mode === "reset" ? "Remembered it?" : "Already have an account?"}</Text>
+        <Pressable onPress={() => switchMode(mode === "login" ? "signup" : "login")} accessibilityRole="link" hitSlop={8}><Text style={{ color: colors.accent, fontWeight: tokens.weight.bold, fontSize: tokens.fontSize.sm * k }}>{mode === "login" ? "Create an account" : "Sign in"}</Text></Pressable>
+      </View>
+    </View>
+  );
 
   return (
-    <Screen>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={styles.keyboard}
-      >
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          <Animated.View
-            style={[
-              styles.brandStage,
-              {
-                opacity: reveal,
-                transform: [
-                  {
-                    translateY: reveal.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [18, 0]
-                    })
-                  }
-                ]
-              }
-            ]}
-          >
-            <View style={[styles.brandHalo, { backgroundColor: haloGlow }]} />
-            <Animated.View
-              style={[
-                styles.logoFloat,
-                {
-                  transform: [{ translateY: logoTranslateY }, { scale: logoScale }]
-                }
-              ]}
-            >
-              <Logo size="lg" />
-            </Animated.View>
-            <Text style={styles.brandLine}>Short Research Discoveries</Text>
-          </Animated.View>
-
-          <Animated.View
-            style={[
-              styles.panel,
-              {
-                opacity: reveal,
-                transform: [
-                  {
-                    translateY: reveal.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [28, 0]
-                    })
-                  }
-                ]
-              }
-            ]}
-          >
-            <View style={styles.segment}>
-              <Pressable
-                onPress={() => switchMode("login")}
-                style={[styles.segmentButton, mode === "login" && styles.segmentActive]}
-              >
-                <Text style={[styles.segmentText, mode === "login" && styles.segmentTextActive]}>
-                  Login
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => switchMode("signup")}
-                style={[styles.segmentButton, mode === "signup" && styles.segmentActive]}
-              >
-                <Text style={[styles.segmentText, mode === "signup" && styles.segmentTextActive]}>
-                  Signup
-                </Text>
-              </Pressable>
-            </View>
-
-            <Text style={styles.title}>
-              {mode === "login" ? "Enter your research space" : "Create your research profile"}
-            </Text>
-            <Text style={styles.subtitle}>
-              {mode === "login"
-                ? "A calmer way to discover papers, technologies, and ideas."
-                : "Choose the domains that should shape your discovery feed."}
-            </Text>
-
-            {unconfigured && (
-              <Text style={styles.notice} accessibilityRole="alert">
-                Sign-in is not configured for this build, so no one can sign in. The administrator needs to set the EXPO_PUBLIC_FIREBASE_* variables and rebuild.
-              </Text>
-            )}
-
-            {mode === "signup" && (
-              <>
-                <TextInput
-                  value={name}
-                  onChangeText={setName}
-                  placeholder="Full Name"
-                  placeholderTextColor={colors.subdued}
-                  autoComplete="name"
-                  style={styles.input}
-                />
-                <TextInput
-                  value={phoneNumber}
-                  onChangeText={setPhoneNumber}
-                  placeholder="Phone (optional, used for regional pricing)"
-                  placeholderTextColor={colors.subdued}
-                  keyboardType="phone-pad"
-                  autoComplete="tel"
-                  style={styles.input}
-                />
-              </>
-            )}
-            <TextInput
-              value={email}
-              onChangeText={setEmail}
-              placeholder="Email"
-              placeholderTextColor={colors.subdued}
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoComplete="email"
-              keyboardType="email-address"
-              style={styles.input}
-            />
-            <TextInput
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Password"
-              placeholderTextColor={colors.subdued}
-              secureTextEntry
-              autoCapitalize="none"
-              autoComplete={mode === "login" ? "current-password" : "new-password"}
-              onSubmitEditing={submit}
-              style={styles.input}
-            />
-
-            {mode === "signup" && (
-              <View style={styles.interests}>
-                <Text style={styles.label}>Domain Interests</Text>
-                <View style={styles.chips}>
-                  {domains.slice(0, 7).map((domain) => (
-                    <Chip
-                      key={domain}
-                      label={domain}
-                      selected={interests.includes(domain)}
-                      onPress={() => toggleInterest(domain)}
-                    />
-                  ))}
-                </View>
+    <SafeAreaView edges={["top", "left", "right"]} style={{ flex: 1, backgroundColor: colors.background }}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={[s.scroll, wide && { flexDirection: "row", alignItems: "stretch" }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          {wide ? (
+            <View style={[s.brand, { backgroundColor: colors.surface, borderRightColor: colors.border }]}>
+              <Pressable onPress={() => router.replace("/" as never)} accessibilityRole="link" accessibilityLabel="Back to the shoRDs home page"><Logo showName inline /></Pressable>
+              <View style={{ gap: spacing.md, maxWidth: 440 }}>
+                <Text accessibilityRole="header" style={{ color: colors.text, fontSize: 34 * k, lineHeight: 40 * k, fontWeight: tokens.weight.heavy, letterSpacing: -0.6 }}>Research moves forward when knowledge moves freely.</Text>
+                {(["Understand papers faster with short, readable cards", "Ask questions and get answers that point back to the source", "Find verified mentors and people to work with"] as const).map((t) => (
+                  <View key={t} style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
+                    <Ionicons name="checkmark-circle" size={20} color={colors.accent} style={{ marginTop: 1 }} />
+                    <Text style={{ color: colors.muted, fontSize: tokens.fontSize.md * k, lineHeight: 23 * k, flex: 1 }}>{t}</Text>
+                  </View>
+                ))}
               </View>
-            )}
-
-            {message && (
-              <Text style={styles.error} accessibilityRole="alert">
-                {message}
-              </Text>
-            )}
-
-            <GlassButton
-              title={loading ? "Please wait" : mode === "login" ? "Login" : "Create Account"}
-              icon={mode === "login" ? "log-in-outline" : "person-add-outline"}
-              onPress={submit}
-              disabled={loading || unconfigured}
-            />
-
-            {Platform.OS === "web" && (
-              <GlassButton title="Continue with Google" icon="logo-google" variant="quiet" onPress={googleLogin} disabled={loading || unconfigured} />
-            )}
-          </Animated.View>
+              <Text style={{ color: colors.subdued, fontSize: tokens.fontSize.xs * k }}>Your sign-in is handled by Firebase. shoRDs never sees your password.</Text>
+            </View>
+          ) : null}
+          <View style={[s.formSide, wide && { flex: 1 }]}>
+            <FadeIn style={{ width: "100%", maxWidth: mode === "signup" && step === 1 ? 720 : 440, alignSelf: "center" }}>
+              {!wide ? <Pressable onPress={() => router.replace("/" as never)} accessibilityRole="link" accessibilityLabel="Back to the shoRDs home page" style={{ alignSelf: "center", marginBottom: spacing.lg }}><Logo showName inline /></Pressable> : null}
+              <Card style={{ padding: spacing.lg, gap: spacing.md }}>
+                <View style={{ gap: 4 }}>
+                  <Text accessibilityRole="header" style={{ color: colors.text, fontSize: tokens.fontSize.xxl * k, fontWeight: tokens.weight.heavy, letterSpacing: -0.4 }}>{title}</Text>
+                  <Text style={{ color: colors.muted, fontSize: tokens.fontSize.sm * k }}>{sub}</Text>
+                </View>
+                {form}
+              </Card>
+            </FadeIn>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </Screen>
+    </SafeAreaView>
   );
 }
 
-function getStyles(colors: typeof defaultColors, scale: number) {
-  return StyleSheet.create({
-    keyboard: {
-      flex: 1
-    },
-    content: {
-      flexGrow: 1,
-      padding: 22,
-      justifyContent: "center",
-      gap: 18
-    },
-    brandStage: {
-      minHeight: 220,
-      alignItems: "center",
-      justifyContent: "center"
-    },
-    brandHalo: {
-      position: "absolute",
-      width: 236,
-      height: 236,
-      borderRadius: 118,
-      borderWidth: 1,
-      borderColor: colors.border
-    },
-    logoFloat: {
-      width: 250,
-      height: 128,
-      alignItems: "center",
-      justifyContent: "center",
-      shadowColor: colors.accent,
-      shadowOpacity: 0.16,
-      shadowRadius: 20,
-      shadowOffset: { width: 0, height: 10 },
-      elevation: 6
-    },
-    brandLine: {
-      color: colors.muted,
-      fontSize: 12 * scale,
-      marginTop: 5,
-      fontWeight: "500"
-    },
-    panel: {
-      backgroundColor: colors.card,
-      borderRadius: 28,
-      borderWidth: 1,
-      borderColor: colors.border,
-      padding: 18,
-      gap: 14,
-      shadowColor: "#000",
-      shadowOpacity: 0.15,
-      shadowRadius: 16,
-      shadowOffset: { width: 0, height: 12 },
-      elevation: 8
-    },
-    segment: {
-      flexDirection: "row",
-      backgroundColor: colors.cardElevated,
-      padding: 4,
-      borderRadius: radius.pill,
-      borderWidth: 1,
-      borderColor: colors.border
-    },
-    segmentButton: {
-      flex: 1,
-      height: 44,
-      alignItems: "center",
-      justifyContent: "center",
-      borderRadius: radius.pill
-    },
-    segmentActive: {
-      backgroundColor: colors.primary,
-      shadowColor: colors.primary,
-      shadowOpacity: 0.22,
-      shadowRadius: 10,
-      elevation: 4
-    },
-    segmentText: {
-      color: colors.subdued,
-      fontWeight: "700",
-      fontSize: 13 * scale
-    },
-    segmentTextActive: {
-      color: colors.text
-    },
-    title: {
-      color: colors.text,
-      fontSize: 22 * scale,
-      lineHeight: 28 * scale,
-      fontWeight: "800",
-      marginTop: 6
-    },
-    subtitle: {
-      color: colors.muted,
-      fontSize: 13 * scale,
-      lineHeight: 19 * scale,
-      marginTop: -4
-    },
-    input: {
-      height: 54,
-      borderRadius: 18,
-      backgroundColor: colors.cardElevated,
-      borderColor: colors.border,
-      borderWidth: 1,
-      color: colors.text,
-      paddingHorizontal: 16,
-      fontSize: 14 * scale,
-      fontWeight: "600"
-    },
-    interests: {
-      gap: 10
-    },
-    label: {
-      color: colors.muted,
-      fontSize: 12 * scale,
-      fontWeight: "700"
-    },
-    chips: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: 8
-    },
-    error: {
-      color: "#F87171",
-      fontSize: 13 * scale,
-      lineHeight: 18 * scale,
-      fontWeight: "600"
-    },
-    notice: {
-      color: colors.muted,
-      fontSize: 12 * scale,
-      lineHeight: 17 * scale,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: 14,
-      padding: 12
-    }
-  });
-}
+const s = StyleSheet.create({
+  scroll: { flexGrow: 1 },
+  brand: { flex: 1, padding: 56, justifyContent: "space-between", borderRightWidth: 1, minHeight: 640 },
+  formSide: { padding: spacing.md, paddingVertical: spacing.xl, justifyContent: "center" },
+  chosen: { flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderRadius: radius.md, padding: 12 }
+});

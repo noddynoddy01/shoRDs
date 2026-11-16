@@ -1,173 +1,72 @@
-import { Ionicons } from "@expo/vector-icons";
-import { Tabs } from "expo-router";
-import { StyleSheet, View, Pressable, Animated, useWindowDimensions } from "react-native";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { Tabs, router } from "expo-router";
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import type { PState } from "../../components/ui/Button";
+import { tokens } from "../../constants/theme";
+import { useProfile } from "../../context/ProfileContext";
 import { useTheme } from "../../context/ThemeContext";
-import { radius, layout } from "../../constants/theme";
-import React, { useRef, useEffect } from "react";
+import { dockItems } from "../../services/nav/items";
+import { breakpointFor, usesRail } from "../../services/ui/breakpoints";
 
-function CustomTabBar({ state, descriptors, navigation }: any) {
-  const { colors } = useTheme();
+/**
+ * Phones and tablets: a solid bottom bar attached to the screen edge (not a floating pill), with labels, an unread badge on Mentors, and the
+ * Assistant as its own destination (so there is no floating help button to overlap content, the keyboard or a message composer).
+ * Laptop width and up: the left navigation rail (components/nav/AppRail, mounted in app/_layout.tsx) replaces the bar, so nothing is drawn here.
+ */
+function BottomBar({ state, navigation }: { state: { index: number; routes: { key: string; name: string }[] }; navigation: { emit: (e: unknown) => { defaultPrevented: boolean }; navigate: (name: string) => void } }) {
+  const { colors, fontSizeScale: k } = useTheme();
+  const { counters } = useProfile();
   const insets = useSafeAreaInsets();
-  const { width: windowWidth } = useWindowDimensions();
-
-  const totalTabs = state.routes.length;
-  const barPadding = 6;
-  const barMargin = 20;
-  
-  // Constrain dock width on desktop/laptop screens
-  const maxDockWidth = layout.maxDockWidth || 580;
-  const dockWidth = Math.min(windowWidth - (barMargin * 2), maxDockWidth);
-  const availableWidth = dockWidth - (barPadding * 2);
-  const tabWidth = availableWidth / totalTabs;
-
-  const slideAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.spring(slideAnim, {
-      toValue: state.index * tabWidth,
-      useNativeDriver: true,
-      tension: 65,
-      friction: 9
-    }).start();
-  }, [state.index, tabWidth]);
-
+  const { width } = useWindowDimensions();
+  if (usesRail(breakpointFor(width))) return null;
+  const current = state.routes[state.index]?.name;
+  const unread = counters.notifications + counters.messages;
+  const nameOf: Record<string, string> = { dashboard: "dashboard", research: "index", explore: "explore", mentors: "mentors", profile: "profile" };
   return (
-    <View style={[styles.floatingDockContainer, { bottom: Math.max(insets.bottom, 16) }]}>
-      <View style={[styles.blurDock, { width: dockWidth, backgroundColor: colors.card + "D8", borderColor: colors.border }]}>
-        
-        {/* Active Sliding Pill Indicator */}
-        <Animated.View
-          style={[
-            styles.activePill,
-            {
-              width: tabWidth,
-              backgroundColor: colors.primary + "16",
-              borderColor: colors.primary + "2C",
-              transform: [{ translateX: Animated.add(slideAnim, barPadding) }]
-            }
-          ]}
-        />
-
-        {state.routes.map((route: any, index: number) => {
-          const { options } = descriptors[route.key];
-          const isFocused = state.index === index;
-
-          const onPress = () => {
-            const event = navigation.emit({
-              type: 'tabPress',
-              target: route.key,
-              canPreventDefault: true,
-            });
-
-            if (!isFocused && !event.defaultPrevented) {
-              navigation.navigate(route.name);
-            }
-          };
-
-          const onLongPress = () => {
-            navigation.emit({
-              type: 'tabLongPress',
-              target: route.key,
-            });
-          };
-
-          const getIconName = (routeName: string, focused: boolean): keyof typeof Ionicons.glyphMap => {
-            switch (routeName) {
-              case "index": return focused ? "play-circle" : "play-circle-outline";
-              case "explore": return focused ? "search" : "search-outline";
-              case "upload": return focused ? "add-circle" : "add-circle-outline";
-              case "mentors": return focused ? "people" : "people-outline";
-              case "contact": return focused ? "mail" : "mail-outline";
-              case "profile": return focused ? "person" : "person-outline";
-              default: return "book-outline";
-            }
-          };
-
-          const scaleAnim = useRef(new Animated.Value(1)).current;
-          useEffect(() => {
-            Animated.spring(scaleAnim, {
-              toValue: isFocused ? 1.15 : 1.0,
-              useNativeDriver: true,
-              speed: 15
-            }).start();
-          }, [isFocused]);
-
-          return (
-            <Pressable
-              key={route.key}
-              accessibilityRole="button"
-              accessibilityState={isFocused ? { selected: true } : {}}
-              accessibilityLabel={options.tabBarAccessibilityLabel}
-              testID={options.tabBarTestID}
-              onPress={onPress}
-              onLongPress={onLongPress}
-              style={[styles.tabButton, { width: tabWidth }]}
-            >
-              <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-                <Ionicons
-                  name={getIconName(route.name, isFocused)}
-                  size={20}
-                  color={isFocused ? colors.primary : colors.subdued}
-                />
-              </Animated.View>
-            </Pressable>
-          );
-        })}
-      </View>
+    <View style={[s.bar, { backgroundColor: colors.card, borderTopColor: colors.border, paddingBottom: Math.max(insets.bottom, 6) }]} accessibilityRole="tablist">
+      {dockItems().map((item) => {
+        const routeName = nameOf[item.key];
+        const focused = routeName ? current === routeName : false;
+        const route = routeName ? state.routes.find((r) => r.name === routeName) : undefined;
+        const onPress = () => {
+          if (item.key === "assistant") { router.push("/assistant" as never); return; }
+          if (!route) return;
+          const e = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
+          if (!focused && !e.defaultPrevented) navigation.navigate(route.name);
+        };
+        const badge = item.key === "mentors" ? unread : 0;
+        return (
+          <Pressable key={item.key} onPress={onPress} accessibilityRole="tab" accessibilityState={{ selected: focused }} aria-selected={focused} accessibilityLabel={badge > 0 ? `${item.label}, ${badge} unread` : item.label}
+            style={({ hovered, focused: f }: PState) => [s.tab, hovered && { backgroundColor: colors.surface }, f && { borderColor: tokens.focusRing, borderWidth: 2 }]}>
+            <View>
+              <Ionicons name={item.icon} size={22} color={focused ? colors.primary : colors.subdued} />
+              {badge > 0 ? <View style={[s.badge, { backgroundColor: tokens.danger }]}><Text style={{ color: "#fff", fontSize: 10, fontWeight: tokens.weight.bold }}>{badge > 99 ? "99+" : badge}</Text></View> : null}
+            </View>
+            <Text numberOfLines={1} style={{ color: focused ? colors.primary : colors.subdued, fontSize: 10.5 * k, fontWeight: focused ? tokens.weight.bold : tokens.weight.medium }}>{item.label}</Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
 
 export default function TabsLayout() {
   return (
-    <Tabs
-      tabBar={(props) => <CustomTabBar {...props} />}
-      screenOptions={{ headerShown: false }}
-    >
-      <Tabs.Screen name="index" options={{ title: "Home" }} />
+    <Tabs tabBar={(props) => <BottomBar {...(props as unknown as Parameters<typeof BottomBar>[0])} />} screenOptions={{ headerShown: false }}>
+      <Tabs.Screen name="dashboard" options={{ title: "Dashboard" }} />
+      <Tabs.Screen name="index" options={{ title: "Research" }} />
       <Tabs.Screen name="explore" options={{ title: "Explore" }} />
-      <Tabs.Screen name="upload" options={{ title: "Upload" }} />
       <Tabs.Screen name="mentors" options={{ title: "Mentors" }} />
-      <Tabs.Screen name="contact" options={{ title: "Contact" }} />
       <Tabs.Screen name="profile" options={{ title: "Profile" }} />
+      <Tabs.Screen name="upload" options={{ title: "Upload", href: null }} />
+      <Tabs.Screen name="contact" options={{ title: "Contact", href: null }} />
     </Tabs>
   );
 }
 
-const styles = StyleSheet.create({
-  floatingDockContainer: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 999
-  },
-  blurDock: {
-    flexDirection: "row",
-    height: 54,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    paddingHorizontal: 6,
-    alignItems: "center",
-    position: "relative",
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
-    elevation: 8
-  },
-  activePill: {
-    position: "absolute",
-    height: 38,
-    top: 7,
-    borderRadius: radius.md,
-    borderWidth: 1
-  },
-  tabButton: {
-    height: "100%",
-    justifyContent: "center",
-    alignItems: "center"
-  }
+const s = StyleSheet.create({
+  bar: { flexDirection: "row", borderTopWidth: 1, paddingTop: 6 },
+  tab: { flex: 1, alignItems: "center", justifyContent: "center", gap: 3, minHeight: 52, borderRadius: 10, borderWidth: 1, borderColor: "transparent", marginHorizontal: 2 },
+  badge: { position: "absolute", top: -4, right: -10, minWidth: 16, height: 16, borderRadius: 8, paddingHorizontal: 4, alignItems: "center", justifyContent: "center" }
 });

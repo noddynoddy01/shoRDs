@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Domain, Paper } from "@/types/models";
 import { fetchLiveFeedCandidatesAsync, markPaperAsSeenAsync } from "./feedEngine";
 import { deduplicatePaperList } from "./deduplication";
+import { sentencesMatching } from "./sentenceSplit";
 
 const STORAGE_KEY = "shords_saved_papers";
 let cachedPapersList: Paper[] = [];
@@ -84,7 +85,7 @@ export function parsePaperSections(paperOrExplanation?: any, title?: string, sum
     if (methodInsight) {
       methodology = methodInsight;
     } else {
-      const actionSentences = (rawText || cleanSummary).match(/[^.!?]+(?:propose|introduce|develop|design|evaluate|leverage|utilize|apply)[^.!?]+[.!?]/gi);
+      const actionSentences = sentencesMatching(rawText || cleanSummary, /propose|introduce|develop|design|evaluate|leverage|utilize|apply/i);
       if (actionSentences && actionSentences.length > 0) {
         methodology = actionSentences[0].trim();
       }
@@ -98,7 +99,7 @@ export function parsePaperSections(paperOrExplanation?: any, title?: string, sum
     } else if (insights.length > 1) {
       results = insights[1];
     } else {
-      const resultSentences = (rawText || cleanSummary).match(/[^.!?]+(?:\d+%|achieve|outperform|exceed|reduce|improve|result|show|demonstrate)[^.!?]+[.!?]/gi);
+      const resultSentences = sentencesMatching(rawText || cleanSummary, /\d+%|achieve|outperform|exceed|reduce|improve|result|show|demonstrate/i);
       if (resultSentences && resultSentences.length > 0) {
         results = resultSentences[0].trim();
       }

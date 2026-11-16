@@ -101,8 +101,8 @@ test("route guard: LOADING never redirects; signed-out can reach only landing an
       assert.deepEqual(G.decideRoute({ status, segments: segs }), { action: "REDIRECT", to: "/auth" }, `${status} ${segs.join("/")}`);
     }
   }
-  assert.deepEqual(G.decideRoute({ status: "SIGNED_IN", segments: [] }), { action: "REDIRECT", to: "/(tabs)" });
-  assert.deepEqual(G.decideRoute({ status: "SIGNED_IN", segments: ["auth"] }), { action: "REDIRECT", to: "/(tabs)" });
+  assert.deepEqual(G.decideRoute({ status: "SIGNED_IN", segments: [] }), { action: "REDIRECT", to: "/(tabs)/dashboard" });
+  assert.deepEqual(G.decideRoute({ status: "SIGNED_IN", segments: ["auth"] }), { action: "REDIRECT", to: "/(tabs)/dashboard" });
   for (const segs of [["(tabs)"], ["(tabs)", "explore"], ["paper", "p1"], ["research", "copilot"], ["projects"]]) assert.deepEqual(G.decideRoute({ status: "SIGNED_IN", segments: segs }), { action: "ALLOW" });
 });
 
@@ -409,7 +409,7 @@ test("security scan: the sign-in screen has no local/offline login path and uses
   assert.ok(!/AsyncStorage/.test(src), "the screen writes no profile of its own");
   assert.ok(!/role:\s*"(admin|mentor)"/.test(src));
   assert.ok(!/"mentor"|mode === "mentor"|Mentor Hub|Mentor ID/.test(src), "no mentor login mode");
-  assert.match(src, /type AuthMode = "login" \| "signup"/);
+  assert.match(src, /type Mode = "login" \| "signup" \| "reset"/);
   assert.match(src, /useAuth\(\)/);
   const authCtx = fs.readFileSync(path.join(root, "context/AuthContext.tsx"), "utf8");
   assert.ok(!/role:\s*"(admin|mentor)"/.test(authCtx));

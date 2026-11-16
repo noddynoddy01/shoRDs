@@ -1,5 +1,5 @@
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { Paper } from "@/types/models";
 import { compareSelectedPapers, PaperComparisonMatrix } from "@/services/stackGenerator";
 import { colors as defaultColors, radius, spacing } from "@/constants/theme";

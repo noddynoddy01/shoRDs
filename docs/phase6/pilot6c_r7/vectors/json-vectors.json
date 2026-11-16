@@ -1,0 +1,320 @@
+{
+ "cases": [
+  {
+   "keys": [
+    "a"
+   ],
+   "name": "obj-simple",
+   "ok": true,
+   "rich": false,
+   "text": "{\"a\":1}"
+  },
+  {
+   "keys": [],
+   "name": "obj-empty",
+   "ok": true,
+   "rich": false,
+   "text": "{}"
+  },
+  {
+   "keys": [
+    "a",
+    "d"
+   ],
+   "name": "nested",
+   "ok": true,
+   "rich": false,
+   "text": "{\"a\":{\"b\":[1,2,{\"c\":true}]},\"d\":null}"
+  },
+  {
+   "keys": [
+    "a"
+   ],
+   "name": "neg-int",
+   "ok": true,
+   "rich": false,
+   "text": "{\"a\":-5}"
+  },
+  {
+   "keys": [
+    "a"
+   ],
+   "name": "zero",
+   "ok": true,
+   "rich": false,
+   "text": "{\"a\":0}"
+  },
+  {
+   "keys": null,
+   "name": "leading-zero",
+   "ok": false,
+   "rich": false,
+   "text": "{\"a\":01}"
+  },
+  {
+   "keys": null,
+   "name": "float",
+   "ok": false,
+   "rich": false,
+   "text": "{\"a\":1.0}"
+  },
+  {
+   "keys": null,
+   "name": "exp",
+   "ok": false,
+   "rich": false,
+   "text": "{\"a\":1e3}"
+  },
+  {
+   "keys": null,
+   "name": "big-int",
+   "ok": false,
+   "rich": false,
+   "text": "{\"a\":1234567890123456}"
+  },
+  {
+   "keys": [
+    "a"
+   ],
+   "name": "max-int",
+   "ok": true,
+   "rich": false,
+   "text": "{\"a\":123456789012345}"
+  },
+  {
+   "keys": [
+    "a"
+   ],
+   "name": "escape-quote",
+   "ok": true,
+   "rich": false,
+   "text": "{\"a\":\"x\\\"y\"}"
+  },
+  {
+   "keys": [
+    "a"
+   ],
+   "name": "escape-slash",
+   "ok": true,
+   "rich": false,
+   "text": "{\"a\":\"x\\/y\"}"
+  },
+  {
+   "keys": null,
+   "name": "escape-n-strict",
+   "ok": false,
+   "rich": false,
+   "text": "{\"a\":\"x\\ny\"}"
+  },
+  {
+   "keys": [
+    "a"
+   ],
+   "name": "escape-n-rich",
+   "ok": true,
+   "rich": true,
+   "text": "{\"a\":\"x\\ny\"}"
+  },
+  {
+   "keys": [
+    "a"
+   ],
+   "name": "escape-u-rich",
+   "ok": true,
+   "rich": true,
+   "text": "{\"a\":\"\\u00e9\"}"
+  },
+  {
+   "keys": null,
+   "name": "escape-u-bad-rich",
+   "ok": false,
+   "rich": true,
+   "text": "{\"a\":\"\\u00zz\"}"
+  },
+  {
+   "keys": null,
+   "name": "escape-u-strict",
+   "ok": false,
+   "rich": false,
+   "text": "{\"a\":\"\\u0041\"}"
+  },
+  {
+   "keys": null,
+   "name": "raw-newline",
+   "ok": false,
+   "rich": true,
+   "text": "{\"a\":\"x\ny\"}"
+  },
+  {
+   "keys": null,
+   "name": "raw-tab",
+   "ok": false,
+   "rich": true,
+   "text": "{\"a\":\"x\ty\"}"
+  },
+  {
+   "keys": null,
+   "name": "non-ascii-strict",
+   "ok": false,
+   "rich": false,
+   "text": "{\"a\":\"\u00e9\"}"
+  },
+  {
+   "keys": [
+    "a"
+   ],
+   "name": "non-ascii-rich",
+   "ok": true,
+   "rich": true,
+   "text": "{\"a\":\"\u00e9\"}"
+  },
+  {
+   "keys": null,
+   "name": "dup",
+   "ok": false,
+   "rich": true,
+   "text": "{\"a\":1,\"a\":2}"
+  },
+  {
+   "keys": null,
+   "name": "trailing-comma-obj",
+   "ok": false,
+   "rich": false,
+   "text": "{\"a\":1,}"
+  },
+  {
+   "keys": null,
+   "name": "trailing-comma-arr",
+   "ok": false,
+   "rich": false,
+   "text": "{\"a\":[1,]}"
+  },
+  {
+   "keys": null,
+   "name": "missing-colon",
+   "ok": false,
+   "rich": false,
+   "text": "{\"a\" 1}"
+  },
+  {
+   "keys": null,
+   "name": "unterminated",
+   "ok": false,
+   "rich": false,
+   "text": "{\"a\":\"x"
+  },
+  {
+   "keys": null,
+   "name": "top-array",
+   "ok": false,
+   "rich": false,
+   "text": "[1]"
+  },
+  {
+   "keys": null,
+   "name": "top-scalar",
+   "ok": false,
+   "rich": false,
+   "text": "1"
+  },
+  {
+   "keys": null,
+   "name": "empty",
+   "ok": false,
+   "rich": false,
+   "text": ""
+  },
+  {
+   "keys": null,
+   "name": "ws-only",
+   "ok": false,
+   "rich": false,
+   "text": "  "
+  },
+  {
+   "keys": [
+    "a"
+   ],
+   "name": "trailing-ws",
+   "ok": true,
+   "rich": false,
+   "text": "{\"a\":1}  \n"
+  },
+  {
+   "keys": null,
+   "name": "trailing-garbage",
+   "ok": false,
+   "rich": false,
+   "text": "{\"a\":1} x"
+  },
+  {
+   "keys": [
+    "a"
+   ],
+   "name": "depth4-ok",
+   "ok": true,
+   "rich": false,
+   "text": "{\"a\":{\"b\":{\"c\":{\"d\":1}}}}"
+  },
+  {
+   "keys": null,
+   "name": "depth5-strict",
+   "ok": false,
+   "rich": false,
+   "text": "{\"a\":{\"b\":{\"c\":{\"d\":{\"e\":1}}}}}"
+  },
+  {
+   "keys": [
+    "a"
+   ],
+   "name": "depth6-rich-ok",
+   "ok": true,
+   "rich": true,
+   "text": "{\"a\":{\"b\":{\"c\":{\"d\":{\"e\":{\"f\":1}}}}}}"
+  },
+  {
+   "keys": null,
+   "name": "depth7-rich",
+   "ok": false,
+   "rich": true,
+   "text": "{\"a\":{\"b\":{\"c\":{\"d\":{\"e\":{\"f\":{\"g\":1}}}}}}}"
+  },
+  {
+   "keys": null,
+   "name": "literal-typo",
+   "ok": false,
+   "rich": false,
+   "text": "{\"a\":tru}"
+  },
+  {
+   "keys": [
+    "a"
+   ],
+   "name": "bom",
+   "ok": true,
+   "rich": false,
+   "text": "\ufeff{\"a\":1}"
+  },
+  {
+   "keys": null,
+   "name": "comment",
+   "ok": false,
+   "rich": false,
+   "text": "{\"a\":1 /*x*/}"
+  },
+  {
+   "keys": null,
+   "name": "nan",
+   "ok": false,
+   "rich": false,
+   "text": "{\"a\":NaN}"
+  },
+  {
+   "keys": null,
+   "name": "single-quote",
+   "ok": false,
+   "rich": false,
+   "text": "{'a':1}"
+  }
+ ]
+}

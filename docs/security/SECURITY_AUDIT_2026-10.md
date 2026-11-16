@@ -107,6 +107,8 @@ Format: id, severity (my estimate: Critical/High/Medium/Low), the **demonstrated
 
 ### Demonstrated, not fixed (the fix changes a protected area; awaiting approval)
 
+> **Status update:** V-1, V-2, V-3, V-10 and V-12 listed here have since been fixed in commits `b5565cc`, `78580d6` and `e1c0f59`, which are on the PR #1 head, and their tests are enforced. (Not yet merged: production `main` is `40989e1`.) The text below is the audit-time description, kept as written.
+
 **V-1 Numbers "found" by substring (Medium, trust)**: `validateIntelligence` uses `String.includes`, so a model value `5` is accepted as grounded in "15 percent", and `2.5` in "12.50 ms" (local run kept both; a value absent from the text was dropped). Test `securityAudit.test.js` "grounding: ..." is a `todo` that asserts the desired behaviour (whole-number match). Fix design: tokenise numbers with boundaries and compare normalised values; bump the intelligence prompt/schema version so caches invalidate (changes evidence grounding and cache identity).
 
 **V-2 Delimiter look-alikes survive prompt neutralisation (Medium)**: `neutralizeTags` removes exact tags but not `< /paper_excerpts>`, zero-width-split names or full-width brackets; they reach the model intact (local run: 4 of 9 variants survive). Whether a given model is fooled is unknown and **not tested** (no paid calls); the defence-in-depth (system rule, output validation, server-owned ids) still holds. Fix design: normalise Unicode and strip zero-width characters before neutralising, escape `<` and `>` in untrusted text entirely, and use per-request random delimiters; changes prompts and cache identity. `todo` test written.
@@ -153,6 +155,8 @@ Run on 2026-10-06 against local Postgres 16 and Redis 7 (open and password-prote
 Baseline before this audit: 191 unit and 131 integration tests.
 
 The 8 `todo` tests are demonstrated-but-unfixed items that state the desired behaviour: V-1 and V-2 (grounding check), V-10 (quadratic tag neutralisation), V-3 (idempotency reuse), V-12 (migration poisoning), cache gaps C2 and C4, and the AI gateway boundary (seven modules). A `todo` test that starts passing is reported by the runner, which is how an approved fix will be confirmed. The integration tests skip without `TEST_DATABASE_URL` and `TEST_REDIS_URL`; the counts above are with them provided. `docs/PRODUCTION_VERIFICATION.md` is not changed: no production claim is made here.
+
+**Update:** the counts above are the snapshot at audit time. V-1, V-2, V-3, V-10 and V-12 have since been fixed on the PR #1 head, and the cache gaps C2 and C4 are fixed in the local, uncommitted working tree; their `todo` tests are now enforced, so **one `todo` remains (in that working tree): the AI gateway boundary (C1, seven modules)**. Run `npm run test:node` / `npm run test:integration` for the current counts.
 
 ## 7. Not verified
 

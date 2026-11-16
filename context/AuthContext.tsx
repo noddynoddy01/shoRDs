@@ -4,6 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   clearIssue,
   getSession,
+  sendPasswordReset,
   signIn,
   signInWithGoogle,
   signOutUser,
@@ -27,6 +28,7 @@ type AuthValue = {
   login: (email: string, password: string) => Promise<Result>;
   register: (name: string, email: string, password: string, interests: string[], extra?: { phoneNumber?: string }) => Promise<Result>;
   loginWithGoogle: () => Promise<Result>;
+  resetPassword: (email: string) => Promise<Result>;
   logout: () => Promise<void>;
   dismissIssue: () => void;
 };
@@ -43,6 +45,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const session = useSyncExternalStore(subscribeSession, getSession, getSession);
   // undefined = not yet synced for the current user; the app is not shown until the cached profile matches the Firebase user
   const [syncedUid, setSyncedUid] = useState<string | null | undefined>(undefined);
+
+  // Whose cached profile is on this device (read once at start). If it already belongs to the person Firebase restores, the app does not need
+  // to be torn down while the cache is refreshed: unmounting the navigator threw away the page they were on (refresh, shared link) and
+  // sent them back to the landing route. Only a different (or no) cached person keeps the app covered until the cache is rewritten.
+  const [cachedUid, setCachedUid] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    let live = true;
+    AsyncStorage.getItem(PROFILE_KEY)
+      .then((raw) => {
+        let id: string | null = null;
+        try { const p = raw ? JSON.parse(raw) : null; id = p && typeof p === "object" && typeof p.id === "string" ? p.id : null; } catch (_) { id = null; }
+        if (live) setCachedUid(id);
+      })
+      .catch(() => { if (live) setCachedUid(null); });
+    return () => { live = false; };
+  }, []);
 
   useEffect(() => {
     startSession();
@@ -108,13 +126,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const r = await signInWithGoogle();
         return r.ok ? { ok: true } : r;
       },
+      resetPassword: async (email) => {
+        const r = await sendPasswordReset(email);
+        return r.ok ? { ok: true } : r;
+      },
       logout: signOutUser,
       dismissIssue: clearIssue
     }),
     [session.status, session.user, session.issue, register]
   );
 
-  const syncing = session.status === "SIGNED_IN" && session.user ? syncedUid !== session.user.uid : false;
+  const syncing = session.status === "SIGNED_IN" && session.user ? syncedUid !== session.user.uid && cachedUid !== session.user.uid : false;
   return (
     <AuthContext.Provider value={value}>
       {syncing ? (

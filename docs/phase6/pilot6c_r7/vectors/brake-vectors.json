@@ -1,0 +1,494 @@
+{
+ "addresses": [
+  {
+   "a": "127.0.0.1",
+   "expectExternal": false,
+   "external": false
+  },
+  {
+   "a": "::1",
+   "expectExternal": false,
+   "external": false
+  },
+  {
+   "a": "0.0.0.0",
+   "expectExternal": false,
+   "external": false
+  },
+  {
+   "a": "::",
+   "expectExternal": false,
+   "external": false
+  },
+  {
+   "a": "",
+   "expectExternal": false,
+   "external": false
+  },
+  {
+   "a": "192.168.1.5",
+   "expectExternal": true,
+   "external": true
+  },
+  {
+   "a": "8.8.8.8",
+   "expectExternal": true,
+   "external": true
+  },
+  {
+   "a": "fe80::1",
+   "expectExternal": true,
+   "external": true
+  },
+  {
+   "a": "10.0.0.2",
+   "expectExternal": true,
+   "external": true
+  }
+ ],
+ "cases": [
+  {
+   "expect": null,
+   "name": "healthy",
+   "s": {
+    "avail_ram_gib": 3.3,
+    "budget_s": 300,
+    "elapsed_s": 30,
+    "external_conns": 0,
+    "lease_expired": false,
+    "listeners_loopback": true,
+    "log_fatal": false,
+    "proc_alive": true,
+    "stop_file": false,
+    "telemetry_unknown_streak": 0,
+    "vram_used_mib": 1613
+   }
+  },
+  {
+   "expect": "stop-file",
+   "name": "stop-file",
+   "s": {
+    "avail_ram_gib": 3.3,
+    "budget_s": 300,
+    "elapsed_s": 30,
+    "external_conns": 0,
+    "lease_expired": false,
+    "listeners_loopback": true,
+    "log_fatal": false,
+    "proc_alive": true,
+    "stop_file": true,
+    "telemetry_unknown_streak": 0,
+    "vram_used_mib": 1613
+   }
+  },
+  {
+   "expect": "lease-expired",
+   "name": "lease",
+   "s": {
+    "avail_ram_gib": 3.3,
+    "budget_s": 300,
+    "elapsed_s": 30,
+    "external_conns": 0,
+    "lease_expired": true,
+    "listeners_loopback": true,
+    "log_fatal": false,
+    "proc_alive": true,
+    "stop_file": false,
+    "telemetry_unknown_streak": 0,
+    "vram_used_mib": 1613
+   }
+  },
+  {
+   "expect": "non-loopback-listener",
+   "name": "non-loopback",
+   "s": {
+    "avail_ram_gib": 3.3,
+    "budget_s": 300,
+    "elapsed_s": 30,
+    "external_conns": 0,
+    "lease_expired": false,
+    "listeners_loopback": false,
+    "log_fatal": false,
+    "proc_alive": true,
+    "stop_file": false,
+    "telemetry_unknown_streak": 0,
+    "vram_used_mib": 1613
+   }
+  },
+  {
+   "expect": null,
+   "name": "listeners-unknown",
+   "s": {
+    "avail_ram_gib": 3.3,
+    "budget_s": 300,
+    "elapsed_s": 30,
+    "external_conns": 0,
+    "lease_expired": false,
+    "listeners_loopback": null,
+    "log_fatal": false,
+    "proc_alive": true,
+    "stop_file": false,
+    "telemetry_unknown_streak": 0,
+    "vram_used_mib": 1613
+   }
+  },
+  {
+   "expect": "external-connection",
+   "name": "external",
+   "s": {
+    "avail_ram_gib": 3.3,
+    "budget_s": 300,
+    "elapsed_s": 30,
+    "external_conns": 1,
+    "lease_expired": false,
+    "listeners_loopback": true,
+    "log_fatal": false,
+    "proc_alive": true,
+    "stop_file": false,
+    "telemetry_unknown_streak": 0,
+    "vram_used_mib": 1613
+   }
+  },
+  {
+   "expect": "ram-low",
+   "name": "ram-below",
+   "s": {
+    "avail_ram_gib": 0.99,
+    "budget_s": 300,
+    "elapsed_s": 30,
+    "external_conns": 0,
+    "lease_expired": false,
+    "listeners_loopback": true,
+    "log_fatal": false,
+    "proc_alive": true,
+    "stop_file": false,
+    "telemetry_unknown_streak": 0,
+    "vram_used_mib": 1613
+   }
+  },
+  {
+   "expect": null,
+   "name": "ram-exact",
+   "s": {
+    "avail_ram_gib": 1.0,
+    "budget_s": 300,
+    "elapsed_s": 30,
+    "external_conns": 0,
+    "lease_expired": false,
+    "listeners_loopback": true,
+    "log_fatal": false,
+    "proc_alive": true,
+    "stop_file": false,
+    "telemetry_unknown_streak": 0,
+    "vram_used_mib": 1613
+   }
+  },
+  {
+   "expect": null,
+   "name": "ram-unknown",
+   "s": {
+    "avail_ram_gib": null,
+    "budget_s": 300,
+    "elapsed_s": 30,
+    "external_conns": 0,
+    "lease_expired": false,
+    "listeners_loopback": true,
+    "log_fatal": false,
+    "proc_alive": true,
+    "stop_file": false,
+    "telemetry_unknown_streak": 0,
+    "vram_used_mib": 1613
+   }
+  },
+  {
+   "expect": "vram-high",
+   "name": "vram-above",
+   "s": {
+    "avail_ram_gib": 3.3,
+    "budget_s": 300,
+    "elapsed_s": 30,
+    "external_conns": 0,
+    "lease_expired": false,
+    "listeners_loopback": true,
+    "log_fatal": false,
+    "proc_alive": true,
+    "stop_file": false,
+    "telemetry_unknown_streak": 0,
+    "vram_used_mib": 3701
+   }
+  },
+  {
+   "expect": null,
+   "name": "vram-exact",
+   "s": {
+    "avail_ram_gib": 3.3,
+    "budget_s": 300,
+    "elapsed_s": 30,
+    "external_conns": 0,
+    "lease_expired": false,
+    "listeners_loopback": true,
+    "log_fatal": false,
+    "proc_alive": true,
+    "stop_file": false,
+    "telemetry_unknown_streak": 0,
+    "vram_used_mib": 3700
+   }
+  },
+  {
+   "expect": null,
+   "name": "vram-unknown",
+   "s": {
+    "avail_ram_gib": 3.3,
+    "budget_s": 300,
+    "elapsed_s": 30,
+    "external_conns": 0,
+    "lease_expired": false,
+    "listeners_loopback": true,
+    "log_fatal": false,
+    "proc_alive": true,
+    "stop_file": false,
+    "telemetry_unknown_streak": 0,
+    "vram_used_mib": null
+   }
+  },
+  {
+   "expect": "server-log-fatal",
+   "name": "log-fatal",
+   "s": {
+    "avail_ram_gib": 3.3,
+    "budget_s": 300,
+    "elapsed_s": 30,
+    "external_conns": 0,
+    "lease_expired": false,
+    "listeners_loopback": true,
+    "log_fatal": true,
+    "proc_alive": true,
+    "stop_file": false,
+    "telemetry_unknown_streak": 0,
+    "vram_used_mib": 1613
+   }
+  },
+  {
+   "expect": "job-timeout",
+   "name": "timeout",
+   "s": {
+    "avail_ram_gib": 3.3,
+    "budget_s": 300,
+    "elapsed_s": 301,
+    "external_conns": 0,
+    "lease_expired": false,
+    "listeners_loopback": true,
+    "log_fatal": false,
+    "proc_alive": true,
+    "stop_file": false,
+    "telemetry_unknown_streak": 0,
+    "vram_used_mib": 1613
+   }
+  },
+  {
+   "expect": null,
+   "name": "timeout-exact",
+   "s": {
+    "avail_ram_gib": 3.3,
+    "budget_s": 300,
+    "elapsed_s": 300,
+    "external_conns": 0,
+    "lease_expired": false,
+    "listeners_loopback": true,
+    "log_fatal": false,
+    "proc_alive": true,
+    "stop_file": false,
+    "telemetry_unknown_streak": 0,
+    "vram_used_mib": 1613
+   }
+  },
+  {
+   "expect": null,
+   "name": "telemetry-4",
+   "s": {
+    "avail_ram_gib": null,
+    "budget_s": 300,
+    "elapsed_s": 30,
+    "external_conns": 0,
+    "lease_expired": false,
+    "listeners_loopback": true,
+    "log_fatal": false,
+    "proc_alive": true,
+    "stop_file": false,
+    "telemetry_unknown_streak": 4,
+    "vram_used_mib": null
+   }
+  },
+  {
+   "expect": "telemetry-lost",
+   "name": "telemetry-5",
+   "s": {
+    "avail_ram_gib": null,
+    "budget_s": 300,
+    "elapsed_s": 30,
+    "external_conns": 0,
+    "lease_expired": false,
+    "listeners_loopback": true,
+    "log_fatal": false,
+    "proc_alive": true,
+    "stop_file": false,
+    "telemetry_unknown_streak": 5,
+    "vram_used_mib": null
+   }
+  },
+  {
+   "expect": "server-exited",
+   "name": "exited",
+   "s": {
+    "avail_ram_gib": 3.3,
+    "budget_s": 300,
+    "elapsed_s": 30,
+    "external_conns": 0,
+    "lease_expired": false,
+    "listeners_loopback": true,
+    "log_fatal": false,
+    "proc_alive": false,
+    "stop_file": false,
+    "telemetry_unknown_streak": 0,
+    "vram_used_mib": 1613
+   }
+  },
+  {
+   "expect": "stop-file",
+   "name": "priority-stop-over-ram",
+   "s": {
+    "avail_ram_gib": 0.1,
+    "budget_s": 300,
+    "elapsed_s": 30,
+    "external_conns": 0,
+    "lease_expired": false,
+    "listeners_loopback": true,
+    "log_fatal": false,
+    "proc_alive": true,
+    "stop_file": true,
+    "telemetry_unknown_streak": 0,
+    "vram_used_mib": 1613
+   }
+  },
+  {
+   "expect": "ram-low",
+   "name": "priority-ram-over-vram",
+   "s": {
+    "avail_ram_gib": 0.1,
+    "budget_s": 300,
+    "elapsed_s": 30,
+    "external_conns": 0,
+    "lease_expired": false,
+    "listeners_loopback": true,
+    "log_fatal": false,
+    "proc_alive": true,
+    "stop_file": false,
+    "telemetry_unknown_streak": 0,
+    "vram_used_mib": 4000
+   }
+  },
+  {
+   "expect": "non-loopback-listener",
+   "name": "priority-nonloopback-over-ram",
+   "s": {
+    "avail_ram_gib": 0.1,
+    "budget_s": 300,
+    "elapsed_s": 30,
+    "external_conns": 0,
+    "lease_expired": false,
+    "listeners_loopback": false,
+    "log_fatal": false,
+    "proc_alive": true,
+    "stop_file": false,
+    "telemetry_unknown_streak": 0,
+    "vram_used_mib": 1613
+   }
+  },
+  {
+   "expect": "vram-high",
+   "name": "priority-vram-over-log",
+   "s": {
+    "avail_ram_gib": 3.3,
+    "budget_s": 300,
+    "elapsed_s": 30,
+    "external_conns": 0,
+    "lease_expired": false,
+    "listeners_loopback": true,
+    "log_fatal": true,
+    "proc_alive": true,
+    "stop_file": false,
+    "telemetry_unknown_streak": 0,
+    "vram_used_mib": 4000
+   }
+  },
+  {
+   "expect": "job-timeout",
+   "name": "priority-timeout-over-exited",
+   "s": {
+    "avail_ram_gib": 3.3,
+    "budget_s": 300,
+    "elapsed_s": 999,
+    "external_conns": 0,
+    "lease_expired": false,
+    "listeners_loopback": true,
+    "log_fatal": false,
+    "proc_alive": false,
+    "stop_file": false,
+    "telemetry_unknown_streak": 0,
+    "vram_used_mib": 1613
+   }
+  }
+ ],
+ "logs": [
+  {
+   "expect": false,
+   "name": "clean",
+   "text": "load_tensors: loaded"
+  },
+  {
+   "expect": true,
+   "name": "cuda-error",
+   "text": "CUDA error: out of memory"
+  },
+  {
+   "expect": true,
+   "name": "oom",
+   "text": "ggml_backend_cuda_buffer_type_alloc_buffer: allocating 1 MiB failed\nout of memory"
+  },
+  {
+   "expect": true,
+   "name": "assert",
+   "text": "GGML_ASSERT(x) failed"
+  },
+  {
+   "expect": true,
+   "name": "alloc",
+   "text": "failed to allocate buffer"
+  },
+  {
+   "expect": false,
+   "name": "warning-only",
+   "text": "W srv security: no API key"
+  },
+  {
+   "expect": false,
+   "name": "empty",
+   "text": ""
+  },
+  {
+   "expect": true,
+   "name": "mixed-case",
+   "text": "Out Of Memory"
+  },
+  {
+   "expect": true,
+   "name": "cudamalloc",
+   "text": "cudaMalloc failed: out of memory"
+  },
+  {
+   "expect": false,
+   "name": "unrelated",
+   "text": "slot update_slots: id 0 | task 0 | all slots are idle"
+  }
+ ]
+}

@@ -59,6 +59,7 @@ export function mapCopilotResponse(json: unknown, now: () => number = Date.now):
   if (status === "UNVERIFIED") limitations.push("Not verified: the cited excerpts were checked mechanically, but whether they logically support each statement was not.");
   if (status === "FALLBACK") limitations.push(`No AI model produced this answer${json.fallbackReason ? ` (${str(json.fallbackReason, 80)})` : ""}. It is an extractive summary of retrieved text only.`);
   if (rawStatus === "VERIFIED") limitations.push("The server reported a status this client cannot confirm, so it is shown as unverified.");
+  if (isObj(json.textPolicy) && json.textPolicy.evidenceText === "WITHHELD_BY_LICENSE") limitations.push("This paper's licence does not clearly allow showing its text here, so the cited excerpts are not displayed. Open the original paper to check the answer.");
   if (isObj(json.context) && json.context.truncated === true) limitations.push("The paper was longer than the context limit, so only part of it was used.");
 
   return {

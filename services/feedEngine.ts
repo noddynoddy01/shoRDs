@@ -10,7 +10,7 @@ import {
   logPaperInteractionAsync
 } from "./paperHistoryService";
 import { providerHealthService } from "./providerHealth";
-import { reconstructOpenAlexAbstract } from "./federatedSearch";
+import { fetchOpenAlexPage } from "./federatedSearch";
 
 export interface FeedGenerationTelemetry {
   feedGenerationId: string;
@@ -135,45 +135,10 @@ export async function generateBackendFeedBatchAsync(
 
   let candidates: Paper[] = [];
   try {
-    const url = `https://api.openalex.org/works?search=${encodeURIComponent(topicQuery)}&per-page=50&page=${currentOpenAlexPage}&sort=publication_date:desc`;
-    const res = await fetch(url);
-    if (res.ok) {
-      const data = await res.json();
-      const results = data.results || [];
-      candidates = results.map((work: any, idx: number) => {
-        const title = work.title || `Manuscript ${work.id?.split("/").pop() || idx}`;
-        const doi = work.doi ? work.doi.replace("https://doi.org/", "") : undefined;
-        const authorNames = (work.authorships || []).map((a: any) => a.author?.display_name).filter(Boolean);
-        const authorName = authorNames.length > 0 ? authorNames.slice(0, 3).join(", ") : ""; // unknown stays unknown
-        const org = work.host_venue?.display_name || work.primary_location?.source?.display_name || "";
-        const pubYear = typeof work.publication_year === "number" ? work.publication_year : undefined;
-        const citationCount = work.cited_by_count || 0;
-        const pdfUri = work.open_access?.oa_url || (work.doi ? work.doi : undefined);
-        // OpenAlex sends abstracts as an inverted index. No abstract means an empty one, never a made-up sentence.
-        const abstract = work.abstract || reconstructOpenAlexAbstract(work.abstract_inverted_index) || "";
-
-        return {
-          id: `openalex-${work.id?.split("/").pop() || idx}`,
-          title,
-          domain: work.concepts?.[0]?.display_name || "Science",
-          summary: abstract,
-          fullExplanation: abstract,
-          authorId: "openalex-author",
-          authorName,
-          authorRole: "",
-          originalLink: work.doi || work.id || "",
-          pdfUri,
-          tags: ["openalex"], // OpenAlex does not say a work is peer reviewed, so neither do we
-          readingTime: "",
-          savedCount: citationCount,
-          createdAt: new Date(),
-          organization: org,
-          pubYear,
-          doi,
-          publication: org,
-          publisher: org
-        };
-      });
+    // Same timeout, error classification and short-lived cache as search (see federatedSearch.ts).
+    const page = await fetchOpenAlexPage({ query: topicQuery, page: currentOpenAlexPage, perPage: 50, sortBy: "recency" });
+    if (page.status === "ok") {
+      candidates = page.papers;
       providerHealthService.recordSuccess("OpenAlex", Date.now() - startTime, candidates.length);
     } else {
       providerHealthService.recordFailure("OpenAlex");

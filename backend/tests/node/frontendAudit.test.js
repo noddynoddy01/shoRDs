@@ -118,16 +118,20 @@ test("research operations use the authenticated client; browser fetches are only
   const fetchers = {};
   for (const f of files) {
     const code = stripComments(read(f));
-    if (/\bfetch\(|XMLHttpRequest|axios/.test(code)) fetchers[f] = true;
+    // `fetch(` or an alias of the global (`x || fetch`, `= fetch`): wrapping the call must not hide a file from this list.
+    if (/\bfetch\s*\(|(\|\||\?\?|=)\s*fetch\b|XMLHttpRequest|axios/.test(code)) fetchers[f] = true;
   }
   // Allow-list of files that may call the network directly. Anything new must be reviewed (and, if it is research, go through `api`).
   assert.deepEqual(Object.keys(fetchers).sort(), [
     "services/auth/apiClient.ts",
-    "services/federatedSearch.ts",
-    "services/feedEngine.ts"
+    "services/federatedSearch.ts"
   ]);
+  // The feed shares the search module's OpenAlex client (one timeout, one error classifier, one cache) and has no direct network code.
+  assert.doesNotMatch(stripComments(read("services/feedEngine.ts")), /https?:\/\/api\.openalex\.org/);
+  // The app must not call a backend search route that does not exist.
+  assert.doesNotMatch(stripComments(read("services/federatedSearch.ts")), /\/api\/v1\/search/);
   // The only direct hosts are the public OpenAlex metadata API; no key is attached.
-  for (const f of ["services/federatedSearch.ts", "services/feedEngine.ts"]) {
+  for (const f of ["services/federatedSearch.ts"]) {
     const code = stripComments(read(f));
     const hosts = new Set([...code.matchAll(/https?:\/\/([a-z0-9.-]+)/gi)].map((m) => m[1]).filter((h) => !/^(doi\.org|shords\.app|openalex\.org|localhost)$/.test(h)));
     assert.deepEqual([...hosts], ["api.openalex.org"], f);
@@ -214,4 +218,21 @@ test("the mentor chat has no network path to an AI service", () => {
   assert.doesNotMatch(code, /fetch\(/);
   assert.doesNotMatch(code, /geminiKey|aiSource|serverUrl|generativelanguage/);
   assert.match(read("app/chat/[id].tsx"), /not connected to an AI model/);
+});
+
+// ------------------------------------------------------------------------------------------------ bundle weight
+test("bundle weight: icons come from the one family the app uses, and the in-app logo is a UI-sized image", () => {
+  const offenders = [];
+  const families = new Set();
+  for (const f of listSources(path.join(root, "app")).concat(listSources(path.join(root, "components")), listSources(path.join(root, "hooks")), listSources(path.join(root, "context")), listSources(path.join(root, "services")))) {
+    const code = stripComments(fs.readFileSync(f, "utf8"));
+    // The package root re-exports 19 icon families; importing it ships all of their font files (about 4 MB) to every web visitor.
+    if (/from\s+["']@expo\/vector-icons["']/.test(code)) offenders.push(path.relative(root, f));
+    for (const m of code.matchAll(/from\s+["']@expo\/vector-icons\/([A-Za-z0-9]+)["']/g)) families.add(m[1]);
+  }
+  assert.deepEqual(offenders, [], "import a single family, e.g. `@expo/vector-icons/Ionicons`");
+  assert.deepEqual([...families].sort(), ["Ionicons"], "adding a family adds its font file to the bundle: do it on purpose");
+  const logoSrc = read("components/Logo.tsx");
+  assert.match(logoSrc, /assets\/logo-ui-512\.png/);
+  assert.ok(fs.statSync(path.join(root, "assets/logo-ui-512.png")).size < 150 * 1024, "the UI logo stays small");
 });

@@ -53,7 +53,7 @@ const uniq = (p) => `${p}${crypto.randomBytes(5).toString("hex")}`;
 function listen(handler) {
   return new Promise((resolve) => {
     const server = http.createServer(handler);
-    server.listen(0, "127.0.0.1", () => {
+    server.listen(Number(process.env.E2E_BACKEND_PORT || 0), "127.0.0.1", () => {
       const { port } = server.address();
       resolve({
         server,

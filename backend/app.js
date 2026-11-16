@@ -23,9 +23,11 @@ const { INTEL_PROMPT_VERSION } = require("./llm/intelligence");
 const { PipelineError, assertNoClientEvidence } = require("./llm/aiPipeline");
 const { EvidenceError } = require("./llm/evidence");
 const { PaperError } = require("./papers/paperService");
-const { parsePaperRef } = require("./papers/identity");
+const { parsePaperRef, parseChunkId } = require("./papers/identity");
+const { permissionsFor } = require("./papers/licensePolicy");
 const { toView } = require("./jobs/jobStore");
 const { hashUser } = require("./llm/usageLedger");
+const { createSocialRoutes } = require("./social/routes");
 
 const JSON_HEADERS = { "Content-Type": "application/json; charset=utf-8" };
 const UID_RE = /^[A-Za-z0-9_-]{1,128}$/;
@@ -51,6 +53,7 @@ function createApp(deps) {
     readiness,
     workerStats = null,
     client,
+    assistant = null,
     logger = console,
     now = Date.now
   } = deps;
@@ -321,6 +324,20 @@ function createApp(deps) {
     send(ctx, 201, { ...project, requestId: ctx.requestId });
   }
 
+  // POST /api/v1/projects/personal: the caller's own project for analyses started from the app. Idempotent: 201 the first time, 200 afterwards.
+  async function postPersonalProject(ctx) {
+    if (!(await limit(ctx, "WRITE_USER", "user", ctx.principal.uid))) return;
+    if (!(await readBody(ctx))) return;
+    try {
+      const p = await projects.ensurePersonalProject(pool, { userId: ctx.principal.uid });
+      const { created, ...project } = p;
+      send(ctx, created ? 201 : 200, { ...project, personal: true, requestId: ctx.requestId });
+    } catch (e) {
+      if (e instanceof projects.PersonalProjectUnavailableError) return fail(ctx, 409, "PERSONAL_PROJECT_UNAVAILABLE", "Your personal project exists, but you are no longer a member of it. Create a project with POST /api/v1/projects instead.");
+      throw e;
+    }
+  }
+
   async function listMyProjects(ctx) {
     if (!(await limit(ctx, "READ_USER", "user", ctx.principal.uid))) return;
     send(ctx, 200, { projects: await projects.listProjects(pool, ctx.principal.uid) });
@@ -364,7 +381,7 @@ function createApp(deps) {
       scope = { tenantId: m.tenantId, projectId: m.projectId };
     } else {
       // no project: the caller's personal scope. Never shared with anyone else (cache key and limits are per user).
-      scope = { tenantId: projects.personalTenant(ctx.principal.uid), projectId: "none" };
+      scope = { tenantId: projects.personalTenant(ctx.principal.uid), projectId: projects.NO_PROJECT_ID };
     }
 
     if (!(await limit(ctx, "COPILOT_TENANT", "tenant", scope.tenantId))) return;
@@ -440,6 +457,47 @@ function createApp(deps) {
     }
     return resolvePaperRoute(ctx, ref);
   }
+  const MAX_EVIDENCE_SPAN_CHARS = 1500;
+  /**
+   * GET /api/v1/papers/:paperId/evidence/:chunkId?start=&end=
+   * The sentence behind a citation. Offsets come from an analysis result's `evidenceSpans`. The text is returned only when the paper's recorded
+   * licence clearly allows serving it to people other than the requester (licensePolicy.redistributeText === "yes"); otherwise the answer says
+   * so and points to the source, and no paper wording leaves the server. A policy rule, not a legal conclusion.
+   */
+  async function getEvidence(ctx, paperSeg, chunkSeg) {
+    if (!(await limit(ctx, "READ_USER", "user", ctx.principal.uid))) return;
+    let paperRef;
+    let chunkId;
+    try {
+      paperRef = decodeURIComponent(paperSeg);
+      chunkId = decodeURIComponent(chunkSeg);
+    } catch (_) {
+      return fail(ctx, 400, "INVALID_PAPER_ID", "`paperId` or `chunkId` is not valid.");
+    }
+    const ref = parsePaperRef(paperRef);
+    if (!ref) return fail(ctx, 400, "INVALID_PAPER_ID", "`paperId` must be a DOI, PMID, arXiv id or a canonical id.");
+    const parsedChunk = parseChunkId(chunkId);
+    if (!parsedChunk || parsedChunk.paperId !== ref.canonicalId) return fail(ctx, 400, "INVALID_CHUNK_ID", "`chunkId` is not valid for this paper.");
+    const url = new URL(ctx.req.url || "/", "http://localhost");
+    const num = (k) => (/^\d{1,9}$/.test(url.searchParams.get(k) || "") ? Number(url.searchParams.get(k)) : null);
+    const start = num("start");
+    const end = num("end");
+    if (start === null || end === null || end <= start || end - start > MAX_EVIDENCE_SPAN_CHARS) {
+      return fail(ctx, 400, "INVALID_SPAN", `\`start\` and \`end\` must be integers with 0 <= start < end and at most ${MAX_EVIDENCE_SPAN_CHARS} characters.`);
+    }
+    const paper = await paperService.peek(ref.canonicalId);
+    const chunk = paper ? await paperService.loadChunk(paper.paperId, chunkId) : null;
+    if (!paper || !chunk) return fail(ctx, 404, "EVIDENCE_NOT_FOUND", "No such stored paper or chunk.");
+    const perm = permissionsFor(paper.license);
+    const source = { paperId: paper.paperId, title: paper.title, authors: paper.authors, year: paper.year, doi: paper.doi, sourceUrl: paper.sourceUrl, license: perm.license.normalised, attributionRequired: perm.attributionRequired };
+    // The licence is checked BEFORE the span is compared with the chunk's length, so a paper whose text may not be served reveals nothing
+    // about that text, not even how long the chunk is.
+    if (perm.redistributeText !== "yes") {
+      return send(ctx, 200, { available: false, reason: "LICENSE_DOES_NOT_ALLOW_SERVING_TEXT", permission: perm.redistributeText, source, chunkId, start, end, notice: perm.notice, requestId: ctx.requestId });
+    }
+    if (end > chunk.text.length) return fail(ctx, 400, "INVALID_SPAN", "The span lies outside the chunk.");
+    send(ctx, 200, { available: true, chunkId, start, end, section: chunk.section, text: chunk.text.slice(start, end), textHash: chunk.textHash, source, notice: perm.notice, requestId: ctx.requestId });
+  }
   async function postPaperResolve(ctx) {
     const body = await readBody(ctx);
     if (!body) return;
@@ -478,6 +536,7 @@ function createApp(deps) {
   }
 
   // ---------- routing ----------
+  const social = pool ? createSocialRoutes({ pool, assistant, adminUids, helpers: { limit, readBody, send, fail }, logger }) : null;
   function route(method, pathname) {
     const seg = pathname.split("/").filter(Boolean);
     const is = (...parts) => parts.length === seg.length && parts.every((p, i) => p === "*" || p === seg[i]);
@@ -489,17 +548,20 @@ function createApp(deps) {
     if (method === "GET" && is("api", "v1", "llm", "metrics")) return { name: "llm_metrics", run: getLlmMetrics };
     if (method === "GET" && is("api", "v1", "admin", "ai", "budget")) return { name: "admin_ai_budget", run: getAiBudget };
     if (method === "PUT" && is("api", "v1", "admin", "ai", "kill-switch")) return { name: "admin_ai_kill_switch", post: true, run: putAiKillSwitch };
+    if (method === "POST" && is("api", "v1", "projects", "personal")) return { name: "project_personal", post: true, run: postPersonalProject };
     if (method === "POST" && is("api", "v1", "projects")) return { name: "project_create", post: true, run: postProject };
     if (method === "GET" && is("api", "v1", "projects")) return { name: "project_list", run: listMyProjects };
     if (method === "GET" && is("api", "v1", "projects", "*")) return { name: "project_get", run: (c) => getProject(c, seg[3]) };
     if (method === "PUT" && is("api", "v1", "projects", "*", "members", "*")) return { name: "project_member_set", post: true, run: (c) => putMember(c, seg[3], seg[5]) };
     if (method === "POST" && is("api", "v1", "papers", "resolve")) return { name: "paper_resolve", post: true, run: postPaperResolve };
     if (method === "GET" && is("api", "v1", "papers", "*")) return { name: "paper_get", run: (c) => getPaper(c, seg[3]) };
+    if (method === "GET" && is("api", "v1", "papers", "*", "evidence", "*")) return { name: "paper_evidence", run: (c) => getEvidence(c, seg[3], seg[5]) };
     if (method === "POST" && is("api", "v1", "copilot", "query")) return { name: "copilot_query", post: true, run: postCopilot };
     if (method === "POST" && is("api", "v1", "analysis")) return { name: "analysis_create", post: true, run: postAnalysis };
     if (method === "GET" && is("api", "v1", "analysis", "*")) return { name: "analysis_get", run: (c) => getAnalysis(c, seg[3]) };
     if (method === "POST" && is("api", "v1", "analysis", "*", "cancel")) return { name: "analysis_cancel", post: true, run: (c) => cancelAnalysis(c, seg[3]) };
-    return null;
+    // community layer: profiles, mentors, mentorship, messaging, notifications and the shoRDs Assistant (social/routes.js)
+    return social ? social.match(method, seg) : null;
   }
 
   async function handler(req, res) {

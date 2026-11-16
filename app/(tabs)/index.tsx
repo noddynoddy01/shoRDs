@@ -14,7 +14,7 @@ import {
   useWindowDimensions
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { Logo } from "@/components/Logo";
 import { ReelCard } from "@/components/ReelCard";
 import { DesktopNavSidebar } from "@/components/DesktopNavSidebar";
@@ -32,6 +32,9 @@ import { SubscriptionModal } from "@/components/SubscriptionModal";
 import { getUserSubscriptionAsync, UserSubscription } from "@/services/subscriptionService";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { domainSubtopics, domains } from "@/data/samplePapers";
+
+// A stable object: FlatList does not support a viewabilityConfig that changes between renders.
+const REEL_VIEWABILITY = { itemVisiblePercentThreshold: 75 } as const;
 
 export default function HomeScreen() {
   const { colors, fontSizeScale, theme, setTheme } = useTheme();
@@ -141,11 +144,8 @@ export default function HomeScreen() {
           currentDomain={filterDomain}
           onSelectDomain={(d) => router.push(d ? { pathname: "/(tabs)", params: { filterDomain: d } } as never : "/(tabs)" as never)}
           onRefreshFeed={handleRefreshFeed}
-          onOpenSettings={() => setSettingsVisible(true)}
-          onOpenSubscription={() => setSubscriptionVisible(true)}
           isMuted={isMuted}
           onToggleMute={toggleMute}
-          userProfile={userProfile}
         />
 
         {/* Column 2: Center Research Feed */}
@@ -157,7 +157,7 @@ export default function HomeScreen() {
                 {filterDomain ? filterDomain.toUpperCase() : "GLOBAL RESEARCH DISCOVERIES"}
               </Text>
               <Text style={styles.desktopFeedSubtitle}>
-                Live open-access research stream with evidence-grounded intelligence
+                Open-access papers from OpenAlex, summarised on this device by fixed rules
               </Text>
             </View>
             <Pressable style={styles.desktopSearchBtn} onPress={() => router.push("/search" as never)}>
@@ -183,6 +183,9 @@ export default function HomeScreen() {
               keyExtractor={(item, index) => `${item.id}-${index}`}
               showsVerticalScrollIndicator={true}
               contentContainerStyle={{ padding: spacing.lg }}
+              initialNumToRender={6}
+              maxToRenderPerBatch={6}
+              windowSize={7}
               onEndReached={loadNextFeedPage}
               onEndReachedThreshold={0.5}
               renderItem={({ item, index }) => (
@@ -202,10 +205,6 @@ export default function HomeScreen() {
         <View style={{ width: 440, height: "100%" }}>
           <DesktopIntelligencePanel paper={selectedDesktopPaper || papers[0] || null} />
         </View>
-
-        {/* Settings & Subscription Modals */}
-        <SettingsTray visible={settingsVisible} onClose={() => setSettingsVisible(false)} currentUserProfile={userProfile} />
-        <SubscriptionModal visible={subscriptionVisible} onClose={() => setSubscriptionVisible(false)} />
       </View>
     );
   }
@@ -222,7 +221,7 @@ export default function HomeScreen() {
             <Pressable style={styles.subBadgeBtn} onPress={() => setSubscriptionVisible(true)}>
               <Ionicons name="star" size={14} color="#F59E0B" />
               <Text style={styles.subBadgeText}>
-                {subscription?.isPro ? "PRO PASS" : "FREE • UPGRADE"}
+                {subscription?.isPro ? "PRO PASS" : "FREE PLAN"}
               </Text>
             </Pressable>
 
@@ -247,7 +246,7 @@ export default function HomeScreen() {
                 style={styles.profileGradient}
               >
                 <Text style={styles.profileInitials}>
-                  {userProfile?.name ? userProfile.name.slice(0, 2).toUpperCase() : "AP"}
+                  {userProfile?.name ? userProfile.name.slice(0, 2).toUpperCase() : "?"}
                 </Text>
               </LinearGradient>
             </Pressable>
@@ -300,7 +299,14 @@ export default function HomeScreen() {
           snapToAlignment="start"
           showsVerticalScrollIndicator={false}
           onViewableItemsChanged={onViewableItemsChanged}
-          viewabilityConfig={{ itemVisiblePercentThreshold: 75 }}
+          viewabilityConfig={REEL_VIEWABILITY}
+          // Every reel is exactly one screen tall, so the list never has to measure items, and only the screens near the
+          // viewer are kept mounted (the default window keeps about 21 screens alive).
+          getItemLayout={(_, index) => ({ length: reelHeight, offset: reelHeight * index, index })}
+          initialNumToRender={2}
+          maxToRenderPerBatch={2}
+          windowSize={5}
+          removeClippedSubviews
           onEndReached={loadNextFeedPage}
           onEndReachedThreshold={0.5}
           refreshControl={

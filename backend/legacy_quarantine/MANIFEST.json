@@ -1,0 +1,59 @@
+{
+  "_kind": "LEGACY_QUARANTINE_MANIFEST",
+  "quarantinedOn": "2026-11-04",
+  "phase": 6,
+  "originalLocation": "backend/<name>.py",
+  "note": "Files are byte-identical to the originals (sha256 recorded when moved). They are not functional research-intelligence engines.",
+  "files": [
+    {
+      "file": "python_engines/multi_agent_engine.py",
+      "sha256": "4333fab91ee1979c00bec31dae2cdb4f0ecd9607b34d3b1c539e6f2af4bff622",
+      "why": "Every method returns fixed text (invented research questions, a 'p < 0.001' statistic, a fixed figure list) whatever paper it is given."
+    },
+    {
+      "file": "python_engines/multi_pass_engine.py",
+      "sha256": "908d7e32eeffdc1c19e3cb83b00442acc907c353370c23c6311bde104550d5d3",
+      "why": "'5-pass pipeline' returns one fixed dictionary (Hardware-Aware Sparse Tensor Engine, 95.3% accuracy, 12.4 ms) for any title or text."
+    },
+    {
+      "file": "python_engines/section_intelligence.py",
+      "sha256": "134bd7d4da4a4fd47e40648fac67f8f3c9daeb46578b978b285332ec8c6700df",
+      "why": "Methodology, results, figure and contribution 'agents' return fixed values (learning rate 3e-4, 95.3% vs 92.1%) and never read the text argument."
+    },
+    {
+      "file": "python_engines/rig_engine.py",
+      "sha256": "7a2e18b7f2a91884056a2081a23d9b424992a69e25b8b8f89d585745de03f3f5",
+      "why": "'Knowledge graph' of 15 fixed entities and two fixed claims (confidence 98, replication_count 7) independent of the paper."
+    },
+    {
+      "file": "python_engines/literature_review_writer.py",
+      "sha256": "b1bc4f5544131281f2f6501411d347173e2d1863e720514455a122391f80c7f7",
+      "why": "Returns a fixed three-section 'review' of invented prose plus four fixed references; the paper count is just echoed."
+    },
+    {
+      "file": "python_engines/living_reviews.py",
+      "sha256": "3fd45f4e8fedc62bec50b40129aa2f20eca6f70ed895a70fc63ecf13f755ec26",
+      "why": "Returns fixed 'weekly updates' with invented papers and DOIs, dated 2026-07-28 and 2026-07-21."
+    },
+    {
+      "file": "python_engines/concept_recommender.py",
+      "sha256": "e0bf1e9aa6edb1c178bf48e8ca247dd3149cbc294e602ec44dab3030b19c4c0f",
+      "why": "Returns a fixed reading trajectory and a fixed recommendation with an invented 'comprehension gain 30% -> 85%'."
+    },
+    {
+      "file": "python_engines/research_review_mode.py",
+      "sha256": "3eef3be11a1923d50247790b2fb7bf0a3079fdb4055679b00782cb565da9ef4c",
+      "why": "Returns a fixed 'evidence quality score 91/100' with invented counts of studies and a fixed benchmark table for any question."
+    },
+    {
+      "file": "python_engines/research_engine.py",
+      "sha256": "e30f94d237ffcde0204970598a2c8d42f40dbb2fade06f45b157545f63d310ec",
+      "why": "Section parser is a keyword router; tables, equations, knowledge graph, reasoning and podcast script are fixed text (invented tables, fixed equations, 'is_sota: Yes')."
+    },
+    {
+      "file": "python_engines/finetune_model.py",
+      "sha256": "03ed3bd878b1a63b4412256c66cd17b949d3eaaf029c5da9cc058d7b5cbf31be",
+      "why": "QLoRA script that, when its dataset file is missing, writes and trains on one invented sample record; no held-out set, no evaluation, no licence record."
+    }
+  ]
+}

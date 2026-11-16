@@ -1,3 +1,4 @@
+import { splitSentences, sentencesMatching } from "./sentenceSplit";
 import { EvidenceChunk } from "./evidenceChunkingService";
 import { ExtractedDocument } from "./documentExtractionService";
 import {
@@ -118,7 +119,7 @@ export function buildStructuredPaperIntelligence(doc: ExtractedDocument, chunks:
  */
 function extractQuantitativeResultsFromText(text: string, insights: string[] = []): PaperQuantitativeResult[] {
   const results: PaperQuantitativeResult[] = [];
-  const sources = [...insights, ...text.split(/[.\n;]+/)].map(s => s.trim()).filter(Boolean);
+  const sources = [...insights, ...text.split(/\n+/).flatMap(line => splitSentences(line).flatMap(x => x.split(";")))].map(s => s.trim()).filter(Boolean);
 
   for (const s of sources) {
     // 1. Percentage reduction / improvement with explicit baseline comparison
@@ -229,7 +230,7 @@ export function generatePaperIntelligence(
 
   // TL;DR: the first sentences of the paper's own abstract/summary, verbatim. No template wording is added.
   const leadText = (paper.summary || parsed.context || "").trim();
-  const tldr = (leadText.match(/[^.!?]+[.!?]+(?:\s|$)/g) || [leadText]).slice(0, 3).join(" ").trim();
+  const tldr = splitSentences(leadText).slice(0, 3).join(" ").trim();
 
   // Research problem: only text the paper itself provides for its background/abstract.
   const researchProblem = parsed.context || "";
@@ -247,7 +248,7 @@ export function generatePaperIntelligence(
     keyFindings.push(...insights.slice(1));
   }
   if (parsed.results) {
-    const rSentences = parsed.results.split(/\.\s+/).map(s => s.trim()).filter(s => s.length > 15);
+    const rSentences = splitSentences(parsed.results).map(x => x.replace(/\.$/, "")).filter(x => x.length > 15);
     for (const rs of rSentences) {
       if (!keyFindings.some(kf => kf.includes(rs.slice(0, 20)))) {
         keyFindings.push(rs.endsWith(".") ? rs : `${rs}.`);
@@ -257,7 +258,7 @@ export function generatePaperIntelligence(
 
   // Limitations
   const authorStated: string[] = [];
-  const limitSentences = rawText.match(/[^.!?]+(?:limitation|limited to|drawback|requires additional|fails when|degrades when)[^.!?]+[.!?]/gi);
+  const limitSentences = sentencesMatching(rawText, /limitation|limited to|drawback|requires additional|fails when|degrades when/i);
   if (limitSentences && limitSentences.length > 0) {
     limitSentences.slice(0, 2).forEach((s: string) => authorStated.push(s.trim()));
   }

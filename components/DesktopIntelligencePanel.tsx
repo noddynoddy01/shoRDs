@@ -1,11 +1,12 @@
 import React from "react";
 import { StyleSheet, Text, View, ScrollView, Pressable, Linking } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { Paper } from "@/types/models";
 import { colors as defaultColors, radius, spacing } from "@/constants/theme";
 import { useTheme } from "@/context/ThemeContext";
+import { backendPaperRef } from "@/services/analysisClient";
 
 interface DesktopIntelligencePanelProps {
   paper: Paper | null;
@@ -28,33 +29,24 @@ export function DesktopIntelligencePanel({ paper }: DesktopIntelligencePanelProp
     );
   }
 
-  // Parse structured sections from fullExplanation
+  // Sections come from the paper's own brief (built on this device by fixed rules from the abstract). A section is shown only when the brief
+  // actually contains it; nothing is filled in with generic text.
   const fullText = paper.fullExplanation || paper.summary || "";
-  
-  const extractSection = (regex: RegExp, fallback: string) => {
+  const extractSection = (regex: RegExp): string | null => {
     const match = fullText.match(regex);
-    return (match && match[1]?.trim()) || fallback;
+    const t = match && match[1] ? match[1].trim() : "";
+    return t || null;
   };
-
-  const contextText = extractSection(
-    /(?:🔬\s*)?\[(?:Context|Background|Abstract)[^\]]*\]\s*([\s\S]*?)(?=(?:⚙️|📊|🔮|\[|$))/i,
-    paper.summary || "Empirical investigation in " + paper.domain
-  );
-
-  const methodText = extractSection(
-    /(?:⚙️\s*)?\[(?:Technical Methodology|Methodology|Method|Approach)[^\]]*\]\s*([\s\S]*?)(?=(?:📊|🔮|\[|$))/i,
-    paper.insights?.[0] || "Empirical analytical methodology"
-  );
-
-  const resultsText = extractSection(
-    /(?:📊\s*)?\[(?:Key Results|Results|Findings)[^\]]*\]\s*([\s\S]*?)(?=(?:🔮|\[|$))/i,
-    paper.insights?.[1] || "Demonstrates verified improvements across target benchmarks."
-  );
-
-  const limitationsText = extractSection(
-    /(?:🔮\s*)?\[(?:Future Scope|Future|Horizons|Next Steps)[^\]]*\]\s*([\s\S]*?)(?=$)/i,
-    paper.insights?.[2] || "Extending generalization and real-time runtime efficiency."
-  );
+  const contextText = extractSection(/(?:🔬\s*)?\[(?:Context|Background|Abstract)[^\]]*\]\s*([\s\S]*?)(?=(?:⚙️|📊|🔮|\[|$))/i);
+  const methodText = extractSection(/(?:⚙️\s*)?\[(?:Technical Methodology|Methodology|Method|Approach)[^\]]*\]\s*([\s\S]*?)(?=(?:📊|🔮|\[|$))/i);
+  const resultsText = extractSection(/(?:📊\s*)?\[(?:Key Results|Results|Findings)[^\]]*\]\s*([\s\S]*?)(?=(?:🔮|\[|$))/i);
+  const limitationsText = extractSection(/(?:🔮\s*)?\[(?:Future Scope|Future|Horizons|Next Steps)[^\]]*\]\s*([\s\S]*?)(?=$)/i);
+  const sections: { icon: React.ComponentProps<typeof Ionicons>["name"]; color: string; title: string; text: string }[] = [
+    contextText && contextText !== paper.summary ? { icon: "search-outline" as const, color: "#06B6D4", title: "Problem and motivation", text: contextText } : null,
+    methodText ? { icon: "cog-outline" as const, color: "#8B5CF6", title: "Method", text: methodText } : null,
+    resultsText ? { icon: "bar-chart-outline" as const, color: "#10B981", title: "Results", text: resultsText } : null,
+    limitationsText ? { icon: "telescope-outline" as const, color: "#EC4899", title: "Future work", text: limitationsText } : null
+  ].filter((x): x is NonNullable<typeof x> => x !== null);
 
   const openSource = () => {
     if (paper.originalLink) {
@@ -65,7 +57,7 @@ export function DesktopIntelligencePanel({ paper }: DesktopIntelligencePanelProp
   const openCopilot = () => {
     router.push({
       pathname: "/research/copilot",
-      params: { paperId: paper.id, title: paper.title }
+      params: { ref: backendPaperRef(paper) ?? "", title: paper.title }
     } as never);
   };
 
@@ -81,10 +73,6 @@ export function DesktopIntelligencePanel({ paper }: DesktopIntelligencePanelProp
             <Text style={styles.yearText}>{paper.pubYear}</Text>
           </View>
         ) : null}
-        <View style={styles.verifiedBadge}>
-          <Ionicons name="checkmark-circle" size={13} color="#10B981" />
-          <Text style={styles.verifiedText}>EVIDENCE GROUNDED</Text>
-        </View>
       </View>
 
       {/* Paper Title */}
@@ -94,13 +82,14 @@ export function DesktopIntelligencePanel({ paper }: DesktopIntelligencePanelProp
       <View style={styles.authorRow}>
         <Ionicons name="person-outline" size={13} color={colors.subdued} />
         <Text style={styles.authorText}>
-          {paper.authorName || "Research Team"}
+          {paper.authorName || "Authors not listed"}
           {paper.organization ? ` • ${paper.organization}` : ""}
         </Text>
       </View>
 
       {/* Action Buttons */}
       <View style={styles.actionRow}>
+        {backendPaperRef(paper) ? (
         <Pressable style={styles.copilotBtn} onPress={openCopilot}>
           <LinearGradient
             colors={["#06B6D4", "#6366F1"]}
@@ -112,6 +101,7 @@ export function DesktopIntelligencePanel({ paper }: DesktopIntelligencePanelProp
             <Text style={styles.copilotText}>Research Copilot</Text>
           </LinearGradient>
         </Pressable>
+        ) : null}
 
         {paper.originalLink ? (
           <Pressable style={styles.sourceBtn} onPress={openSource}>
@@ -121,57 +111,31 @@ export function DesktopIntelligencePanel({ paper }: DesktopIntelligencePanelProp
         ) : null}
       </View>
 
-      {/* Section 1: TL;DR */}
+      {/* Abstract preview */}
       <View style={styles.sectionCard}>
         <View style={styles.sectionHeader}>
-          <Ionicons name="flash-outline" size={16} color="#F59E0B" />
-          <Text style={styles.sectionTitle}>Executive TL;DR</Text>
+          <Ionicons name="document-text-outline" size={16} color="#F59E0B" />
+          <Text style={styles.sectionTitle}>Summary</Text>
         </View>
         <Text style={styles.bodyText}>{paper.summary}</Text>
       </View>
 
-      {/* Section 2: Problem & Motivation */}
-      <View style={styles.sectionCard}>
-        <View style={styles.sectionHeader}>
-          <Ionicons name="search-outline" size={16} color="#06B6D4" />
-          <Text style={styles.sectionTitle}>Research Problem & Motivation</Text>
+      {sections.map((sec) => (
+        <View key={sec.title} style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name={sec.icon} size={16} color={sec.color} />
+            <Text style={styles.sectionTitle}>{sec.title}</Text>
+          </View>
+          <Text style={styles.bodyText}>{sec.text}</Text>
         </View>
-        <Text style={styles.bodyText}>{contextText}</Text>
-      </View>
-
-      {/* Section 3: Technical Methodology */}
-      <View style={styles.sectionCard}>
-        <View style={styles.sectionHeader}>
-          <Ionicons name="cog-outline" size={16} color="#8B5CF6" />
-          <Text style={styles.sectionTitle}>Technical Methodology</Text>
-        </View>
-        <Text style={styles.bodyText}>{methodText}</Text>
-      </View>
-
-      {/* Section 4: Key Empirical Results */}
-      <View style={[styles.sectionCard, styles.resultsCard]}>
-        <View style={styles.sectionHeader}>
-          <Ionicons name="bar-chart-outline" size={16} color="#10B981" />
-          <Text style={styles.sectionTitle}>Empirical Results & Findings</Text>
-        </View>
-        <Text style={styles.bodyText}>{resultsText}</Text>
-      </View>
-
-      {/* Section 5: Limitations & Future Work */}
-      <View style={styles.sectionCard}>
-        <View style={styles.sectionHeader}>
-          <Ionicons name="telescope-outline" size={16} color="#EC4899" />
-          <Text style={styles.sectionTitle}>Frontiers & Limitations</Text>
-        </View>
-        <Text style={styles.bodyText}>{limitationsText}</Text>
-      </View>
+      ))}
 
       {/* Key Takeaways */}
       {paper.insights && paper.insights.length > 0 ? (
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
             <Ionicons name="bulb-outline" size={16} color="#FBBF24" />
-            <Text style={styles.sectionTitle}>Key Analytical Takeaways</Text>
+            <Text style={styles.sectionTitle}>Key points</Text>
           </View>
           {paper.insights.map((ins, idx) => (
             <View key={idx} style={styles.bulletRow}>
@@ -181,6 +145,10 @@ export function DesktopIntelligencePanel({ paper }: DesktopIntelligencePanelProp
           ))}
         </View>
       ) : null}
+
+      <Text style={{ color: colors.subdued, fontSize: 11 * fontSizeScale, lineHeight: 16 * fontSizeScale, marginTop: spacing.md }}>
+        Built on this device by fixed rules from the abstract. It is not an AI analysis and has not been checked against the full paper. Use the Research Copilot for questions that cite the paper's text.
+      </Text>
     </ScrollView>
   );
 }

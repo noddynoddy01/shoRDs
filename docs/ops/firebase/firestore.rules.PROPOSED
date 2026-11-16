@@ -1,0 +1,34 @@
+// PROPOSED — NOT DEPLOYED, NOT TESTED against the Firebase emulator (the emulator could not be installed here: the npm registry was unreachable).
+// Derived from what the app's code actually does (services/firebase.ts, 2026-11-03):
+//   - The only Firestore write that is called by the app is the sign-up profile:  setDoc(users/{uid}, {id,name,email,bio,interests,profileImage}).
+//   - fetchPapers() / createPaper() read and write the `papers` collection but nothing in app/ or components/ calls them.
+//   - Research data is served by the backend (PostgreSQL), not by Firestore.
+// Before deploying: compare with the rules currently in the Firebase console (see FIREBASE_RULES_REVIEW.md), test in the Rules Playground / emulator, then deploy as a separate, approved change.
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // A signed-in user may create and update only their own profile document, with only the fields the app writes.
+    match /users/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['id', 'name', 'email', 'bio', 'interests', 'profileImage'])
+        && request.resource.data.id == uid
+        && request.resource.data.name is string && request.resource.data.name.size() <= 120
+        && request.resource.data.email is string && request.resource.data.email.size() <= 320
+        && request.resource.data.bio is string && request.resource.data.bio.size() <= 2000
+        && request.resource.data.interests is list && request.resource.data.interests.size() <= 50
+        && request.resource.data.profileImage is string && request.resource.data.profileImage.size() <= 2048;
+      allow update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['id', 'name', 'email', 'bio', 'interests', 'profileImage'])
+        && request.resource.data.id == uid
+        && request.resource.data.interests is list && request.resource.data.interests.size() <= 50;
+      allow delete: if false;
+    }
+
+    // Everything else, including `papers`: no client access. (Unused by the app; open rules here would let anyone write to it.)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

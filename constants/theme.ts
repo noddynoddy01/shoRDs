@@ -67,3 +67,24 @@ export const layout = {
     return false;
   }
 };
+
+/**
+ * Design tokens added for the shared UI kit (components/ui). Colours that change with the theme still come from useTheme(); these are the values that do not:
+ * semantic danger, focus ring, type scale, elevation, motion timing, breakpoints and the minimum touch target.
+ */
+export const tokens = {
+  danger: "#DC2626",
+  focusRing: "#60A5FA",
+  minTouch: 44,
+  fontSize: { xs: 12, sm: 13, md: 15, lg: 17, xl: 20, xxl: 28, display: 44 },
+  lineHeight: { tight: 1.2, snug: 1.35, normal: 1.5 },
+  weight: { regular: "400", medium: "500", semibold: "600", bold: "700", heavy: "800" } as const,
+  motion: { fast: 120, base: 200, slow: 320 },
+  breakpoints: { tablet: 768, laptop: 1024, desktop: 1440 },
+  rail: { width: 248, collapsed: 72 },
+  shadow: {
+    sm: { shadowColor: "#000", shadowOpacity: 0.12, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
+    md: { shadowColor: "#000", shadowOpacity: 0.18, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
+    lg: { shadowColor: "#000", shadowOpacity: 0.28, shadowRadius: 24, shadowOffset: { width: 0, height: 12 }, elevation: 12 }
+  }
+} as const;

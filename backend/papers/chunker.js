@@ -16,7 +16,7 @@
 
 const crypto = require("crypto");
 const { makeChunkId } = require("./identity");
-const { normalizeSectionName } = require("./extract");
+const { normalizeSectionName, classifySectionPath } = require("./extract");
 
 const TARGET_CHARS = 1200;
 const MAX_CHARS = 2000;
@@ -109,7 +109,7 @@ function chunkDocument(paperId, doc, opts = {}) {
   }
   if (!opts.abstractOnly) {
     for (const sec of doc.sections || []) {
-      const std = normalizeSectionName(sec.leaf || sec.heading);
+      const std = classifySectionPath(sec.path || sec.heading, sec.leaf);
       if (std === "REFERENCES") {
         dropped.push(sec.heading);
         continue;

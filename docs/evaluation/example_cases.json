@@ -1,0 +1,5 @@
+[
+  {"id": "fixture-ok", "license": "cc-by", "source": "Sparse Attention Routing reaches 87.4 percent exact-match accuracy, compared with 79.1 percent for the dense baseline. We evaluated only English text.", "summary": "SAR beats the dense baseline, 87.4 versus 79.1 percent, but was tested on English only."},
+  {"id": "fixture-invented-number", "license": "cc-by", "source": "Sparse Attention Routing reaches 87.4 percent exact-match accuracy, compared with 79.1 percent for the dense baseline.", "summary": "SAR reaches 91.2 percent accuracy."},
+  {"id": "fixture-not-permitted", "license": "cc-by-nc", "source": "Fictional text.", "summary": "Never scored: the licence does not allow keeping this text."}
+]

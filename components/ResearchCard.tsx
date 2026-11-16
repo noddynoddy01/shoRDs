@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { Animated, Pressable, Share, StyleSheet, Text, View } from "react-native";
@@ -231,7 +231,7 @@ Download shoRDs for quick, simplified, and technical research updates!`;
               <Text style={styles.role}>{paper.authorRole}</Text>
             </View>
             <Text style={styles.saved}>
-              {(paper.savedCount + (saved ? 1 : 0)).toLocaleString()} saves
+              {(paper.savedCount + (saved ? 1 : 0)).toLocaleString()} {paper.tags?.includes("openalex") ? "citations" : "saves"}
             </Text>
           </View>
 

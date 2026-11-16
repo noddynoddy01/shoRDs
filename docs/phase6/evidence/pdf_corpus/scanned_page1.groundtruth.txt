@@ -1,0 +1,111 @@
+Fictional Journal of Extractor Testing, vol. 1
+
+Sparse Memory Routing for Long Documents (a fictional paper for extractor
+testing)
+
+Abstract
+We present a routing layer that assigns each token to at most four memory
+slots. On a benchmark of 1,200 questions it reaches 87.4 percent exact-match
+accuracy at 18.7 seconds per query, against 79.1 percent at 41.2 seconds for a
+dense baseline.
+A(Q,K,V) = softmax(Q K^T /
+sqrt(d_k)) V
+Training uses 38 billion tokens for 3
+epochs on 12 accelerators with a
+learning rate of 3e-4 and a global
+batch of 512 sequences.
+
+1 Introduction
+Routing tokens to a small number of
+memory slots lowers the cost of
+attention in long documents, but
+earlier routing schemes lose accuracy
+when the evidence lies far from the
+question.
+We study whether a learned router
+can keep recall high at lower cost,
+and we report the cost in seconds per
+query and the recall in exact-match
+percent.
+Our contributions are threefold: a
+routing layer, a stable training recipe
+and a benchmark of 1,200 annotated
+questions.
+
+3 Results
+On the benchmark test split the
+routing model reaches 87.4 percent
+exact-match accuracy, compared with
+79.1 percent for the dense baseline
+and 82.6 percent for a slidingwindow baseline.
+Model
+
+2 Methods
+
+Accuracy (%)
+
+Latency (s)
+
+Memory (GB)
+
+Dense
+
+79.1
+
+41.2
+
+61.0
+
+Sliding
+
+82.6
+
+30.4
+
+44.2
+
+Routing
+
+87.4
+
+18.7
+
+38.5
+
+Routing k=1
+
+80.9
+
+17.9
+
+36.1
+
+Latency at 128k tokens falls from
+41.2 seconds to 18.7 seconds per
+query, and peak memory falls from
+61.0 to 38.5 gigabytes.
+Removing
+the
+moving-average
+update lowers accuracy to 83.0
+percent, and setting k to 1 lowers it to
+80.9 percent.
+
+The routing layer replaces the dense
+attention of every fourth transformer
+layer. Each token is projected to a
+routing vector and assigned to its topk slots by dot product, with k set to 4.
+Slots are updated with an exponential
+moving average of the assigned token
+states using a decay of 0.97, which
+keeps the slot statistics stable across
+batches.
+L = L_task + 0.01 L_route
+
+4 Limitations
+We evaluated only English text and a
+single model scale of 7 billion
+parameters, so the results may not
+carry over to other languages or sizes.
+1
+

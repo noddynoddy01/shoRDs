@@ -17,7 +17,7 @@ import { useTheme } from "@/context/ThemeContext";
 import { RESEARCH_DOMAINS, FEED_CATEGORIES, FeedCategory } from "@/constants/domains";
 import { executeLiveFederatedSearch, FederatedPaper } from "@/services/federatedSearch";
 import { cacheDynamicPaper } from "@/services/papersStore";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 
 export default function ExploreScreen() {
   const { colors, fontSizeScale } = useTheme();
@@ -91,7 +91,7 @@ export default function ExploreScreen() {
     <Screen style={styles.container}>
       <PageHeader
         title="Explore Research Domains"
-        subtitle="30+ Dedicated Domain Feeds • Live Internet Aggregation"
+        subtitle="Search and filter open-access papers from OpenAlex"
       />
 
       {/* 30+ Domain Selector Carousel */}

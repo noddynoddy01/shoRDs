@@ -26,8 +26,9 @@
  */
 
 const crypto = require("crypto");
-const { resolvePrice } = require("./anthropicClient");
+const { resolvePrice, parsePriceOverride, ceilMicro } = require("./anthropicClient");
 const { hashUser } = require("./usageLedger");
+const { NO_PROJECT_ID } = require("../security/projects");
 
 const KEY_VERSION = "v1";
 const DAY_TTL_SEC = 2 * 86400;
@@ -100,6 +101,10 @@ function loadBudgetConfig(env = process.env) {
   const { enabled, invalid } = parseEnabled(env.AI_ENABLED);
   const mode = (env.AI_BUDGET_MODE || "enforce").trim().toLowerCase();
   if (mode !== "enforce" && mode !== "observe") throw new Error(`AI_BUDGET_MODE must be "enforce" or "observe" (got "${mode.slice(0, 20)}")`);
+  // a half-set, zero, negative or non-numeric price override would be ignored at call time (the real price is used), but the
+  // operator meant something else: stop at startup like every other malformed value here instead of running unnoticed
+  const priceOverride = parsePriceOverride(env);
+  if (priceOverride.state === "INVALID") throw new Error(priceOverride.reason);
   const maxRetries = env.AI_MAX_PROVIDER_RETRIES === undefined || env.AI_MAX_PROVIDER_RETRIES === "" ? 1 : Number(env.AI_MAX_PROVIDER_RETRIES);
   if (!Number.isInteger(maxRetries) || maxRetries < 0 || maxRetries > 3) throw new Error("AI_MAX_PROVIDER_RETRIES must be an integer from 0 to 3");
   const num = (name, dflt, min = 1) => {
@@ -147,6 +152,11 @@ function estimateMaxCost({ model, system, user, maxTokens, attempts = 1, env = p
   if (typeof user !== "string") return { ok: false, category: DENY.COST_UNBOUNDED, message: "prompt is not a string, so input cost cannot be bounded" };
   const inputTokensBound = Buffer.byteLength(system || "", "utf8") + Buffer.byteLength(user, "utf8") + FRAMING_TOKENS;
   const perAttemptMicro = Math.ceil(inputTokensBound * price.input + maxTokens * price.output);
+  // The reservation is counted as an integer by JavaScript and by the Redis script (both IEEE doubles). Past 2^53 an integer is no
+  // longer exact (and an absurd price overflows to Infinity), so the ceilings would compare against a meaningless number: refuse.
+  if (!Number.isSafeInteger(perAttemptMicro) || !Number.isSafeInteger(perAttemptMicro * attempts)) {
+    return { ok: false, category: DENY.COST_UNBOUNDED, message: "the worst-case cost of one attempt is not an exactly representable amount at the configured price, so it cannot be bounded" };
+  }
   return { ok: true, inputTokensBound, outputTokensBound: maxTokens, perAttemptMicro, reservationMicro: perAttemptMicro * attempts, attempts, price };
 }
 
@@ -163,7 +173,10 @@ function scopesFor(cfg, ctx, nowMs) {
   };
   add("global", "all");
   if (ctx.tenantId) add("tenant", String(ctx.tenantId));
-  if (ctx.projectId) add("project", String(ctx.projectId));
+  // A request with no project (personal scope) carries the placeholder NO_PROJECT_ID. It is not a project: charging it would make
+  // every such request, from every user and tenant, share ONE project-level daily budget. Those requests are bounded by their
+  // own tenant, user and the global scopes instead.
+  if (ctx.projectId && String(ctx.projectId) !== NO_PROJECT_ID) add("project", String(ctx.projectId));
   if (ctx.uid) add("user", hashUser(ctx.uid));
   return out;
 }
@@ -201,7 +214,8 @@ end
 for i = 1, n do
   local h = KEYS[2 * i - 1]
   local z = KEYS[2 * i]
-  redis.call('ZADD', z, exp, rid .. '|' .. amount)
+  -- string.format, not tostring: a plain Lua number >= 1e14 is written as '3e+14', which the reserved-amount parser above cannot read
+  redis.call('ZADD', z, exp, rid .. '|' .. string.format('%.0f', amount))
   redis.call('EXPIRE', z, ttl)
   redis.call('EXPIRE', h, ttl)
 end
@@ -540,7 +554,7 @@ function createAiBudget({ store, seedFromLedger = null, env = process.env, logge
         probe = null;
         throw err;
       }
-      const costMicro = typeof result.costUsd === "number" && Number.isFinite(result.costUsd) ? Math.ceil(result.costUsd * 1e6) : null;
+      const costMicro = typeof result.costUsd === "number" && Number.isFinite(result.costUsd) ? ceilMicro(result.costUsd * 1e6) : null;
       const charge = costMicro === null ? est.perAttemptMicro : costMicro; // cost not measurable: charge the ceiling rather than zero
       if (costMicro === null) counters.assumedChargeMicro += charge; else counters.settledMicro += charge;
       await settle(scopes, reservationId, charge);

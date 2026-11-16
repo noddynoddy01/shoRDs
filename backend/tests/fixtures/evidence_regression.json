@@ -1,0 +1,549 @@
+{
+ "_kind": "SYNTHETIC_REGRESSION_NOT_AN_ACCURACY_MEASURE",
+ "_note": "Fictional papers and hand-written statements. These cases pin the behaviour of backend/llm/claimGuard.js and validateIntelligence so a later change cannot silently reopen a closed gap. They say nothing about accuracy on real summaries; that needs the human benchmark (docs/evaluation/HUMAN_BENCHMARK.md). Cases marked known are limitations that the current rules do not handle, kept here so they stay visible.",
+ "papers": {
+  "P1": [
+   {
+    "chunkId": "c1",
+    "text": "On the benchmark test split Sparse Attention Routing (SAR) reaches 87.4 percent exact-match accuracy, compared with 79.1 percent for the dense baseline. Removing the moving-average update reduces accuracy to 83.0 percent. SAR did not improve results on short questions."
+   },
+   {
+    "chunkId": "c2",
+    "text": "SAR replaces the dense attention of every fourth transformer layer. We train on 38 billion tokens for 3 epochs using 5-fold cross-validation on the development set."
+   },
+   {
+    "chunkId": "c3",
+    "text": "We evaluated only English text and a single model scale of 7 billion parameters. The gains may concentrate on questions whose evidence lies more than 64k tokens from the question."
+   }
+  ],
+  "P2": [
+   {
+    "chunkId": "d1",
+    "text": "In a pilot study of 24 patients, the denoiser lowered the median heart-rate error from 6.2 to 3.9 beats per minute (range 1.1-9.8). The difference suggests a benefit but the study was not powered for significance."
+   },
+   {
+    "chunkId": "d2",
+    "text": "Latency was 12 ms per window on the reference laptop. Battery drain was not measured. The device was not compared with a commercial monitor."
+   }
+  ],
+  "P3": [
+   {
+    "chunkId": "e1",
+    "text": "The change was −3.2 points on the test set."
+   },
+   {
+    "chunkId": "e2",
+    "text": "The corpus has 1,024 documents."
+   }
+  ]
+ },
+ "statements": [
+  {
+   "id": "f01",
+   "paper": "P1",
+   "category": "faithful",
+   "text": "SAR reaches 87.4 percent exact-match accuracy versus 79.1 percent for the dense baseline.",
+   "cites": [
+    "c1"
+   ],
+   "expect": {
+    "kept": true
+   }
+  },
+  {
+   "id": "f02",
+   "paper": "P1",
+   "category": "faithful",
+   "text": "Removing the moving-average update lowers accuracy to 83.0 percent.",
+   "cites": [
+    "c1"
+   ],
+   "expect": {
+    "kept": true
+   }
+  },
+  {
+   "id": "f03",
+   "paper": "P1",
+   "category": "faithful",
+   "text": "SAR did not improve results on short questions.",
+   "cites": [
+    "c1"
+   ],
+   "expect": {
+    "kept": true
+   }
+  },
+  {
+   "id": "f04",
+   "paper": "P1",
+   "category": "faithful",
+   "text": "The model was trained on 38 billion tokens for 3 epochs.",
+   "cites": [
+    "c2"
+   ],
+   "expect": {
+    "kept": true
+   }
+  },
+  {
+   "id": "f05",
+   "paper": "P1",
+   "category": "faithful",
+   "text": "Evaluation covered only English text, at a single model scale of 7 billion parameters.",
+   "cites": [
+    "c3"
+   ],
+   "expect": {
+    "kept": true
+   }
+  },
+  {
+   "id": "f06",
+   "paper": "P1",
+   "category": "faithful",
+   "text": "The gains may be concentrated on questions whose evidence is more than 64k tokens away.",
+   "cites": [
+    "c3"
+   ],
+   "expect": {
+    "kept": true
+   }
+  },
+  {
+   "id": "f07",
+   "paper": "P2",
+   "category": "faithful",
+   "text": "In 24 patients the denoiser lowered the median heart-rate error from 6.2 to 3.9 beats per minute.",
+   "cites": [
+    "d1"
+   ],
+   "expect": {
+    "kept": true
+   }
+  },
+  {
+   "id": "f08",
+   "paper": "P2",
+   "category": "faithful",
+   "text": "The study was not powered for significance.",
+   "cites": [
+    "d1"
+   ],
+   "expect": {
+    "kept": true,
+    "qualifiers": [
+     "HEDGE_DROPPED"
+    ]
+   },
+   "known": "KNOWN_FALSE_FLAG",
+   "note": "the cited sentence is hedged ('suggests') in its first clause; the statement quotes the unhedged second clause, so the flag is spurious. Flag only; the statement is kept (rules work per sentence, not per clause)"
+  },
+  {
+   "id": "f09",
+   "paper": "P2",
+   "category": "faithful",
+   "text": "Battery drain was not measured.",
+   "cites": [
+    "d2"
+   ],
+   "expect": {
+    "kept": true
+   }
+  },
+  {
+   "id": "f10",
+   "paper": "P2",
+   "category": "faithful",
+   "text": "The reported error range was 1.1-9.8.",
+   "cites": [
+    "d1"
+   ],
+   "expect": {
+    "kept": true
+   }
+  },
+  {
+   "id": "f11",
+   "paper": "P1",
+   "category": "faithful",
+   "text": "SAR reaches 87.4% exact-match accuracy.",
+   "cites": [
+    "c1"
+   ],
+   "expect": {
+    "kept": true
+   },
+   "note": "percent sign versus the word"
+  },
+  {
+   "id": "f12",
+   "paper": "P1",
+   "category": "faithful",
+   "text": "SAR used 5-fold cross-validation on the development set.",
+   "cites": [
+    "c2"
+   ],
+   "expect": {
+    "kept": true
+   }
+  },
+  {
+   "id": "f13",
+   "paper": "P3",
+   "category": "faithful",
+   "text": "The change was -3.2 points on the test set.",
+   "cites": [
+    "e1"
+   ],
+   "expect": {
+    "kept": true
+   },
+   "note": "ASCII minus versus Unicode minus in the source"
+  },
+  {
+   "id": "n01",
+   "paper": "P1",
+   "category": "number",
+   "text": "SAR reaches 91.7 percent exact-match accuracy versus 79.1 percent for the dense baseline.",
+   "cites": [
+    "c1"
+   ],
+   "expect": {
+    "kept": false,
+    "reason": "STATEMENT_NUMBER_NOT_IN_EVIDENCE"
+   }
+  },
+  {
+   "id": "n02",
+   "paper": "P1",
+   "category": "number",
+   "text": "SAR beats the dense baseline by 8.3 points.",
+   "cites": [
+    "c1"
+   ],
+   "expect": {
+    "kept": false,
+    "reason": "STATEMENT_NUMBER_NOT_IN_EVIDENCE"
+   },
+   "note": "a computed number is not copied from the paper; policy is to drop it"
+  },
+  {
+   "id": "n03",
+   "paper": "P1",
+   "category": "number",
+   "text": "SAR reaches 87.4 percent exact-match accuracy after training on 38 billion tokens.",
+   "cites": [
+    "c1"
+   ],
+   "expect": {
+    "kept": false,
+    "reason": "STATEMENT_NUMBER_NOT_IN_EVIDENCE"
+   },
+   "note": "the number exists in c2 but c2 is not cited"
+  },
+  {
+   "id": "n04",
+   "paper": "P2",
+   "category": "number",
+   "text": "In 25 patients the denoiser lowered the median heart-rate error.",
+   "cites": [
+    "d1"
+   ],
+   "expect": {
+    "kept": false,
+    "reason": "STATEMENT_NUMBER_NOT_IN_EVIDENCE"
+   }
+  },
+  {
+   "id": "n05",
+   "paper": "P1",
+   "category": "number",
+   "text": "SAR reaches 0.874 exact-match accuracy.",
+   "cites": [
+    "c1"
+   ],
+   "expect": {
+    "kept": false,
+    "reason": "STATEMENT_NUMBER_NOT_IN_EVIDENCE"
+   },
+   "note": "a unit conversion is a different token; policy is to drop it"
+  },
+  {
+   "id": "n06",
+   "paper": "P1",
+   "category": "number",
+   "text": "SAR reaches about 87 percent exact-match accuracy.",
+   "cites": [
+    "c1"
+   ],
+   "expect": {
+    "kept": false,
+    "reason": "STATEMENT_NUMBER_NOT_IN_EVIDENCE"
+   },
+   "note": "rounding is refused by the prompt rules"
+  },
+  {
+   "id": "n07",
+   "paper": "P3",
+   "category": "number",
+   "text": "The corpus has 1024 documents.",
+   "cites": [
+    "e2"
+   ],
+   "expect": {
+    "kept": false,
+    "reason": "STATEMENT_NUMBER_NOT_IN_EVIDENCE"
+   },
+   "note": "1,024 and 1024 are different tokens; a faithful restatement is dropped",
+   "known": "KNOWN_FALSE_DROP"
+  },
+  {
+   "id": "r01",
+   "paper": "P1",
+   "category": "reversal",
+   "text": "SAR improved results on short questions.",
+   "cites": [
+    "c1"
+   ],
+   "expect": {
+    "kept": false,
+    "reason": "REVERSED_MEANING"
+   },
+   "note": "negation removed"
+  },
+  {
+   "id": "r02",
+   "paper": "P1",
+   "category": "reversal",
+   "text": "Removing the moving-average update increases accuracy to 83.0 percent.",
+   "cites": [
+    "c1"
+   ],
+   "expect": {
+    "kept": false,
+    "reason": "REVERSED_MEANING"
+   },
+   "note": "direction flipped"
+  },
+  {
+   "id": "r03",
+   "paper": "P2",
+   "category": "reversal",
+   "text": "Battery drain was measured.",
+   "cites": [
+    "d2"
+   ],
+   "expect": {
+    "kept": false,
+    "reason": "REVERSED_MEANING"
+   },
+   "note": "negation removed"
+  },
+  {
+   "id": "r04",
+   "paper": "P2",
+   "category": "reversal",
+   "text": "The device was compared with a commercial monitor.",
+   "cites": [
+    "d2"
+   ],
+   "expect": {
+    "kept": false,
+    "reason": "REVERSED_MEANING"
+   }
+  },
+  {
+   "id": "m01",
+   "paper": "P2",
+   "category": "reversal-uncued",
+   "text": "The denoiser raised the median heart-rate error from 6.2 to 3.9 beats per minute.",
+   "cites": [
+    "d1"
+   ],
+   "expect": {
+    "kept": false,
+    "reason": "REVERSED_MEANING"
+   },
+   "note": "Phase 6: 'raised' is now a direction word (2026.4-intel), so 'raised the error from 6.2 to 3.9' against 'lowered ... from 6.2 to 3.9' is dropped. Was a KNOWN_MISS under 2026.3-intel."
+  },
+  {
+   "id": "m02",
+   "paper": "P1",
+   "category": "reversal-uncued",
+   "text": "SAR performs worse than the dense baseline, at 87.4 percent versus 79.1 percent.",
+   "cites": [
+    "c1"
+   ],
+   "expect": {
+    "kept": true
+   },
+   "note": "the cited sentence has no direction word; the reversal is in the numbers' order only",
+   "known": "KNOWN_MISS"
+  },
+  {
+   "id": "m03",
+   "paper": "P1",
+   "category": "wrong-attribution",
+   "text": "SAR reaches 83.0 percent exact-match accuracy versus 79.1 percent for the dense baseline.",
+   "cites": [
+    "c1"
+   ],
+   "expect": {
+    "kept": true
+   },
+   "note": "every number is in the evidence but 83.0 belongs to the ablation, not SAR",
+   "known": "KNOWN_MISS"
+  },
+  {
+   "id": "o01",
+   "paper": "P1",
+   "category": "overclaim",
+   "text": "SAR always outperforms the dense baseline, 87.4 versus 79.1 percent.",
+   "cites": [
+    "c1"
+   ],
+   "expect": {
+    "kept": false,
+    "reason": "OVERCLAIM"
+   }
+  },
+  {
+   "id": "o02",
+   "paper": "P2",
+   "category": "overclaim",
+   "text": "The denoiser proves a benefit.",
+   "cites": [
+    "d1"
+   ],
+   "expect": {
+    "kept": false,
+    "reason": "OVERCLAIM"
+   }
+  },
+  {
+   "id": "h01",
+   "paper": "P1",
+   "category": "hedge",
+   "text": "The gains concentrate on questions whose evidence lies more than 64k tokens from the question.",
+   "cites": [
+    "c3"
+   ],
+   "expect": {
+    "kept": true,
+    "qualifiers": [
+     "HEDGE_DROPPED"
+    ]
+   }
+  },
+  {
+   "id": "h02",
+   "paper": "P2",
+   "category": "hedge",
+   "text": "The difference shows a benefit.",
+   "cites": [
+    "d1"
+   ],
+   "expect": {
+    "kept": true,
+    "qualifiers": [
+     "HEDGE_DROPPED"
+    ]
+   }
+  },
+  {
+   "id": "s01",
+   "paper": "P1",
+   "category": "scope",
+   "text": "SAR was evaluated on text at a model scale of 7 billion parameters.",
+   "cites": [
+    "c3"
+   ],
+   "expect": {
+    "kept": true,
+    "qualifiers": [
+     "SCOPE_LIMIT_DROPPED"
+    ]
+   },
+   "note": "'only English' and 'single' dropped: flagged, not dropped"
+  },
+  {
+   "id": "u01",
+   "paper": "P1",
+   "category": "unsupported",
+   "text": "This means SAR will transfer to other languages and larger models.",
+   "cites": [
+    "c3"
+   ],
+   "expect": {
+    "kept": false,
+    "reason": "WEAK_SUPPORT"
+   },
+   "note": "conclusion not stated by the cited text (existing lexical overlap rule)"
+  }
+ ],
+ "quantitative": [
+  {
+   "id": "q01",
+   "paper": "P1",
+   "category": "quantitative",
+   "metric": "exact-match accuracy",
+   "value": "87.4%",
+   "context": "versus 79.1 percent for the dense baseline",
+   "cites": [
+    "c1"
+   ],
+   "expect": {
+    "kept": true,
+    "contextKept": true
+   }
+  },
+  {
+   "id": "q02",
+   "paper": "P1",
+   "category": "quantitative",
+   "metric": "exact-match accuracy",
+   "value": "87.4%",
+   "context": "improved by 40 points over the baseline",
+   "cites": [
+    "c1"
+   ],
+   "expect": {
+    "kept": true,
+    "contextKept": false,
+    "reason": "CONTEXT_STRIPPED_NUMBER_NOT_IN_EVIDENCE"
+   }
+  },
+  {
+   "id": "q03",
+   "paper": "P1",
+   "category": "quantitative",
+   "metric": "top-5 accuracy",
+   "value": "87.4%",
+   "context": "",
+   "cites": [
+    "c1"
+   ],
+   "expect": {
+    "kept": true,
+    "contextKept": false
+   },
+   "note": "the metric label is not number-checked (only the value and the context are); a label such as 'top-5' with no 5 in the evidence is kept"
+  },
+  {
+   "id": "q04",
+   "paper": "P1",
+   "category": "quantitative",
+   "metric": "exact-match accuracy",
+   "value": "91.7%",
+   "context": "",
+   "cites": [
+    "c1"
+   ],
+   "expect": {
+    "kept": false,
+    "reason": "NUMBER_NOT_IN_EVIDENCE"
+   }
+  }
+ ]
+}

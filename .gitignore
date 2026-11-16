@@ -49,3 +49,12 @@ coverage/
 Thumbs.db
 *.log
 .vercel
+
+# Local test artefacts that must never be committed
+dump.rdb
+*.rdb
+replay_pid*.log
+hs_err_pid*.log
+
+# Benchmark working files: may hold licence-restricted paper text and the private rater key (KEY_DO_NOT_SHARE_WITH_RATERS.json)
+/benchmark/

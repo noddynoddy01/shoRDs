@@ -10,7 +10,7 @@ import {
   View,
   Dimensions
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme, ThemeType, themes, FontScaleType, fontScaleNames } from "../context/ThemeContext";
 import { colors as defaultColors, radius } from "../constants/theme";
 import AsyncStorage from "@react-native-async-storage/async-storage";

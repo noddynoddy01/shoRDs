@@ -1,0 +1,43 @@
+shoRDs Phase 6C - CHANGELOG r8 (2026-11-04). r8 replaces r7. r7 stays untouched.
+
+WHY
+  Owner's Windows PowerShell 5.1 run of r7: package SHA-256 ok, Verify-Kit 29/29, Parse-Check 11/11, Test-AgentLogic 592/0, Test-Orchestrator 52/0,
+  Test-FileOps 44 passed, 2 failed: marker:failed-write-is-audited and marker:read-back-flags-the-stale-marker (marker errors 2).
+
+ROOT CAUSE (one defect, two call sites)
+  Add-Audit builds the record as ts, event, mode and then copies every key of the data hashtable into it. The two r7 'marker-error' audit calls passed a
+  data key named 'event' (the marker event: start / job / reject / end, or 'verify'). PowerShell keys are case-insensitive, so the copy REPLACED the record's
+  own event name. The audit line therefore read "event":"start" (or "event":"verify") instead of "event":"marker-error".
+  The marker logic itself worked on Windows: the locked file made the write fail, MarkerErrors rose to 1, the read-back rose it to 2, the lease showed
+  marker_errors 2. What failed was only the audit LINE: it was written, but under the wrong name, so a search for event marker-error found nothing. In real use
+  that means a failed marker write would have been counted and shown in the lease and the exit code 6, but not findable in audit.jsonl under marker-error.
+  The two failures are NOT one causing the other: they come from two independent call sites (Update-DryRunMarker catch block, Confirm-DryRunMarker) with the
+  same mistake. Fixing either alone would have left the other check failing.
+  Why r7 missed it: the Python model of the agent and the source-text tests copied the same call (event = ...) and never modelled Add-Audit's record building.
+
+CHANGES
+  Phase6C.Runtime.ps1
+    - Add-Audit 'marker-error' data key renamed: event -> marker_event (both call sites: Update-DryRunMarker, Confirm-DryRunMarker).
+    - Add-Audit: a data key named ts, event or mode (any case) is now stored as data_ts / data_event / data_mode instead of replacing the record's own field.
+      Defence in depth; no existing call site used such a key (the only two were the ones above), so no other audit line changes.
+  Phase6C.Lib.ps1: Version 'r8.0' (a dry-run marker of an older version never unlocks r8 Live, as before).
+  Test-FileOps.ps1
+    - The two failing checks keep their names. They now PARSE the audit lines (ConvertFrom-Json) instead of matching text, require event marker-error AND
+      marker_event start / verify AND the error text, and print the audit tail when they fail.
+    - New check audit:reserved-data-keys-do-not-rename-the-event (47 checks expected in all; r7 had 46).
+  linux/pilot_core.py: AGENT_VERSION 'r8.0'; audit_record() = Python twin of Add-Audit's record (guard on / off).
+  tests/ps_static_check.py: new rule: an Add-Audit literal in a production script may not use the data key ts, event or mode (any case). It flags both r7 lines.
+  tests/test_pilot6c.py: 97 -> 105 tests (class R8AuditRecord; version and marker-error assertions updated; r7-style call reproduced by the unguarded model).
+  vectors/marker-vectors.json regenerated (agent_version r8.0); other vector files byte-identical to r7.
+  README_FIRST.txt, build_pilot6c.py (r8 names, CHANGELOG_r8.txt added).
+
+AUDIT / MARKER / LEASE COMPATIBILITY
+  Only the marker-error event changes (it is new in r7): its data field is now marker_event (r7 documented 'event', which could not work). All other audit
+  events, the marker file layout (shords-pilot-dryrun/1, marker_rev 2) and the lease are exactly as in r7. jobs_done / jobs_rejected unchanged.
+
+UNCHANGED
+  HMAC, replay, allowlist, strict JSON, parameter validation, resource gates, loopback, API key handling, emergency shutdown, lease expiry, kill-on-close,
+  path guard, Test-DryRunMarker (Live gate), Test-Orchestrator.ps1, Test-AgentLogic.ps1 (592 checks), no new job types or permissions.
+
+LIMITS
+  Not executed on any PowerShell by the builder. See 29_PHASE6C_R8_TEST_REPORT.md.

@@ -6,7 +6,7 @@
 
 import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { colors, radius, spacing } from "@/constants/theme";
 import {
   ExpressiveAudioEngine,

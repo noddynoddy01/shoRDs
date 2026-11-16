@@ -1,0 +1,110 @@
+# Continuous integration for the backend.
+# - No secrets are used. The AI provider is never called (tests use stubs and recorded responses).
+# - Postgres and both Redis modes (open and password-protected) run as real services, so no integration test may skip.
+# - The job fails if any test is skipped (see the "No silent skips" step). `todo` tests (known gaps) are reported but do not fail the job.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }} # never cancel a run on main
+
+# `shell: bash` makes GitHub run steps with `-eo pipefail`. Without it a failing `npm test | tee` step reports success (tee's exit status wins).
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  backend:
+    name: backend (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22] # production image is node 20; 22 is the version used for local development here
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: ci-postgres-password
+          POSTGRES_DB: shords_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres:ci-postgres-password@127.0.0.1:5432/shords_test
+      TEST_REDIS_URL: redis://127.0.0.1:6379
+      TEST_REDIS_AUTH_URL: redis://:ci-redis-password@127.0.0.1:6380
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      # The backend itself has no dependencies, but a few tests load the app's .ts files, and Node 20 (the production version) cannot strip
+      # types natively: backend/tests/node/registerTs.js uses the project's own `typescript` package for that. Same flags as the Dockerfile.
+      - name: Install dev dependencies (TypeScript, for tests that load app modules)
+        run: npm ci --legacy-peer-deps --ignore-scripts
+      # backend/tests/node/redisTls.test.js starts its own redis-server (TLS) and uses openssl; the runner image has neither redis-server nor a
+      # guarantee of it, and a missing binary makes that test SKIP, which the "No silent skips" step below would (rightly) fail.
+      # policy-rc.d stops apt from starting a system Redis that would fight the service container for port 6379.
+      - name: Install redis-server binary (for the TLS test only; not started)
+        run: |
+          printf '#!/bin/sh\nexit 101\n' | sudo tee /usr/sbin/policy-rc.d >/dev/null
+          sudo chmod +x /usr/sbin/policy-rc.d
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends redis-server openssl
+          redis-server --version && openssl version
+      # Service containers cannot take a command, so the password-protected Redis is started directly.
+      - name: Start password-protected Redis
+        run: |
+          docker run -d --name redis-auth -p 6380:6379 redis:7-alpine redis-server --requirepass ci-redis-password
+          for i in $(seq 1 20); do docker exec redis-auth redis-cli -a ci-redis-password ping 2>/dev/null | grep -q PONG && exit 0; sleep 1; done
+          echo "password-protected Redis did not start" >&2; exit 1
+      - name: Unit tests
+        run: npm run test:node 2>&1 | tee unit.tap
+      - name: Integration tests
+        run: npm run test:integration 2>&1 | tee integration.tap
+      - name: Keep test output when a step fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tap-node-${{ matrix.node }}
+          path: "*.tap"
+          retention-days: 7
+      # A green run that skipped tests proves less than it appears to; infrastructure is provided above, so zero skips is required.
+      - name: No silent skips
+        run: |
+          for f in unit.tap integration.tap; do
+            skipped=$(grep -E '^# skipped ' "$f" | awk '{print $3}')
+            echo "$f: skipped=$skipped"
+            if [ "$skipped" != "0" ]; then echo "::error::$f reports skipped tests ($skipped)"; exit 1; fi
+          done
+
+  # The production image runs `npx tsc --noEmit` while building (Dockerfile). Run it here too so a type error fails the pull request
+  # instead of the deploy. Same install flags as the Dockerfile. Generated Expo route types are not committed (.expo is ignored), so
+  # nothing here can be stale.
+  frontend-types:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --legacy-peer-deps
+      - run: npx tsc --noEmit

@@ -3,14 +3,14 @@ import React from "react";
 interface SourcePanelProps {
   sourcesCount: number;
   evidenceChunksCount: number;
-  verifiedClaimsCount: number;
+  claimsCount: number;
   rejectedClaimsCount: number;
 }
 
 export const SourcePanel: React.FC<SourcePanelProps> = ({
   sourcesCount,
   evidenceChunksCount,
-  verifiedClaimsCount,
+  claimsCount,
   rejectedClaimsCount
 }) => {
   return (
@@ -33,7 +33,7 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({
         <strong style={{ color: "#0f172a" }}>Evidence:</strong> {evidenceChunksCount} chunks
       </div>
       <div>
-        <strong style={{ color: "#15803d" }}>Verified:</strong> {verifiedClaimsCount} claims
+        <strong style={{ color: "#0f172a" }}>Statements:</strong> {claimsCount} (automatic checks only, not verified)
       </div>
       {rejectedClaimsCount > 0 && (
         <div>

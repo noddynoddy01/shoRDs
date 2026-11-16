@@ -1,0 +1,53 @@
+shoRDs Phase 6C - CHANGELOG r4 -> r5 (2026-11-04)
+
+WHY r5 EXISTS
+  Dry Run A of r4 stopped at once with:
+    The variable cannot be validated because the value 0 is not a valid value for the Ctx variable. (ValidateSetFailure, Invoke-PilotRun.ps1)
+  Root cause (confirmed): Invoke-PilotRun.ps1 declared the script parameter  [ValidateSet(4096, 8192, 12288)][int]$Ctx = 4096 . A script parameter is a
+  variable in SCRIPT scope and keeps its type and validation attributes. The script then dot-sources Phase6C.Runtime.ps1, which runs in the same scope
+  and executes  $script:Ctx = $null  (the pilot-context variable). PowerShell variable names are case-insensitive and  $script:Ctx  IS  $Ctx , so the
+  assignment re-assigned the parameter; $null converts to 0 for [int], and ValidateSet(4096, ...) refuses 0. Nothing else in Dry Run A had run yet
+  (no folder, file, process or request). The same variable was also needed for the pilot context hashtable, so renaming the script-scope object would
+  have been wrong; the parameter had to change.
+  Why every earlier check missed it: Test-AgentLogic.ps1 dot-sources only Phase6C.Lib.ps1, never the orchestrator; the Python mirror tests and the static
+  analyser compared names inside one file or treated every $script: name as "defined"; no real PowerShell was available to the author.
+
+CHANGES (line numbers are those of the r5 files)
+  Invoke-PilotRun.ps1
+    19      [Alias('Ctx')][ValidateSet(4096, 8192, 12288)][int]$ContextSize = 4096   (was [ValidateSet(...)][int]$Ctx = 4096)
+    9-10,13 help text: -ContextSize with -Ctx kept as an alias (an alias is not a variable, so it cannot collide)
+    21,24-25 new [switch]$BindingTest ; Mode spelling normalised (see below)
+    32-36   new -BindingTest block: after the three dot-sources prints the bound parameter values and exits 0 BEFORE Initialize-PilotContext
+    51,58,60,64,85  every use of $Ctx -> $ContextSize (approval text, plan steps preflight/server-start, run-start audit, report)
+  Pilot-Agent.ps1
+    26-27   new [switch]$BindingTest ;  30-31 Mode spelling normalised ;  38-42 -BindingTest block (same purpose)
+  Phase6C.Runtime.ps1
+    27      Initialize-PilotContext throws unless Mode is exactly 'DryRun' or 'Live' (defence in depth for the Mode finding below)
+            ($script:Ctx, $script:St and every other runtime variable are unchanged)
+  Rollback-6C.ps1
+    25-26   -Scope spelling normalised (ValidateSet ignores case; the rules compare case-sensitively, so -Scope all used to match nothing)
+    (r4 line 27)  removed the dead self-assignment  $cfg = $script:Cfg  (same variable as $script:Cfg)
+  Test-AgentLogic.ps1
+    47-50   loop variable $j -> $jobObj ($j is the same variable as the parser state $script:J in Phase6C.Lib.ps1)
+  Phase6C.Lib.ps1 line 8, linux/pilot_core.py line 10: version 'r4.0' -> 'r5.0'. A dry-run marker records the version, so an r4 dry run can never unlock an r5 Live run.
+  New files: Test-Orchestrator.ps1 (Windows PowerShell regression test, read-only), CHANGELOG_r5.txt, build script now names r5.
+  Unchanged byte for byte: Phase6B.Common.ps1, Parse-Check.ps1, Verify-Kit.ps1, all vectors\*.json, the allowlist, parameter ranges, every gate, the emergency
+  brake, the hardened server arguments and the approval phrases.
+
+SECOND DEFECT FOUND BY THE AUDIT (not reported by you; safety relevant)
+  [ValidateSet('DryRun','Live')] ignores case and KEEPS the typed spelling. With  -Mode live  the orchestrator's  $Mode -ceq 'Live'  was false (so it showed
+  the DRY RUN approval and asked for APPROVE E-DRYRUN) while the handlers test  $script:Ctx.Mode -ceq 'DryRun'  which was also false (so they took the LIVE branch).
+  r5 normalises the spelling in both entry scripts before first use (-Mode live/LIVE/Live -> Live; dryrun/DRYRUN -> DryRun) and Initialize-PilotContext refuses any
+  other value. No gate was loosened; this closes a path in which the wrong approval phrase could be accepted.
+
+AUDIT COVERAGE (all r4 scripts)
+  Script-scope collisions between parameters and any $script: or top-level name in the same dot-source closure (new static rule, 0 findings after the fixes; it
+  reports the r4 defect when run on the r4 files); dynamic-scope leaks (library functions reading caller variables); dot-sourcing side effects (only variable
+  initialisations and function definitions); validation attributes and defaults; undefined variables and named parameters (existing rules, 0 findings); dry-run control
+  flow (each live-capable handler returns from its DryRun branch before any Start-PilotServer / Stop-PilotServer / Invoke-PilotHttp / Invoke-ChatCall); paths and
+  security boundaries (unchanged, tests still pass).
+  Known and NOT changed: Phase6B.Common.ps1 assigns the plain string $Root (the only deliberate shared script parameter; unvalidated [string], reviewed, allow-listed in the checker).
+
+HONEST LIMIT
+  The author still cannot run Windows PowerShell 5.1. Everything above was verified by text/AST-free static analysis, Python mirrors and conformance vectors. The first
+  real execution of r5 is Test-Orchestrator.ps1 / Test-AgentLogic.ps1 on your machine.

@@ -12,3 +12,5 @@ docker-compose.yml
 *.aab
 .env*
 .git/
+*.rdb
+benchmark

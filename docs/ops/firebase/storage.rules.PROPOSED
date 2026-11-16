@@ -1,0 +1,10 @@
+// PROPOSED — NOT DEPLOYED, NOT TESTED. The app's only Storage call is createPaper() -> papers/<time>-<title>.pdf, and nothing in app/ calls createPaper().
+// Paper files are not stored in Firebase Storage by the current product (PDFs are opened from their publisher's link), so deny everything.
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

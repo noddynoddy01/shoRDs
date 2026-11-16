@@ -285,6 +285,11 @@ test("API (real runtime, real PostgreSQL + Redis)", { skip }, async (t) => {
     assert.equal(pre.status, 204);
     assert.equal(pre.headers["access-control-allow-origin"], "https://shords.test");
     assert.match(pre.headers["access-control-allow-headers"], /Authorization/i);
+    const prePut = await A.call("OPTIONS", "/api/v1/projects/prj_x/members/someone", { headers: { origin: "https://shords.test", "access-control-request-method": "PUT", "access-control-request-headers": "authorization,content-type", ...ipHeader() } });
+    assert.equal(prePut.status, 204, "a browser preflight for the PUT routes succeeds");
+    assert.match(prePut.headers["access-control-allow-methods"], /\bPUT\b/);
+    assert.doesNotMatch(prePut.headers["access-control-allow-methods"], /PATCH/, "no route uses PATCH, so it is not pre-approved");
+    assert.equal(prePut.headers["access-control-allow-origin"], "https://shords.test");
     assert.equal((await A.call("OPTIONS", "/api/v1/copilot/query", { headers: { origin: "https://evil.example", ...ipHeader() } })).status, 403);
     const none = await A.call("GET", "/health", ip());
     assert.equal(none.status, 200);

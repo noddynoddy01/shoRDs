@@ -293,8 +293,15 @@ function createPaperService({ pool, redis = null, providers, beforeRetrieve = nu
     return r.rows.map((x) => ({ chunkId: x.chunk_id, paperId, ordinal: x.ordinal, section: x.section, heading: x.heading, sourceType: x.source_type, text: x.text, textHash: x.text_hash, page: null }));
   }
 
+  /** One stored chunk of a paper (with its text), or null. */
+  async function loadChunk(paperId, chunkId) {
+    const r = await pool.query("SELECT chunk_id, ordinal, section, text, text_hash FROM paper_chunks WHERE paper_id = $1 AND chunk_id = $2", [paperId, chunkId]);
+    const x = r.rows[0];
+    return x ? { chunkId: x.chunk_id, ordinal: x.ordinal, section: x.section, text: x.text, textHash: x.text_hash } : null;
+  }
+
   // `build` fetches and extracts without touching storage; scripts/verify_retrieval_live.js uses it so the live check runs the SAME logic.
-  return { resolve, peek, peekFresh, loadChunks, build };
+  return { resolve, peek, peekFresh, loadChunks, loadChunk, build };
 }
 
 module.exports = { createPaperService, PaperError, EXTRACTOR_VERSION, TTL_MS, NOTICES, rowToView, MIN_FULLTEXT_BODY_CHARS };

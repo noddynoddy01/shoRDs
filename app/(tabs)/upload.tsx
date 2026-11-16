@@ -2,7 +2,7 @@ import * as DocumentPicker from "expo-document-picker";
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View, Modal, ActivityIndicator } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { Chip } from "@/components/Chip";
 import { GlassButton } from "@/components/GlassButton";
 import { PageHeader } from "@/components/PageHeader";

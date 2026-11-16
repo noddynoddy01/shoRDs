@@ -2,8 +2,10 @@
 /**
  * Redis result cache + single-flight de-duplication for model answers (shared by every replica).
  *
- * Wired on the real runtime path: backend/app.js (copilot route) and backend/jobs/analysisProcessor.js both call
- * `cachedCopilotQuery`. Only real provider answers are cached; local fallbacks, content-unavailable results, truncated
+ * Wired on the real runtime path: backend/llm/aiPipeline.js (used by the copilot and analysis routes in backend/app.js and by
+ * backend/jobs/analysisProcessor.js) calls `cachedAiCall`. (An older wrapper, `cachedCopilotQuery` in runCopilot.js, was unused and could
+ * reach the provider without the spend gate; it was removed in Phase 3.) Only real provider answers are cached; local fallbacks,
+ * content-unavailable results, truncated
  * answers and errors are never stored (a later request with a working key must get a real answer).
  *
  * Key isolation: the key is a SHA-256 over every field that can change the answer or the audience:
@@ -163,19 +165,4 @@ async function cachedAiCall({ cache, key, produce, cacheableOf, replicaId, now =
 
 const isRealCompleteAnswer = (out) => out.httpStatus === 200 && out.body.modelMode === "EXTERNAL_CLAUDE" && out.body.fallbackUsed === false && out.body.truncated !== true && out.body.status !== "ANALYSIS_FAILED";
 
-/**
- * Run a copilot query (question + supplied chunks) through the cache. Kept for the question-answering path.
- * @param {object} p  see cachedAiCall; plus `copilot`, `validate`, `rawBody`, `scope`, `model`, `promptVersion`, `hasProviderKey`
- */
-async function cachedCopilotQuery({ cache, copilot, validate, rawBody, scope, model, promptVersion, hasProviderKey, replicaId, now = Date.now, telemetry = null }) {
-  const v = validate(rawBody);
-  // Invalid requests, requests with no content and requests that cannot reach a provider are not cacheable:
-  // the plain handler produces the (400 / fallback) answer.
-  const cacheable = cache && v.ok && v.value.chunks.length > 0 && hasProviderKey;
-  const key = cacheable
-    ? buildCacheKey({ tenantId: scope.tenantId, projectId: scope.projectId, paperId: v.value.paperId, contentHash: contentHash(v.value.chunks), model, mode: v.value.depth || "STANDARD", promptVersion, query: v.value.query })
-    : null;
-  return cachedAiCall({ cache, key, produce: () => copilot(rawBody), cacheableOf: isRealCompleteAnswer, replicaId, now, telemetry });
-}
-
-module.exports = { createResultCache, buildCacheKey, contentHash, cachedAiCall, cachedCopilotQuery, isRealCompleteAnswer, CACHE_SCHEMA_VERSION };
+module.exports = { createResultCache, buildCacheKey, contentHash, cachedAiCall, isRealCompleteAnswer, CACHE_SCHEMA_VERSION };

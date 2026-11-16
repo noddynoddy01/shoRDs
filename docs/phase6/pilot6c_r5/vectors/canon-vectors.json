@@ -1,0 +1,30 @@
+{
+ "cases": [
+  {
+   "canonical": "shords-pilot-job/1\nid=canon-case-serverst\ntype=server-start\ncreated=2026-11-04T13:46:30Z\nexpires=2026-11-04T13:56:30Z\np.ctx=4096\np.idle_minutes=30\np.ngl=8",
+   "hmac": "03b6d002305a035d7b42cb3d9009abe574a9d8921be7f0e50731f10c2a761803",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"canon-case-serverst\",\"type\":\"server-start\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"ngl\":8,\"ctx\":4096,\"idle_minutes\":30},\"hmac\":\"03b6d002305a035d7b42cb3d9009abe574a9d8921be7f0e50731f10c2a761803\"}"
+  },
+  {
+   "canonical": "shords-pilot-job/1\nid=canon-case-sweep\ntype=sweep\ncreated=2026-11-04T13:46:30Z\nexpires=2026-11-04T13:56:30Z\np.ctx_list=8192,4096\np.gen_tokens=64\np.ngl_list=16,8",
+   "hmac": "48d3a8f5c6cc6c615a690fb82860ef8dd874b155769484b06d09d8ee36c36d79",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"canon-case-sweep\",\"type\":\"sweep\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"ngl_list\":[16,8],\"ctx_list\":[8192,4096],\"gen_tokens\":64},\"hmac\":\"48d3a8f5c6cc6c615a690fb82860ef8dd874b155769484b06d09d8ee36c36d79\"}"
+  },
+  {
+   "canonical": "shords-pilot-job/1\nid=canon-case-runsuite\ntype=run-suite\ncreated=2026-11-04T13:46:30Z\nexpires=2026-11-04T13:56:30Z\np.max_minutes=7\np.suite=synthetic-v1\np.suite_sha256=cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+   "hmac": "33ab2e25262c2ea0d37020a3d4311adb3d52a2a14e7aa6625386078da087a227",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"canon-case-runsuite\",\"type\":\"run-suite\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"suite\":\"synthetic-v1\",\"suite_sha256\":\"cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd\",\"max_minutes\":7},\"hmac\":\"33ab2e25262c2ea0d37020a3d4311adb3d52a2a14e7aa6625386078da087a227\"}"
+  },
+  {
+   "canonical": "shords-pilot-job/1\nid=canon-case-serverst\ntype=server-stop\ncreated=2026-11-04T13:46:30Z\nexpires=2026-11-04T13:56:30Z",
+   "hmac": "d97799a3acb8ee42433fdb87a7104a466d15d780345f2b144a6fac9e2ca153b8",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"canon-case-serverst\",\"type\":\"server-stop\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{},\"hmac\":\"d97799a3acb8ee42433fdb87a7104a466d15d780345f2b144a6fac9e2ca153b8\"}"
+  },
+  {
+   "canonical": "shords-pilot-job/1\nid=canon-case-verifyin\ntype=verify-integrity\ncreated=2026-11-04T13:46:30Z\nexpires=2026-11-04T13:56:30Z\np.scope=full",
+   "hmac": "34814e26239380ea97e0fad0be448c5e43166f1dfaaa7011d9b7d04a43bc04b3",
+   "text": "{\"schema\":\"shords-pilot-job/1\",\"id\":\"canon-case-verifyin\",\"type\":\"verify-integrity\",\"created_utc\":\"2026-11-04T13:46:30Z\",\"expires_utc\":\"2026-11-04T13:56:30Z\",\"params\":{\"scope\":\"full\"},\"hmac\":\"34814e26239380ea97e0fad0be448c5e43166f1dfaaa7011d9b7d04a43bc04b3\"}"
+  }
+ ],
+ "key": "5121d00040420da0fb542bc50c173997427c112554d178b787483ae6ceac0002"
+}

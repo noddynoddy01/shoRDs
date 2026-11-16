@@ -1,0 +1,123 @@
+{
+ "_kind": "DEV_FIXTURE_NOT_HUMAN_RATED",
+ "_note": "Fictional papers and claims written by the engineer who built the lexical proxy, with labels assigned by the same person. This is a regression fixture for the evaluator. It is NOT a human-rated benchmark and its agreement numbers say nothing about how accurate the evaluator is on real summaries.",
+ "items": [
+  {
+   "id": "fx-1",
+   "license": "fictional",
+   "source": "Abstract\nLong-context models lose recall on distant evidence. We propose Sparse Attention Routing (SAR), which routes tokens to a small set of memory slots.\nMethods\nSAR replaces the dense attention of every fourth transformer layer. We train on 38 billion tokens for 3 epochs.\nResults\nOn the benchmark test split SAR reaches 87.4 percent exact-match accuracy, compared with 79.1 percent for the dense baseline. Removing the moving-average update reduces accuracy to 83.0 percent. SAR did not improve results on short questions.\nDiscussion\nThe gains may concentrate on questions whose evidence lies more than 64k tokens from the question.\nLimitations\nWe evaluated only English text and a single model scale of 7 billion parameters.",
+   "claims": [
+    {
+     "text": "SAR reaches 87.4 percent exact-match accuracy, compared with 79.1 percent for the dense baseline.",
+     "label": "SUPPORTED"
+    },
+    {
+     "text": "SAR reaches 91.2 percent exact-match accuracy on the benchmark.",
+     "label": "UNSUPPORTED"
+    },
+    {
+     "text": "Removing the moving-average update increases accuracy to 83.0 percent.",
+     "label": "CONTRADICTED"
+    },
+    {
+     "text": "The gains concentrate on questions whose evidence lies more than 64k tokens from the question.",
+     "label": "PARTIAL"
+    },
+    {
+     "text": "SAR proves that attention routing always beats dense attention.",
+     "label": "UNSUPPORTED"
+    },
+    {
+     "text": "The model was trained on 38 billion tokens for 3 epochs.",
+     "label": "SUPPORTED"
+    },
+    {
+     "text": "SAR improved results on short questions.",
+     "label": "CONTRADICTED"
+    },
+    {
+     "text": "The authors only evaluated English text.",
+     "label": "SUPPORTED"
+    }
+   ]
+  },
+  {
+   "id": "fx-2",
+   "license": "fictional",
+   "source": "Abstract\nWe study a lightweight pruning method, Gradual Width Pruning (GWP), for convolutional image classifiers. GWP removes channels during training instead of after it.\nMethods\nWe prune 10 percent of the channels every 5 epochs until 50 percent remain. All models use a ResNet-18 backbone and are trained for 90 epochs.\nResults\nOn the held-out test set the pruned network keeps 69.2 percent top-1 accuracy, against 70.1 percent for the unpruned network. Inference latency falls from 41 ms to 27 ms on a single CPU core. Pruning after training lowers accuracy to 66.8 percent.\nDiscussion\nThe latency gain was measured on one CPU and may not carry over to GPUs.\nLimitations\nWe tested a single backbone and a single dataset. We did not study robustness to distribution shift.",
+   "claims": [
+    {
+     "text": "GWP removes channels during training instead of after training.",
+     "label": "SUPPORTED"
+    },
+    {
+     "text": "The pruned network keeps 69.2 percent top-1 accuracy, against 70.1 percent unpruned.",
+     "label": "SUPPORTED"
+    },
+    {
+     "text": "Pruning raises accuracy above the unpruned network.",
+     "label": "CONTRADICTED"
+    },
+    {
+     "text": "Inference latency falls from 41 ms to 27 ms on a single CPU core.",
+     "label": "SUPPORTED"
+    },
+    {
+     "text": "GWP speeds up inference on GPUs as well.",
+     "label": "PARTIAL"
+    },
+    {
+     "text": "Pruning after training lowers accuracy to 62.5 percent.",
+     "label": "UNSUPPORTED"
+    },
+    {
+     "text": "The method was tested on a ResNet-50 backbone.",
+     "label": "UNSUPPORTED"
+    },
+    {
+     "text": "The authors did not study robustness to distribution shift.",
+     "label": "SUPPORTED"
+    }
+   ]
+  },
+  {
+   "id": "fx-3",
+   "license": "fictional",
+   "source": "Abstract\nWe report a cohort study of sleep duration and reaction time in 412 adult volunteers. Participants wore a wrist sensor for 14 nights.\nMethods\nReaction time was measured each morning with a standard 5-minute test. Sleep duration was taken from the sensor.\nResults\nEach additional hour of sleep was associated with a 6 ms faster mean reaction time. The association was weaker in participants over 60. Caffeine intake was not related to reaction time in this sample.\nDiscussion\nThese results suggest, but do not establish, that longer sleep improves alertness.\nLimitations\nVolunteers were not randomly selected, and sensor-based sleep estimates were not checked against laboratory measures.",
+   "claims": [
+    {
+     "text": "Each additional hour of sleep was associated with a 6 ms faster mean reaction time.",
+     "label": "SUPPORTED"
+    },
+    {
+     "text": "Longer sleep improves alertness.",
+     "label": "PARTIAL"
+    },
+    {
+     "text": "The association was stronger in participants over 60.",
+     "label": "CONTRADICTED"
+    },
+    {
+     "text": "Caffeine intake was related to reaction time.",
+     "label": "CONTRADICTED"
+    },
+    {
+     "text": "The study included 412 adult volunteers who wore a sensor for 14 nights.",
+     "label": "SUPPORTED"
+    },
+    {
+     "text": "Sleep was verified against laboratory measures.",
+     "label": "CONTRADICTED"
+    },
+    {
+     "text": "The study included 950 children.",
+     "label": "UNSUPPORTED"
+    },
+    {
+     "text": "Volunteers were not randomly selected.",
+     "label": "SUPPORTED"
+    }
+   ]
+  }
+ ]
+}

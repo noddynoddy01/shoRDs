@@ -1,0 +1,110 @@
+{
+ "id": "twocol_flow",
+ "pages": 2,
+ "scanned": false,
+ "_synthetic": "FICTIONAL SYNTHETIC DOCUMENT FOR EXTRACTOR TESTING",
+ "anchors": [
+  {
+   "text": "We present a routing layer that assigns",
+   "page": 1
+  },
+  {
+   "text": "Routing tokens to a small number of",
+   "page": 1
+  },
+  {
+   "text": "We study whether a learned router can",
+   "page": 1
+  },
+  {
+   "text": "Our contributions are threefold: a routing layer,",
+   "page": 1
+  },
+  {
+   "text": "The routing layer replaces the dense attention",
+   "page": 1
+  },
+  {
+   "text": "Slots are updated with an exponential moving",
+   "page": 1
+  },
+  {
+   "text": "Training uses 38 billion tokens for 3",
+   "page": 1
+  },
+  {
+   "text": "On the benchmark test split the routing",
+   "page": 1
+  },
+  {
+   "text": "Latency at 128k tokens falls from 41.2",
+   "page": 1
+  },
+  {
+   "text": "Removing the moving-average update lowers accuracy to",
+   "page": 1
+  },
+  {
+   "text": "We evaluated only English text and a",
+   "page": 1
+  },
+  {
+   "text": "Three people annotated the benchmark and we",
+   "page": 1
+  },
+  {
+   "text": "Routing keeps long-range recall high at lower",
+   "page": 2
+  }
+ ],
+ "headings": [
+  "Abstract",
+  "1 Introduction",
+  "2 Methods",
+  "3 Results",
+  "4 Limitations",
+  "5 Conclusion",
+  "References"
+ ],
+ "tables": [
+  {
+   "rows": [
+    [
+     "Model",
+     "Accuracy (%)",
+     "Latency (s)",
+     "Memory (GB)"
+    ],
+    [
+     "Dense",
+     "79.1",
+     "41.2",
+     "61.0"
+    ],
+    [
+     "Sliding",
+     "82.6",
+     "30.4",
+     "44.2"
+    ],
+    [
+     "Routing",
+     "87.4",
+     "18.7",
+     "38.5"
+    ],
+    [
+     "Routing k=1",
+     "80.9",
+     "17.9",
+     "36.1"
+    ]
+   ]
+  }
+ ],
+ "equations": [
+  "L = L_task + 0.01 L_route",
+  "A(Q,K,V) = softmax(Q K^T / sqrt(d_k)) V"
+ ],
+ "references": 8
+}

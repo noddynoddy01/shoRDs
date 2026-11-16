@@ -8,7 +8,7 @@
  */
 
 import { onAuthStateChanged, signOut as firebaseSignOut } from "firebase/auth";
-import { auth, hasFirebaseConfig, loginWithEmail, loginWithGooglePopup, signupWithEmail } from "../firebase";
+import { auth, hasFirebaseConfig, loginWithEmail, loginWithGooglePopup, requestPasswordReset, signupWithEmail } from "../firebase";
 import { createApiClient } from "./apiClient";
 import type { AuthReadiness } from "./apiClient";
 import { initialSession, issue, mapFirebaseError, reduceSession, toSessionUser } from "./session";
@@ -89,7 +89,21 @@ async function guarded<T>(fn: () => Promise<T>): Promise<{ ok: true; value: T } 
 }
 
 export const signIn = (email: string, password: string) => guarded(() => loginWithEmail(email.trim(), password));
-export const signUp = (name: string, email: string, password: string, interests: string[]) => guarded(() => signupWithEmail(name.trim(), email.trim(), password, interests));
+/**
+ * Firebase signs the person in the moment the account exists (before `updateProfile` stores the name), so the session first sees a user
+ * with no display name. Publishing the user again once sign-up is finished makes the name available to onboarding.
+ */
+export const signUp = (name: string, email: string, password: string, interests: string[]) =>
+  guarded(async () => {
+    const result = await signupWithEmail(name.trim(), email.trim(), password, interests);
+    try {
+      if (auth?.currentUser) dispatch({ type: "AUTH_STATE", user: toSessionUser(auth.currentUser) });
+    } catch (_) {
+      // the next auth event will carry the name; nothing depends on this
+    }
+    return result;
+  });
+export const sendPasswordReset = (email: string) => guarded(() => requestPasswordReset(email.trim()));
 export const signInWithGoogle = () => guarded(() => loginWithGooglePopup());
 
 export async function signOutUser(): Promise<void> {

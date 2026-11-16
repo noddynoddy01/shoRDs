@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { StyleSheet, TextInput, View } from "react-native";
 import { useTheme } from "../context/ThemeContext";
 import { colors as defaultColors, radius } from "../constants/theme";

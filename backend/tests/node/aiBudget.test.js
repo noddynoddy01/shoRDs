@@ -12,6 +12,7 @@ const {
   AiPolicyDenied, DENY, loadBudgetConfig, parseEnabled, estimateMaxCost, createAiBudget, createMemoryBudgetStore, scopesFor, dayKey, KILL_KEY
 } = require("../../llm/aiBudget");
 const { createAiPipeline } = require("../../llm/aiPipeline");
+const { NO_PROJECT_ID } = require("../../security/projects");
 const { modelStub } = require("./helpers");
 
 const T0 = Date.UTC(2026, 9, 6, 10, 0, 0);
@@ -251,6 +252,202 @@ test("scopes are independent: another user keeps working, the same user is stopp
     await assert.rejects(run(s.gate, c, ctx({ uid: "u2" }), opts({ user: `${name} second`.padEnd(1000, "a") })), (e) => e.category === DENY.BUDGET_EXCEEDED && e.details.scope === scope, name);
     assert.equal(c.calls.length, 1, name);
   }
+});
+
+// ---- price override (audit D1): a blank or zero override must not make the spend ceilings meaningless
+
+const PRICE_IN = "ANTHROPIC_PRICE_INPUT_PER_MTOK";
+const PRICE_OUT = "ANTHROPIC_PRICE_OUTPUT_PER_MTOK";
+
+test("price override: blank, zero, half-set, negative and non-numeric overrides leave the REAL cost bound in place", () => {
+  const bad = [
+    { [PRICE_IN]: "", [PRICE_OUT]: "" },
+    { [PRICE_IN]: "0", [PRICE_OUT]: "0" },
+    { [PRICE_IN]: "0", [PRICE_OUT]: "10" },
+    { [PRICE_IN]: "5", [PRICE_OUT]: "" },
+    { [PRICE_IN]: "-2", [PRICE_OUT]: "-10" },
+    { [PRICE_IN]: "abc", [PRICE_OUT]: "xyz" },
+    { [PRICE_IN]: "Infinity", [PRICE_OUT]: "Infinity" }
+  ];
+  for (const env of bad) {
+    const e = estimateMaxCost({ ...opts({ env }), attempts: 1 });
+    assert.equal(e.ok, true, JSON.stringify(env));
+    assert.equal(e.perAttemptMicro, ATTEMPT, `the documented worst case for the real model price is still reserved: ${JSON.stringify(env)}`);
+    assert.ok(e.perAttemptMicro > 0, "a reservation of zero would make every ceiling meaningless");
+    // an unknown model is still refused, never costed as free
+    const u = estimateMaxCost({ ...opts({ model: "claude-future-9", env }), attempts: 1 });
+    assert.equal(u.ok, false, JSON.stringify(env));
+    assert.equal(u.category, DENY.UNPRICED_MODEL);
+  }
+});
+
+test("price override: a valid positive pair is honoured by the cost bound (and replaces the built-in price)", () => {
+  const env = { [PRICE_IN]: "4", [PRICE_OUT]: "20" };
+  const e = estimateMaxCost({ ...opts({ env }), attempts: 1 });
+  assert.equal(e.ok, true);
+  assert.equal(e.perAttemptMicro, Math.ceil(1256 * 4 + 6000 * 20));
+  assert.equal(estimateMaxCost({ ...opts({ model: "claude-future-9", env }), attempts: 1 }).perAttemptMicro, Math.ceil(1256 * 4 + 6000 * 20));
+});
+
+test("price override: the gate still enforces the per-request and daily ceilings with a blank or zero override", async () => {
+  for (const priceEnv of [{ [PRICE_IN]: "", [PRICE_OUT]: "" }, { [PRICE_IN]: "0", [PRICE_OUT]: "0" }]) {
+    // reservation is the real one, not zero
+    const a = setup({ env: {} });
+    assert.equal(a.gate.estimateMaxCost(opts({ env: priceEnv })).reservationMicro, RESERVATION);
+    // per-request ceiling below the real worst case refuses (it would pass if the price were 0)
+    const b = setup({ env: { AI_BUDGET_REQUEST_MAX_USD: "0.05" } });
+    const cb = makeClient();
+    await denied(run(b.gate, cb, ctx(), opts({ env: priceEnv })), DENY.REQUEST_TOO_EXPENSIVE);
+    assert.equal(cb.calls.length, 0, "no call was made");
+    // daily ceiling below the real worst case refuses
+    const c = setup({ env: { AI_BUDGET_USER_DAILY_USD: "0.1" } });
+    const cc = makeClient();
+    await denied(run(c.gate, cc, ctx(), opts({ env: priceEnv })), DENY.BUDGET_EXCEEDED);
+    assert.equal(cc.calls.length, 0);
+    // an unknown model is refused, not run for free
+    const d = setup({ env: {} });
+    const cd = makeClient();
+    await denied(run(d.gate, cd, ctx(), opts({ model: "claude-future-9", env: priceEnv })), DENY.UNPRICED_MODEL);
+    assert.equal(cd.calls.length, 0);
+  }
+});
+
+test("price override: startup rejects a half-set, zero, negative or non-numeric override; blank and valid pairs load", () => {
+  for (const env of [{ [PRICE_IN]: "5", [PRICE_OUT]: "" }, { [PRICE_IN]: "", [PRICE_OUT]: "5" }, { [PRICE_IN]: "0", [PRICE_OUT]: "0" }, { [PRICE_IN]: "-1", [PRICE_OUT]: "5" }, { [PRICE_IN]: "abc", [PRICE_OUT]: "5" }]) {
+    assert.throws(() => loadBudgetConfig(env), /ANTHROPIC_PRICE_INPUT_PER_MTOK/, JSON.stringify(env));
+    assert.throws(() => createAiBudget({ store: createMemoryBudgetStore({ now: () => T0 }), seedFromLedger: async () => ({ spentMicro: 0, calls: 0 }), env, logger: quiet, now: () => T0 }), /ANTHROPIC_PRICE/);
+  }
+  assert.doesNotThrow(() => loadBudgetConfig({}));
+  assert.doesNotThrow(() => loadBudgetConfig({ [PRICE_IN]: "", [PRICE_OUT]: "" }));
+  assert.doesNotThrow(() => loadBudgetConfig({ [PRICE_IN]: "3", [PRICE_OUT]: "15" }));
+});
+
+// ---- minimum price (final hardening): no arbitrary floor; tiny prices are charged at least 1 micro-USD per call, so ceilings still bind
+
+test("a tiny positive price still fills the daily ceiling (every call costs at least 1 micro-USD, never 0)", async () => {
+  const { computeCost } = require("../../llm/anthropicClient");
+  const env = { [PRICE_IN]: "0.001", [PRICE_OUT]: "0.001" }; // 100 + 50 tokens = 0.15 micro-USD of true cost per call
+  // a client whose cost comes from the REAL cost arithmetic, not a canned number
+  const real = { calls: 0, async callMessages(o) {
+    real.calls += 1;
+    const usage = { inputTokens: 100, outputTokens: 50, totalTokens: 150 };
+    const c = computeCost(o.model, usage, o.env);
+    return { text: "ok", usage, stopReason: "end_turn", truncated: false, model: o.model, latencyMs: 1, attempts: 1, requestId: "r", costUsd: c.costUsd, costStatus: c.costStatus };
+  } };
+  const per = estimateMaxCost({ ...opts({ env }), attempts: 2 });
+  assert.equal(per.ok, true);
+  assert.ok(per.reservationMicro >= 1, "the reservation is never zero");
+  const { gate } = setup({ env: { AI_BUDGET_GLOBAL_DAILY_USD: "0.00005" } }); // 50 micro-USD for the whole fleet
+  let allowed = 0;
+  let refusal = null;
+  for (let i = 0; i < 200 && !refusal; i++) {
+    try { await run(gate, real, ctx(), opts({ env, user: String(i).padEnd(1000, "a") })); allowed += 1; } catch (e) { refusal = e; }
+  }
+  assert.ok(refusal instanceof AiPolicyDenied, "the ceiling eventually refuses; with a cost of 0 per call it never would");
+  assert.equal(refusal.category, DENY.BUDGET_EXCEEDED);
+  assert.ok(allowed >= 1 && allowed <= 50, `the ceiling bound the spend (${allowed} calls, 1 micro-USD each against a 50 micro-USD ceiling)`);
+  assert.equal(real.calls, allowed, "no call was made after the refusal");
+});
+
+test("legitimate override prices keep their documented worst-case reservation", () => {
+  for (const [pi, po] of [["0.25", "1.25"], ["1", "5"], ["2", "10"], ["3", "15"], ["15", "75"], ["0.15", "0.6"]]) {
+    const e = estimateMaxCost({ ...opts({ env: { [PRICE_IN]: pi, [PRICE_OUT]: po } }), attempts: 1 });
+    assert.equal(e.ok, true, `${pi}/${po}`);
+    assert.equal(e.perAttemptMicro, Math.ceil(1256 * Number(pi) + 6000 * Number(po)), `${pi}/${po}`);
+  }
+});
+
+test("an absurdly large price is refused (the worst case would not be an exactly representable amount); it never reserves Infinity", () => {
+  for (const p of ["1" + "0".repeat(12), "1" + "0".repeat(307)]) {
+    const e = estimateMaxCost({ ...opts({ env: { [PRICE_IN]: p, [PRICE_OUT]: p } }), attempts: 2 });
+    assert.equal(e.ok, false, p.length + " digits");
+    assert.equal(e.category, DENY.COST_UNBOUNDED);
+  }
+  // a large but sane price (a thousand times the real one) still works
+  assert.equal(estimateMaxCost({ ...opts({ env: { [PRICE_IN]: "2000", [PRICE_OUT]: "10000" } }), attempts: 2 }).ok, true);
+});
+
+test("settlement: a whole number of micro-USD is charged exactly (no extra micro-USD from floating-point noise), a fraction is rounded up", async () => {
+  // these values used to be charged 1 micro-USD too much: (n / 1e6) * 1e6 is slightly above n in binary floating point
+  for (const n of [123, 246, 253, 255, 492, 7000, 12300]) {
+    const a = setup();
+    await run(a.gate, makeClient({ costUsd: n / 1e6 }));
+    assert.equal((await peek(a.gate, a.store, "user", ctx(), a.clock)).spentMicro, n, `${n} micro-USD`);
+  }
+  const b = setup();
+  await run(b.gate, makeClient({ costUsd: 0.0000004 })); // 0.4 micro-USD of a custom client: rounded UP to 1, never 0
+  assert.equal((await peek(b.gate, b.store, "user", ctx(), b.clock)).spentMicro, 1);
+});
+
+// ---- requests without a project (audit P1-1): the placeholder id "none" is NOT a project and must never be charged as one
+
+const NO_PROJECT = { projectId: NO_PROJECT_ID };
+const personal = (n, over = {}) => ctx({ tenantId: `tenant_personal_${n}`, uid: `user_p${n}`, ...NO_PROJECT, ...over });
+
+test("no-project scope: the placeholder (or an empty id) gets no project-level scope; tenant, user and global are still charged; a real project still gets one", () => {
+  const kinds = (c) => scopesFor(loadBudgetConfig({}), c, T0).map((s) => `${s.kind}:${s.kind === "user" ? "<hash>" : s.id}`);
+  assert.equal(NO_PROJECT_ID, "none", "the placeholder app.js sends for a request without a project");
+  assert.deepEqual(kinds(personal(1)), ["global:all", "tenant:tenant_personal_1", "user:<hash>"]);
+  assert.deepEqual(kinds(ctx({ projectId: undefined })), ["global:all", "tenant:tenant_a", "user:<hash>"]);
+  assert.deepEqual(kinds(ctx({ projectId: "" })), ["global:all", "tenant:tenant_a", "user:<hash>"]);
+  assert.deepEqual(kinds(ctx({ projectId: "prj_real" })), ["global:all", "tenant:tenant_a", "project:prj_real", "user:<hash>"]);
+});
+
+test("no-project requests of different tenants do not consume each other's project budget (they used to share one 'none' project)", async () => {
+  // project cap $0.15: after one $0.1 call it would refuse a second call for the SAME project, so under the old behaviour tenant 2 was refused
+  const { gate, seeds } = setup({ env: { AI_BUDGET_PROJECT_DAILY_USD: "0.15" } });
+  const client = makeClient({ costUsd: 0.1 });
+  await run(gate, client, personal(1), opts({ user: "first".padEnd(1000, "a") }));
+  await run(gate, client, personal(2), opts({ user: "second".padEnd(1000, "a") }));
+  await run(gate, client, personal(3), opts({ user: "third".padEnd(1000, "a") }));
+  assert.equal(client.calls.length, 3, "three unrelated users without a project all reached the provider");
+  assert.ok(!seeds.includes("project"), "no project counter was ever created or seeded for the placeholder");
+});
+
+test("no-project requests keep their tenant, user and global caps (only the project cap is gone)", async () => {
+  for (const [name, envKey, scopeName] of [["tenant", "AI_BUDGET_TENANT_DAILY_USD", "tenant"], ["user", "AI_BUDGET_USER_DAILY_USD", "user"]]) {
+    const s = setup({ env: { [envKey]: "0.15" } });
+    const c = makeClient({ costUsd: 0.1 });
+    await run(s.gate, c, personal(1), opts({ user: `${name} first`.padEnd(1000, "a") }));
+    await assert.rejects(run(s.gate, c, personal(1), opts({ user: `${name} second`.padEnd(1000, "a") })), (e) => e.category === DENY.BUDGET_EXCEEDED && e.details.scope === scopeName, name);
+    await run(s.gate, c, personal(2), opts({ user: `${name} other`.padEnd(1000, "a") })); // another tenant and user is unaffected
+    assert.equal(c.calls.length, 2, name);
+  }
+  // global: shared by every request, with or without a project
+  const g = setup({ env: { AI_BUDGET_GLOBAL_DAILY_USD: "0.15" } });
+  const gc = makeClient({ costUsd: 0.1 });
+  await run(g.gate, gc, personal(1), opts({ user: "g first".padEnd(1000, "a") }));
+  await assert.rejects(run(g.gate, gc, personal(2), opts({ user: "g second".padEnd(1000, "a") })), (e) => e.category === DENY.BUDGET_EXCEEDED && e.details.scope === "global");
+  await assert.rejects(run(g.gate, gc, ctx({ uid: "u9", projectId: "prj_other" }), opts({ user: "g third".padEnd(1000, "a") })), (e) => e.category === DENY.BUDGET_EXCEEDED && e.details.scope === "global");
+  assert.equal(gc.calls.length, 1);
+  // concurrency: the tenant cap bounds simultaneous no-project calls of one tenant
+  const cc = setup({ env: { AI_BUDGET_TENANT_MAX_CONCURRENT: "1", AI_BUDGET_USER_MAX_CONCURRENT: "unlimited", AI_CONCURRENCY_WAIT_MS: "0" } });
+  const held = makeClient({ hold: true });
+  const first = run(cc.gate, held, personal(1, { uid: "ua" }), opts({ user: "held a".padEnd(1000, "a") }));
+  await new Promise((r) => setTimeout(r, 10));
+  await denied(run(cc.gate, held, personal(1, { uid: "ub" }), opts({ user: "held b".padEnd(1000, "a") })), DENY.CONCURRENCY_LIMIT);
+  held.release();
+  await first;
+});
+
+test("real projects keep their project budget: shared by the project's members, independent of other projects", async () => {
+  const { gate } = setup({ env: { AI_BUDGET_PROJECT_DAILY_USD: "0.15" } });
+  const client = makeClient({ costUsd: 0.1 });
+  await run(gate, client, ctx({ projectId: "prj_one", uid: "u1" }), opts({ user: "p1 first".padEnd(1000, "a") }));
+  await assert.rejects(run(gate, client, ctx({ projectId: "prj_one", uid: "u2" }), opts({ user: "p1 second".padEnd(1000, "a") })), (e) => e.category === DENY.BUDGET_EXCEEDED && e.details.scope === "project");
+  await run(gate, client, ctx({ projectId: "prj_two", uid: "u2" }), opts({ user: "p2 first".padEnd(1000, "a") })); // another project: its own budget
+  assert.equal(client.calls.length, 2);
+});
+
+test("structure: only the no-project branch builds the placeholder; a project id supplied by a client is always authorized as a real project", () => {
+  // app.js only builds the placeholder itself, for a request WITHOUT a projectId; a body naming one goes through authorizeProject,
+  // which needs a membership row, and project ids are generated as prj_<hex>.
+  const root = path.resolve(__dirname, "../..");
+  const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
+  assert.equal((app.match(/NO_PROJECT_ID/g) || []).length, 1, "only the no-project branch of the copilot route builds the placeholder");
+  assert.ok(/body\.projectId !== undefined[\s\S]{0,400}authorize\(ctx, body\.projectId, "VIEWER"\)/.test(app), "a supplied projectId is authorized as a real project");
+  const projectsSrc = fs.readFileSync(path.join(root, "security/projects.js"), "utf8");
+  assert.ok(/`prj_\$\{crypto\.randomBytes/.test(projectsSrc), "real project ids are server-generated prj_<hex>");
 });
 
 test("a reservation is held BEFORE the call: concurrent calls cannot jointly overspend, and the unused part is released afterwards", async () => {
@@ -545,8 +742,8 @@ const chunks = [
   { chunkId: `${PAPER_ID}_chunk_1`, paperId: PAPER_ID, ordinal: 1, section: "ABSTRACT", heading: "Abstract", text: "We study sparse coding in cortex. Accuracy rose to 91.2 percent." },
   { chunkId: `${PAPER_ID}_chunk_2`, paperId: PAPER_ID, ordinal: 2, section: "RESULTS", heading: "Results", text: "On the held-out set the method reached 91.2 percent accuracy." }
 ];
-function pipelineHarness({ env = {}, budgetEnv = {} } = {}) {
-  const stub = modelStub({ costUsd: 0.002, costStatus: "ESTIMATED" });
+function pipelineHarness({ env = {}, budgetEnv = {}, costUsd = 0.002 } = {}) {
+  const stub = modelStub({ costUsd, costStatus: "ESTIMATED" });
   const { gate, store, clock } = setup({ env: budgetEnv });
   const paperService = { async resolve() { return { paper: { paperId: PAPER_ID, title: "Sparse coding", coverage: "FULL_TEXT", coverageNotice: null, authors: [], year: 2024 } }; }, async loadChunks() { return chunks; } };
   const pipeline = createAiPipeline({ paperService, client: stub, budget: gate, env: { ANTHROPIC_API_KEY: "TESTKEY-not-a-real-credential-0001", ANTHROPIC_MODEL: "claude-sonnet-5-5", ...env }, replicaId: "r1", logger: quiet });
@@ -636,13 +833,40 @@ test("pipeline: telemetry does not count a policy refusal as a provider error", 
   assert.equal(fb.providerError, null);
 });
 
+test("pipeline: two users without a project (the app.js scope) do not share a project budget; their own caps still bind", async () => {
+  // worst-case reservation here is about $0.33; each answer costs $0.4, so a shared $0.5 project cap would refuse the second user
+  const noProject = (n) => ({ tenantId: `tenant_personal_${n}`, projectId: NO_PROJECT_ID });
+  const h = pipelineHarness({ budgetEnv: { AI_BUDGET_PROJECT_DAILY_USD: "0.5" }, costUsd: 0.4 });
+  const a = await h.pipeline.answerQuestion({ query: "What accuracy was reached?", paperId: PAPER_ID }, { scope: noProject(1), uid: "u1" });
+  const b = await h.pipeline.answerQuestion({ query: "What accuracy was reached?", paperId: PAPER_ID }, { scope: noProject(2), uid: "u2" });
+  assert.equal(h.stub.calls.length, 2);
+  for (const out of [a, b]) { assert.equal(out.body.fallbackUsed, false); assert.equal(out.body.modelMode, "EXTERNAL_CLAUDE"); }
+  // the same user is still bounded by the USER budget: u1 has spent $0.4 of $0.5, so another worst-case reservation is refused
+  const h2 = pipelineHarness({ budgetEnv: { AI_BUDGET_USER_DAILY_USD: "0.5" }, costUsd: 0.4 });
+  await h2.pipeline.answerQuestion({ query: "First?", paperId: PAPER_ID }, { scope: noProject(1), uid: "u1" });
+  const blocked = await h2.pipeline.answerQuestion({ query: "Second?", paperId: PAPER_ID }, { scope: noProject(1), uid: "u1" });
+  assert.equal(blocked.body.fallbackReason, "AI_POLICY_BUDGET_EXCEEDED");
+  assert.equal(h2.stub.calls.length, 1);
+  // a real project with the same cap still binds across users
+  const h3 = pipelineHarness({ budgetEnv: { AI_BUDGET_PROJECT_DAILY_USD: "0.5" }, costUsd: 0.4 });
+  const real = { tenantId: "tenant_a", projectId: "prj_real" };
+  await h3.pipeline.answerQuestion({ query: "One?", paperId: PAPER_ID }, { scope: real, uid: "u1" });
+  const refused = await h3.pipeline.answerQuestion({ query: "Two?", paperId: PAPER_ID }, { scope: real, uid: "u2" });
+  assert.equal(refused.body.fallbackReason, "AI_POLICY_BUDGET_EXCEEDED");
+  assert.equal(h3.stub.calls.length, 1);
+});
+
 // ------------------------------------------------------------------------------------------------ structure: nothing bypasses the gate
 
 test("structure: the only code that calls the provider client is the gate-wrapped path; the runtime always supplies a gate", () => {
   const root = path.resolve(__dirname, "../..");
   const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? (e.name === "tests" || e.name === "node_modules" || e.name === "__pycache__" ? [] : walk(path.join(d, e.name))) : e.name.endsWith(".js") ? [path.join(d, e.name)] : []));
   const callers = walk(root).filter((f) => /\.callMessages\(/.test(fs.readFileSync(f, "utf8"))).map((f) => path.relative(root, f)).sort();
-  assert.deepEqual(callers, ["llm/aiBudget.js", "llm/copilotService.js", "llm/intelligence.js"], "a new module that calls the provider must be routed through the spend gate and added here deliberately");
+  // native/modelAdapter.js (Phase 5, prototype, not wired into the production path) is the single call site of the native engine: its Claude adapter
+  // accepts only a client already behind this gate, its paid remote adapter is limited by withSpendLimit (default ceiling 0), the rest are free and local.
+  // assistant/service.js (the shoRDs Assistant, app help) was added deliberately: it calls the provider ONLY through budget.guardClient and records every
+  // call in the ai_usage ledger (spendGateWiring.test.js pins both facts, assistant.integration.test.js exercises the kill switch and the ledger).
+  assert.deepEqual(callers, ["assistant/service.js", "llm/aiBudget.js", "llm/copilotService.js", "llm/intelligence.js", "native/modelAdapter.js"], "a new module that calls the provider must be routed through the spend gate and added here deliberately");
   const rt = fs.readFileSync(path.join(root, "runtime.js"), "utf8");
   assert.ok(/createAiBudget\(/.test(rt) && /createAiPipeline\(\{[^}]*budget/.test(rt), "runtime.js builds a gate and gives it to the pipeline");
   const pl = fs.readFileSync(path.join(root, "llm/aiPipeline.js"), "utf8");

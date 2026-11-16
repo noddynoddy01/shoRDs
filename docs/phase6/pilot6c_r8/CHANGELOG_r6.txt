@@ -1,0 +1,66 @@
+shoRDs Phase 6C pilot kit - CHANGELOG r6 (replaces r5; r4 and r5 are left untouched)
+=====================================================================================
+
+WHY r6 EXISTS
+The owner ran r5 on Windows PowerShell 5.1.26100.9818 (checksum, extraction, Verify-Kit 25/25, Parse-Check 10/10, Test-Orchestrator 52/52 all passed) and found:
+  Issue 1  Test-AgentLogic.ps1: 481 passed, 26 failed. Every failure was a gate test and the actual value was [System.Collections.ArrayList]
+           instead of a gate-name list such as  []  [ram]  [vram]  [disk].
+  Issue 2  Dry Run A: the RAM gate correctly refused (available=5.62, need>=6.5), the report was written, and then an unhandled exception
+           'Exception calling "Replace" with "3" argument(s): "The path is not of a legal form."' ended the run.
+
+ROOT CAUSES
+  1. Get-FailedCheckNames (and Get-StartGateChecks) ended with  return ,$list.  The comma operator wraps the collection in a one-element array, and a
+     function emits that array's single element: the ArrayList itself, as ONE object. @(...) then wraps that one object, and  -join  prints its type name.
+     With the comma removed the function emits the items one by one (nothing at all when the list is empty) and the caller's @(...) rebuilds the array.
+     What r5 got right by accident: its runtime callers did not wrap the call ( (Get-FailedCheckNames $checks).Count ), so the ArrayList arrived intact and
+     the gate DECISION was correct (the RAM gate refused, as you saw). What was wrong: every wrapped or joined use (the 26 tests, the sweep report field
+     failed_gates, any @(...) -join) received a list nested inside a list. r6 changes both sides together: the functions emit items and EVERY caller wraps.
+  2. Write-AtomicText called  [System.IO.File]::Replace($tmp, $Path, $null).  PowerShell converts $null to an EMPTY STRING for a .NET string parameter,
+     and File.Replace rejects '' as an illegal backup path. It only happens when the destination already exists, which is why the first write of every file
+     worked and the SECOND write (the run report after the audit/marker/lease files, or the lease on the next heartbeat) crashed. [NullString]::Value is the
+     real .NET null.
+  Why the r5 tests did not see them: both are behaviours of the PowerShell runtime. The Python mirrors, the text checks and the static analyser compare
+  logic and source text; none of them can show what PowerShell does with  return ,$x  or with $null. r6 adds tests that do (below) and states plainly that
+  the PowerShell itself is proven only by running it on Windows.
+
+CHANGES (minimal; the diff r5 -> r6 is in the report)
+  Phase6C.Lib.ps1
+    - Get-FailedCheckNames: builds an ArrayList of strings and  return $f  (items unrolled). Get-StartGateChecks: ends  return $out.
+    - New Get-RunOutcome: classifies a run as ok / gate-refused / failed. A resource-gate refusal is a refusal (the tool worked), anything else
+      that is not ok/planned is a failure, and a failure wins over a refusal.
+    - Version 'r6.0' (an r4 or r5 dry-run marker can never unlock r6 Live).
+  Phase6C.Runtime.ps1
+    - Write-AtomicText: Replace(..., [NullString]::Value) for an existing file, Move for a new one, and a fallback (Copy over the destination, delete the
+      temporary file) if Replace is refused for any reason.
+    - Every caller of Get-StartGateChecks / Get-FailedCheckNames wraps it:  @(...)  (Start-PilotServer, Invoke-JobPreflight, Invoke-JobServerStart,
+      and the sweep plan, which had  (Get-FailedCheckNames (Get-StartGateChecks ...)).Count  and would have misbehaved in the same way).
+  Invoke-PilotRun.ps1
+    - The run body is in try / catch / finally. The finally block always stops any server, writes the report (inside its own try/catch, so a write
+      problem prints a WARNING and cannot replace the result), writes the audit line and prints the port state.
+    - The report now has  outcome  (ok / gate-refused / failed),  refused  (list) and  error.
+    - A gate refusal prints "RESULT: REFUSED BY A RESOURCE GATE. Nothing was started; the tool itself worked as designed." with each refused check, advises
+      freeing the resource, and exits with code 5. Other results: ok -> 0, a failed step or an error -> 1.
+  Pilot-Agent.ps1
+    - Each inbox cycle is in try/catch: an exception is written to the audit log ('cycle-error') and shown; five in a row end the agent cleanly
+      (exit reason 'cycle-errors'); the finally block still stops any server and ends the lease.
+  Test-AgentLogic.ps1
+    - Unchanged: the 26 gate-vector tests that failed (nothing weakened or removed). Added: shape:* checks (items are hashtables, empty failure list is empty,
+      a single failure is the string 'ram', the join is not 'System.Collections.ArrayList', the detail text 'available=5.62 need>=6.5', three failures in order)
+      and outcome:* checks (the exact owner scenario, ok, failed, failure-wins, empty).
+  Test-FileOps.ps1 (NEW)
+    - Runs on the real functions inside one new folder under %TEMP%: file replace three times (the r5 crash), JSON replace, no leftover temporary files,
+      context folders, lease three times, audit lines, dry-run marker three times, an inbox cycle with signed server-stop and health jobs (planned only),
+      a badly signed job, a replayed job, seen-ids, archive/rejected moves, and "no llama-server process and no listener on 8080 created". Removes its folder.
+  Static analyser (tests/ps_static_check.py)
+    - Two new rules that catch the exact r5 constructs:  return ,<expr>  and  $null passed to a .NET static method.  Both are shown to fire on the r5 tree.
+  Python (linux/pilot_core.py, tests/test_pilot6c.py)
+    - run_outcome twin; AGENT_VERSION r6.0; 24 new tests (47 -> 71) (model of the two PowerShell rules, exact source assertions, all-caller wrapping,
+      exit code 5, cycle handling, Test-FileOps containment, signing helper against the Python signer).
+  README_FIRST.txt, build_pilot6c.py: r6 names, new step 8 (Test-FileOps.ps1), exit-code table.
+
+UNCHANGED: Phase6B.Common.ps1, Parse-Check.ps1, Verify-Kit.ps1, Test-Orchestrator.ps1, Rollback-6C.ps1, all vectors, pilot_submit.py, gen_vectors.py,
+the job types, the HMAC format, the resource gates and their numbers, the emergency brake, and the Live guard.
+
+NOT DONE / STILL TRUE
+  - Nothing in r6 has been executed on any PowerShell by its author (none is available in the sandbox). The first execution is the owner's.
+  - r6 does not start the server, does not send requests and needs no approval phrase for steps 1-8.

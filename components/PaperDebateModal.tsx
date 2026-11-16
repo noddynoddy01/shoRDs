@@ -1,6 +1,6 @@
 import React from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "@/context/ThemeContext";
 import { colors as defaultColors, radius, spacing } from "@/constants/theme";
 import { Paper } from "@/types/models";

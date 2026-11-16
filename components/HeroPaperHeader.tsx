@@ -1,7 +1,7 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "@/context/ThemeContext";
 import { colors as defaultColors, radius, spacing } from "@/constants/theme";
 import { Paper } from "@/types/models";

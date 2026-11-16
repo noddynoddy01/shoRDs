@@ -1,7 +1,9 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { loadCorsConfig, evaluateCors, normalizeOrigin } = require("../../security/cors");
+const fs = require("fs");
+const path = require("path");
+const { loadCorsConfig, evaluateCors, normalizeOrigin, ALLOWED_METHODS, ALLOWED_HEADERS } = require("../../security/cors");
 
 const prod = (origins) => loadCorsConfig({ NODE_ENV: "production", CORS_ORIGINS: origins });
 
@@ -83,4 +85,30 @@ test("the custom domain can be added later by configuration only", () => {
   const after = prod("https://shords.vercel.app,https://www.shords.example");
   assert.equal(evaluateCors(before, "https://www.shords.example").allowed, false);
   assert.equal(evaluateCors(after, "https://www.shords.example").allowed, true);
+});
+
+test("preflight advertises PUT and DELETE (project members, community routes) without widening origins or headers", () => {
+  const cfg = prod("https://shords.vercel.app");
+  const r = evaluateCors(cfg, "https://shords.vercel.app");
+  const methods = r.headers["Access-Control-Allow-Methods"].split(",").map((m) => m.trim());
+  assert.deepEqual(methods, ["GET", "POST", "PUT", "DELETE", "OPTIONS"]);
+  assert.equal(r.headers["Access-Control-Allow-Headers"], "Content-Type, Authorization, Idempotency-Key", "headers are exactly what they were");
+  assert.equal(r.headers["Access-Control-Allow-Origin"], "https://shords.vercel.app", "still the one exact origin, never '*'");
+  assert.ok(!methods.includes("PATCH") && !methods.includes("HEAD"), "no method without a route is pre-approved (DELETE is allowed only because the assistant-history and un-block routes use it)");
+  // an origin that is not listed still gets nothing, whatever the method
+  const bad = evaluateCors(cfg, "https://evil.example");
+  assert.equal(bad.allowed, false);
+  assert.equal(bad.headers["Access-Control-Allow-Methods"], undefined);
+  assert.equal(bad.headers["Access-Control-Allow-Origin"], undefined);
+});
+
+test("drift guard: every HTTP method that app.js routes is allowed by CORS", () => {
+  const src = fs.readFileSync(path.resolve(__dirname, "../../app.js"), "utf8");
+  const social = fs.readFileSync(path.resolve(__dirname, "../../social/routes.js"), "utf8");
+  const routed = [...new Set([...src.matchAll(/method === "([A-Z]+)"/g)].map((m) => m[1]).concat([...social.matchAll(/add\("([A-Z]+)",/g)].map((m) => m[1])))].sort();
+  assert.ok(routed.includes("PUT") && routed.includes("GET") && routed.includes("POST"), `the scan found the routes: ${routed.join(",")}`);
+  const allowed = new Set(ALLOWED_METHODS.split(",").map((m) => m.trim()));
+  for (const m of routed) assert.ok(allowed.has(m), `app.js routes ${m} but CORS does not allow it: a browser preflight would fail`);
+  for (const m of allowed) assert.ok(m === "OPTIONS" || routed.includes(m), `CORS allows ${m} but neither app.js nor social/routes.js routes a ${m} request: remove it (least privilege)`);
+  assert.match(ALLOWED_HEADERS, /Authorization/);
 });

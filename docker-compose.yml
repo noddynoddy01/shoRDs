@@ -24,6 +24,15 @@ services:
       - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-claude-sonnet-5-5}
       - LLM_API_KEY=${LLM_API_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      # AI spend gate (backend/llm/aiBudget.js). An empty value means "use the code default", so nothing changes unless you set one;
+      # defaults and meaning are listed in .env.example and docs/architecture/AI_SPEND_SAFETY.md.
+      - AI_ENABLED=${AI_ENABLED:-}
+      - AI_BUDGET_MODE=${AI_BUDGET_MODE:-}
+      - AI_BUDGET_GLOBAL_DAILY_USD=${AI_BUDGET_GLOBAL_DAILY_USD:-}
+      - AI_BUDGET_TENANT_DAILY_USD=${AI_BUDGET_TENANT_DAILY_USD:-}
+      - AI_BUDGET_PROJECT_DAILY_USD=${AI_BUDGET_PROJECT_DAILY_USD:-}
+      - AI_BUDGET_USER_DAILY_USD=${AI_BUDGET_USER_DAILY_USD:-}
+      - AI_BUDGET_REQUEST_MAX_USD=${AI_BUDGET_REQUEST_MAX_USD:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - LLM_TIMEOUT_MS=${LLM_TIMEOUT_MS:-120000}

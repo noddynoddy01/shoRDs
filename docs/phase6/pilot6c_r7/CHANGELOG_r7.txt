@@ -1,0 +1,61 @@
+shoRDs Phase 6C pilot kit - CHANGELOG r7 (replaces r6; r4, r5 and r6 are left untouched)
+=====================================================================================
+
+WHY r7 EXISTS
+The owner ran r6 on Windows PowerShell 5.1.26100.9818: package 27/27, parse 11/11, Test-AgentLogic 518/0, Test-Orchestrator 52/0, Test-FileOps 22/0, Dry Run A ok,
+Dry Run B (one-hour lease ended naturally), mailbox battery 18/18, all eight job types exercised, no llama-server, port 8080 free, no audit errors. One defect:
+  The audit log recorded nine job-rejected events (the ninth, the replay, at 2026-11-04T15:57:46.0147276Z); the agent-end record and the lease said
+  jobs_rejected 9, jobs_done 10, reason lease-ended. jobs\dryrun-complete.json still said rejected_seen 8 and last_utc 2026-11-04T15:57:42Z.
+
+ROOT CAUSE
+  Update-DryRunMarker was called from exactly two places: after an ACCEPTED job in Invoke-InboxCycle (and after each step in Invoke-PilotRun). A rejection
+  incremented the counter, wrote the audit line and the reject result, and moved the file, but never touched the marker; and nothing wrote the marker when the
+  agent shut down. So the marker held the counters as they were at the last accepted job (15:57:42Z, eight rejections so far) and stayed there: the replay
+  rejection that followed (15:57:46Z) and the end of the run never reached it. The agent's own counters, the audit log and the lease were correct.
+
+CHANGES (minimal)
+  Phase6C.Lib.ps1 (pure logic)
+    - New Get-NextMarker: the next marker from the previous one and one event (start | job | reject | end). New Get-MarkerProblem: compares a marker with the
+      run's own counters (missing | run-id | state | rejected-count | jobs-done-count). New Format-MarkerTime. Version 'r7.0', P6C.MarkerSchema / MarkerRev.
+  Phase6C.Runtime.ps1
+    - Update-DryRunMarker takes an event (default 'job', so every old call still works) and writes through Write-AtomicJson. It runs for start, every accepted
+      job, EVERY REJECTION and the end of the run. A failure is caught, counted (St.MarkerErrors), written to the audit log as 'marker-error', and never silent.
+    - New Confirm-DryRunMarker: reads the marker back after the final write and compares it with the run's counters; a mismatch counts as a marker error.
+    - New Complete-AgentSession: the one shutdown routine (agent-end audit line, final marker, read-back check, lease ended).
+    - Invoke-InboxCycle calls Update-DryRunMarker -Event 'reject' right after the counter, the audit line and the reject result, before the file is moved.
+    - Initialize-PilotContext creates the run id (sess-YYYYMMDD-HHMMSS-xxxxxx) and the marker counters. Update-Lease adds run_id and marker_errors.
+  Pilot-Agent.ps1
+    - Writes the 'start' marker (new run id, state running, counters 0) right after agent-start. The exit reason now starts as 'aborted' and becomes
+      lease-ended / stop-file / cycle-errors only when the loop leaves by one of its own exits (r6 reported Ctrl+C as 'lease-ended').
+    - The finally block calls Complete-AgentSession (nested try/finally, so it also runs if stopping the server throws), prints a WARNING when marker problems
+      occurred, and the script exits with code 6.
+  Invoke-PilotRun.ps1
+    - 'start' marker after the key; 'end' marker + read-back in the finally block (end reason run-complete / run-error); a failure while stopping the server
+      is recorded as the run's error instead of aborting the finally block; report gains marker_run_id. A marker problem prints a warning and exits with
+      code 6 (a failed run still exits 1; a gate refusal with a marker problem exits 6 after printing the refusal). Gate refusal alone is still exit code 5.
+  Test-AgentLogic.ps1: runs vectors\marker-vectors.json (12 sequences incl. the exact r6 timeline, 6 problem cases) against Get-NextMarker / Get-MarkerProblem.
+  Test-FileOps.ps1: real files and real functions: eight then nine rejections, the replay, the end of the run, the Ctrl+C routine, a second run, a locked
+    marker file (write failure surfaced). All r6 checks are kept.
+  Python: pilot_core.next_marker / marker_problem (twins), gen_vectors.py writes marker-vectors.json, 26 new tests (71 -> 97), README_FIRST.txt, build script.
+
+MARKER FILE - jobs\dryrun-complete.json (compatible; additions only)
+  Kept with the same meaning: schema ("shords-pilot-dryrun/1"), agent_version, first_utc, last_utc, types_ok, rejected_seen.
+  Added: marker_rev (2), run_id, state ("running" | "ended"), run_started_utc, event_seq, ended_utc, end_reason, jobs_done.
+  Definitions: last_utc = UTC time (1-second resolution) of the most recent marker write, i.e. the last accepted job, the last rejection, or the end of the run.
+  event_seq counts the writes of the run (1 at start) and advances on every event even inside the same second. rejected_seen / jobs_done are the run's own counters
+  (the same numbers as jobs_rejected / jobs_done in the lease and in agent-end). types_ok and first_utc accumulate over all runs of the same agent version
+  (an r4/r5/r6 marker never counts). A new run replaces run_id, state and counters at once, so the previous run's marker can not pass for the latest run.
+  A closed window leaves state "running" (no end_reason): that is how an unfinished run shows.
+
+AUDIT LOG / LEASE (compatible; additions only)
+  agent-start gains run_id; agent-end keeps reason, jobs_done, jobs_rejected and gains run_id (reason may now be 'aborted'); run-start / run-end gain run_id;
+  new event 'marker-error' {event, error}. Lease gains run_id and marker_errors. No existing key was renamed, removed or re-defined. jobs_done and jobs_rejected
+  mean exactly what they meant. The Live gate (Test-DryRunMarker) is unchanged: version-bound, the required job types, not older than 7 days.
+
+UNCHANGED: every safety control (HMAC-SHA256, replay protection, allowlist, strict JSON, parameter validation, resource gates and their numbers, loopback only,
+API-key handling, emergency shutdown, lease expiry, kill-on-close, audit logging, path guard), the job types, Phase6B.Common.ps1, Parse-Check.ps1,
+Verify-Kit.ps1, Test-Orchestrator.ps1, Rollback-6C.ps1, all older vectors, pilot_submit.py.
+
+NOT DONE / STILL TRUE
+  - Nothing in r7 has been executed on any PowerShell by its author (none is available in the sandbox). The first execution is the owner's.
+  - Ctrl+C is handled by the finally block (PowerShell runs it on Ctrl+C); closing the window or killing the process skips every finally block, by design of Windows.

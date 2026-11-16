@@ -222,20 +222,46 @@ function classifyHttpError(statusCode, bodyText, headers = {}) {
   return new ClientError(category, `HTTP ${statusCode}${summary ? `: ${summary}` : ""}`, details);
 }
 
+const PRICE_VAR_IN = "ANTHROPIC_PRICE_INPUT_PER_MTOK";
+const PRICE_VAR_OUT = "ANTHROPIC_PRICE_OUTPUT_PER_MTOK";
+const isBlank = (v) => v === undefined || v === null || String(v).trim() === "";
+// plain decimal only: "1e3", "0x10", "Infinity", "-2", "" and " " are not prices
+const PRICE_RE = /^\d+(?:\.\d+)?$/;
+
 /**
- * USD per million tokens for a model, or `null` when no verified price exists. Both ANTHROPIC_PRICE_* variables together
- * override the table (an operator-supplied price). Shared by cost reporting and by the pre-call budget gate, so a model that
- * cannot be priced is the same model that cannot be budgeted (the gate then refuses to call it).
+ * The operator's price override, checked. Returns { state, input, output, reason }:
+ *   UNSET    both variables absent or blank: no override (a blank variable is "not set", as everywhere else in the config);
+ *   VALID    both are plain positive decimal numbers: the override applies;
+ *   INVALID  anything else (only one set, zero, negative, non-numeric, non-finite): never applied, `reason` says why.
+ * Zero is invalid on purpose: a model priced at 0 has a worst-case cost of 0, so the per-request and daily ceilings could not
+ * bind and every call would look free. No real model is free, so "0" is always a mistake.
+ */
+function parsePriceOverride(env = process.env) {
+  const rawIn = env[PRICE_VAR_IN];
+  const rawOut = env[PRICE_VAR_OUT];
+  if (isBlank(rawIn) && isBlank(rawOut)) return { state: "UNSET" };
+  if (isBlank(rawIn) || isBlank(rawOut)) return { state: "INVALID", reason: `${PRICE_VAR_IN} and ${PRICE_VAR_OUT} must both be set (or both left empty)` };
+  const sIn = String(rawIn).trim();
+  const sOut = String(rawOut).trim();
+  const input = PRICE_RE.test(sIn) ? Number(sIn) : NaN;
+  const output = PRICE_RE.test(sOut) ? Number(sOut) : NaN;
+  if (!Number.isFinite(input) || !Number.isFinite(output) || input <= 0 || output <= 0) {
+    return { state: "INVALID", reason: `${PRICE_VAR_IN} and ${PRICE_VAR_OUT} must both be positive decimal numbers (USD per million tokens); 0, negative and non-numeric values are not accepted` };
+  }
+  return { state: "VALID", input, output };
+}
+
+/**
+ * USD per million tokens for a model, or `null` when no verified price exists. A VALID override (both variables, see
+ * parsePriceOverride) replaces the built-in price of EVERY model, known or not; an unset or invalid override changes nothing, so
+ * a model without a built-in price stays unpriced (and the budget gate refuses it) and a known model keeps its real price.
+ * A free price is never produced. Shared by cost reporting and by the pre-call budget gate.
  */
 function resolvePrice(model, env = process.env) {
-  let price = PRICING_PER_MTOK[model] || null;
-  const overrideIn = Number(env.ANTHROPIC_PRICE_INPUT_PER_MTOK);
-  const overrideOut = Number(env.ANTHROPIC_PRICE_OUTPUT_PER_MTOK);
-  if (env.ANTHROPIC_PRICE_INPUT_PER_MTOK !== undefined && env.ANTHROPIC_PRICE_OUTPUT_PER_MTOK !== undefined &&
-      Number.isFinite(overrideIn) && Number.isFinite(overrideOut) && overrideIn >= 0 && overrideOut >= 0) {
-    price = { input: overrideIn, output: overrideOut };
-  }
-  return price;
+  const override = parsePriceOverride(env);
+  if (override.state === "VALID") return { input: override.input, output: override.output };
+  // own properties only: a model named "constructor" or "__proto__" must not resolve to something on Object.prototype
+  return typeof model === "string" && Object.prototype.hasOwnProperty.call(PRICING_PER_MTOK, model) ? PRICING_PER_MTOK[model] : null;
 }
 
 /** Cost estimate from reported usage and a verified price; `null` when either is unavailable. */
@@ -243,8 +269,36 @@ function computeCost(model, usage, env = process.env) {
   if (!usage) return { costUsd: null, costStatus: "NOT_AVAILABLE" };
   const price = resolvePrice(model, env);
   if (!price) return { costUsd: null, costStatus: "NOT_AVAILABLE" };
-  const costUsd = (usage.inputTokens / 1e6) * price.input + (usage.outputTokens / 1e6) * price.output;
-  return { costUsd: Number(costUsd.toFixed(6)), costStatus: "ESTIMATED" };
+  const micro = costMicroUsd(usage, price);
+  if (micro === null) return { costUsd: null, costStatus: "NOT_AVAILABLE" };
+  return { costUsd: micro / 1e6, costStatus: "ESTIMATED" };
+}
+
+/**
+ * Cost of one call in WHOLE micro-USD, rounded UP, or null when it cannot be computed.
+ *
+ * Units: a price in USD per million tokens is numerically the price per token in micro-USD (1 micro-USD = $0.000001), so
+ * `tokens * price` is already micro-USD. Micro-USD is also the finest unit anywhere downstream: the budget gate counts integer
+ * micro-USD, and the ledger and this function report six decimals of a dollar. A call can therefore only be charged in whole
+ * micro-USD, and the rounding direction decides whether a ceiling can be undercut. Rounding to nearest (the previous behaviour)
+ * turns any call that costs under half a micro-USD into a cost of 0, which a very small price makes routine (price 0.001, 500
+ * tokens = 0.5 micro-USD -> 0) and then no ceiling ever fills. Rounding up can only over-charge, by less than 1 micro-USD per
+ * call, so every positive price is safe without inventing a minimum price; a call that used tokens at a positive price always
+ * costs at least 1 micro-USD.
+ * The tolerance only forgives binary floating-point noise just above a whole number (7000.000000000001 must not become 7001):
+ * a relative 1e-12, about four orders of magnitude above double rounding error and far below any real fraction of a micro-USD.
+ */
+function costMicroUsd(usage, price) {
+  const raw = usage.inputTokens * price.input + usage.outputTokens * price.output;
+  if (!Number.isFinite(raw) || raw < 0) return null;
+  return ceilMicro(raw);
+}
+
+/** A micro-USD amount rounded up to a whole number, forgiving only floating-point noise just above an integer. Shared with the budget gate. */
+function ceilMicro(micro) {
+  const nearest = Math.round(micro);
+  if (nearest >= 1 && Math.abs(micro - nearest) <= nearest * 1e-12) return nearest;
+  return Math.ceil(micro);
 }
 
 /** Default transport: one HTTPS request with an overall deadline. Resolves with { statusCode, headers, body }. */
@@ -409,7 +463,10 @@ module.exports = {
   parseMessageResponse,
   classifyHttpError,
   computeCost,
+  costMicroUsd,
+  ceilMicro,
   resolvePrice,
+  parsePriceOverride,
   httpsTransport,
   httpsGetTransport,
   probeModel,

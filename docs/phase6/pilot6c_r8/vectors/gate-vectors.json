@@ -1,0 +1,1202 @@
+{
+ "cases": [
+  {
+   "ctx": 4096,
+   "failed": [],
+   "m": {
+    "avail_ram_gib": 8.5,
+    "disk_free_gib": 120.0,
+    "exe_ok": true,
+    "foreign_server": false,
+    "model_ok": true,
+    "own_server": false,
+    "port_free": true,
+    "vram_free_mib": 3300
+   },
+   "name": "all-good-8-4096",
+   "names": [
+    "params-in-range",
+    "exe-matches-record",
+    "model-matches-record",
+    "ram",
+    "vram",
+    "disk",
+    "port-free",
+    "no-foreign-server",
+    "no-own-server"
+   ],
+   "ngl": 8
+  },
+  {
+   "ctx": 4096,
+   "failed": [
+    "ram"
+   ],
+   "m": {
+    "avail_ram_gib": 6.4,
+    "disk_free_gib": 120.0,
+    "exe_ok": true,
+    "foreign_server": false,
+    "model_ok": true,
+    "own_server": false,
+    "port_free": true,
+    "vram_free_mib": 3300
+   },
+   "name": "ram-low",
+   "names": [
+    "params-in-range",
+    "exe-matches-record",
+    "model-matches-record",
+    "ram",
+    "vram",
+    "disk",
+    "port-free",
+    "no-foreign-server",
+    "no-own-server"
+   ],
+   "ngl": 8
+  },
+  {
+   "ctx": 4096,
+   "failed": [],
+   "m": {
+    "avail_ram_gib": 6.5,
+    "disk_free_gib": 120.0,
+    "exe_ok": true,
+    "foreign_server": false,
+    "model_ok": true,
+    "own_server": false,
+    "port_free": true,
+    "vram_free_mib": 3300
+   },
+   "name": "ram-exact",
+   "names": [
+    "params-in-range",
+    "exe-matches-record",
+    "model-matches-record",
+    "ram",
+    "vram",
+    "disk",
+    "port-free",
+    "no-foreign-server",
+    "no-own-server"
+   ],
+   "ngl": 8
+  },
+  {
+   "ctx": 4096,
+   "failed": [
+    "ram"
+   ],
+   "m": {
+    "avail_ram_gib": null,
+    "disk_free_gib": 120.0,
+    "exe_ok": true,
+    "foreign_server": false,
+    "model_ok": true,
+    "own_server": false,
+    "port_free": true,
+    "vram_free_mib": 3300
+   },
+   "name": "ram-unknown",
+   "names": [
+    "params-in-range",
+    "exe-matches-record",
+    "model-matches-record",
+    "ram",
+    "vram",
+    "disk",
+    "port-free",
+    "no-foreign-server",
+    "no-own-server"
+   ],
+   "ngl": 8
+  },
+  {
+   "ctx": 8192,
+   "failed": [
+    "ram"
+   ],
+   "m": {
+    "avail_ram_gib": 7.6,
+    "disk_free_gib": 120.0,
+    "exe_ok": true,
+    "foreign_server": false,
+    "model_ok": true,
+    "own_server": false,
+    "port_free": true,
+    "vram_free_mib": 3300
+   },
+   "name": "ram-8192-short",
+   "names": [
+    "params-in-range",
+    "exe-matches-record",
+    "model-matches-record",
+    "ram",
+    "vram",
+    "disk",
+    "port-free",
+    "no-foreign-server",
+    "no-own-server"
+   ],
+   "ngl": 8
+  },
+  {
+   "ctx": 8192,
+   "failed": [],
+   "m": {
+    "avail_ram_gib": 7.7,
+    "disk_free_gib": 120.0,
+    "exe_ok": true,
+    "foreign_server": false,
+    "model_ok": true,
+    "own_server": false,
+    "port_free": true,
+    "vram_free_mib": 3300
+   },
+   "name": "ram-8192-ok",
+   "names": [
+    "params-in-range",
+    "exe-matches-record",
+    "model-matches-record",
+    "ram",
+    "vram",
+    "disk",
+    "port-free",
+    "no-foreign-server",
+    "no-own-server"
+   ],
+   "ngl": 8
+  },
+  {
+   "ctx": 12288,
+   "failed": [
+    "ram"
+   ],
+   "m": {
+    "avail_ram_gib": 8.8,
+    "disk_free_gib": 120.0,
+    "exe_ok": true,
+    "foreign_server": false,
+    "model_ok": true,
+    "own_server": false,
+    "port_free": true,
+    "vram_free_mib": 3300
+   },
+   "name": "ram-12288-short",
+   "names": [
+    "params-in-range",
+    "exe-matches-record",
+    "model-matches-record",
+    "ram",
+    "vram",
+    "disk",
+    "port-free",
+    "no-foreign-server",
+    "no-own-server"
+   ],
+   "ngl": 8
+  },
+  {
+   "ctx": 12288,
+   "failed": [],
+   "m": {
+    "avail_ram_gib": 8.9,
+    "disk_free_gib": 120.0,
+    "exe_ok": true,
+    "foreign_server": false,
+    "model_ok": true,
+    "own_server": false,
+    "port_free": true,
+    "vram_free_mib": 3300
+   },
+   "name": "ram-12288-ok",
+   "names": [
+    "params-in-range",
+    "exe-matches-record",
+    "model-matches-record",
+    "ram",
+    "vram",
+    "disk",
+    "port-free",
+    "no-foreign-server",
+    "no-own-server"
+   ],
+   "ngl": 8
+  },
+  {
+   "ctx": 4096,
+   "failed": [
+    "vram"
+   ],
+   "m": {
+    "avail_ram_gib": 8.5,
+    "disk_free_gib": 120.0,
+    "exe_ok": true,
+    "foreign_server": false,
+    "model_ok": true,
+    "own_server": false,
+    "port_free": true,
+    "vram_free_mib": 2057
+   },
+   "name": "vram-short-8",
+   "names": [
+    "params-in-range",
+    "exe-matches-record",
+    "model-matches-record",
+    "ram",
+    "vram",
+    "disk",
+    "port-free",
+    "no-foreign-server",
+    "no-own-server"
+   ],
+   "ngl": 8
+  },
+  {
+   "ctx": 4096,
+   "failed": [],
+   "m": {
+    "avail_ram_gib": 8.5,
+    "disk_free_gib": 120.0,
+    "exe_ok": true,
+    "foreign_server": false,
+    "model_ok": true,
+    "own_server": false,
+    "port_free": true,
+    "vram_free_mib": 2058
+   },
+   "name": "vram-exact-8",
+   "names": [
+    "params-in-range",
+    "exe-matches-record",
+    "model-matches-record",
+    "ram",
+    "vram",
+    "disk",
+    "port-free",
+    "no-foreign-server",
+    "no-own-server"
+   ],
+   "ngl": 8
+  },
+  {
+   "ctx": 4096,
+   "failed": [
+    "vram"
+   ],
+   "m": {
+    "avail_ram_gib": 8.5,
+    "disk_free_gib": 120.0,
+    "exe_ok": true,
+    "foreign_server": false,
+    "model_ok": true,
+    "own_server": false,
+    "port_free": true,
+    "vram_free_mib": 3200
+   },
+   "name": "vram-16-refused",
+   "names": [
+    "params-in-range",
+    "exe-matches-record",
+    "model-matches-record",
+    "ram",
+    "vram",
+    "disk",
+    "port-free",
+    "no-foreign-server",
+    "no-own-server"
+   ],
+   "ngl": 16
+  },
+  {
+   "ctx": 4096,
+   "failed": [],
+   "m": {
+    "avail_ram_gib": 8.5,
+    "disk_free_gib": 120.0,
+    "exe_ok": true,
+    "foreign_server": false,
+    "model_ok": true,
+    "own_server": false,
+    "port_free": true,
+    "vram_free_mib": 3266
+   },
+   "name": "vram-16-ok",
+   "names": [
+    "params-in-range",
+    "exe-matches-record",
+    "model-matches-record",
+    "ram",
+    "vram",
+    "disk",
+    "port-free",
+    "no-foreign-server",
+    "no-own-server"
+   ],
+   "ngl": 16
+  },
+  {
+   "ctx": 8192,
+   "failed": [
+    "vram"
+   ],
+   "m": {
+    "avail_ram_gib": 8.5,
+    "disk_free_gib": 120.0,
+    "exe_ok": true,
+    "foreign_server": false,
+    "model_ok": true,
+    "own_server": false,
+    "port_free": true,
+    "vram_free_mib": 3900
+   },
+   "name": "vram-20-8192",
+   "names": [
+    "params-in-range",
+    "exe-matches-record",
+    "model-matches-record",
+    "ram",
+    "vram",
+    "disk",
+    "port-free",
+    "no-foreign-server",
+    "no-own-server"
+   ],
+   "ngl": 20
+  },
+  {
+   "ctx": 4096,
+   "failed": [],
+   "m": {
+    "avail_ram_gib": 8.5,
+    "disk_free_gib": 120.0,
+    "exe_ok": true,
+    "foreign_server": false,
+    "model_ok": true,
+    "own_server": false,
+    "port_free": true,
+    "vram_free_mib": null
+   },
+   "name": "vram-no-smi-ngl0",
+   "names": [
+    "params-in-range",
+    "exe-matches-record",
+    "model-matches-record",
+    "ram",
+    "vram",
+    "disk",
+    "port-free",
+    "no-foreign-server",
+    "no-own-server"
+   ],
+   "ngl": 0
+  },
+  {
+   "ctx": 4096,
+   "failed": [
+    "vram"
+   ],
+   "m": {
+    "avail_ram_gib": 8.5,
+    "disk_free_gib": 120.0,
+    "exe_ok": true,
+    "foreign_server": false,
+    "model_ok": true,
+    "own_server": false,
+    "port_free": true,
+    "vram_free_mib": null
+   },
+   "name": "vram-no-smi-ngl8",
+   "names": [
+    "params-in-range",
+    "exe-matches-record",
+    "model-matches-record",
+    "ram",
+    "vram",
+    "disk",
+    "port-free",
+    "no-foreign-server",
+    "no-own-server"
+   ],
+   "ngl": 8
+  },
+  {
+   "ctx": 4096,
+   "failed": [
+    "disk"
+   ],
+   "m": {
+    "avail_ram_gib": 8.5,
+    "disk_free_gib": 19.9,
+    "exe_ok": true,
+    "foreign_server": false,
+    "model_ok": true,
+    "own_server": false,
+    "port_free": true,
+    "vram_free_mib": 3300
+   },
+   "name": "disk-low",
+   "names": [
+    "params-in-range",
+    "exe-matches-record",
+    "model-matches-record",
+    "ram",
+    "vram",
+    "disk",
+    "port-free",
+    "no-foreign-server",
+    "no-own-server"
+   ],
+   "ngl": 8
+  },
+  {
+   "ctx": 4096,
+   "failed": [],
+   "m": {
+    "avail_ram_gib": 8.5,
+    "disk_free_gib": 20.0,
+    "exe_ok": true,
+    "foreign_server": false,
+    "model_ok": true,
+    "own_server": false,
+    "port_free": true,
+    "vram_free_mib": 3300
+   },
+   "name": "disk-exact",
+   "names": [
+    "params-in-range",
+    "exe-matches-record",
+    "model-matches-record",
+    "ram",
+    "vram",
+    "disk",
+    "port-free",
+    "no-foreign-server",
+    "no-own-server"
+   ],
+   "ngl": 8
+  },
+  {
+   "ctx": 4096,
+   "failed": [
+    "disk"
+   ],
+   "m": {
+    "avail_ram_gib": 8.5,
+    "disk_free_gib": null,
+    "exe_ok": true,
+    "foreign_server": false,
+    "model_ok": true,
+    "own_server": false,
+    "port_free": true,
+    "vram_free_mib": 3300
+   },
+   "name": "disk-unknown",
+   "names": [
+    "params-in-range",
+    "exe-matches-record",
+    "model-matches-record",
+    "ram",
+    "vram",
+    "disk",
+    "port-free",
+    "no-foreign-server",
+    "no-own-server"
+   ],
+   "ngl": 8
+  },
+  {
+   "ctx": 4096,
+   "failed": [
+    "port-free"
+   ],
+   "m": {
+    "avail_ram_gib": 8.5,
+    "disk_free_gib": 120.0,
+    "exe_ok": true,
+    "foreign_server": false,
+    "model_ok": true,
+    "own_server": false,
+    "port_free": false,
+    "vram_free_mib": 3300
+   },
+   "name": "port-busy",
+   "names": [
+    "params-in-range",
+    "exe-matches-record",
+    "model-matches-record",
+    "ram",
+    "vram",
+    "disk",
+    "port-free",
+    "no-foreign-server",
+    "no-own-server"
+   ],
+   "ngl": 8
+  },
+  {
+   "ctx": 4096,
+   "failed": [
+    "no-foreign-server"
+   ],
+   "m": {
+    "avail_ram_gib": 8.5,
+    "disk_free_gib": 120.0,
+    "exe_ok": true,
+    "foreign_server": true,
+    "model_ok": true,
+    "own_server": false,
+    "port_free": true,
+    "vram_free_mib": 3300
+   },
+   "name": "foreign",
+   "names": [
+    "params-in-range",
+    "exe-matches-record",
+    "model-matches-record",
+    "ram",
+    "vram",
+    "disk",
+    "port-free",
+    "no-foreign-server",
+    "no-own-server"
+   ],
+   "ngl": 8
+  },
+  {
+   "ctx": 4096,
+   "failed": [
+    "no-own-server"
+   ],
+   "m": {
+    "avail_ram_gib": 8.5,
+    "disk_free_gib": 120.0,
+    "exe_ok": true,
+    "foreign_server": false,
+    "model_ok": true,
+    "own_server": true,
+    "port_free": true,
+    "vram_free_mib": 3300
+   },
+   "name": "own-running",
+   "names": [
+    "params-in-range",
+    "exe-matches-record",
+    "model-matches-record",
+    "ram",
+    "vram",
+    "disk",
+    "port-free",
+    "no-foreign-server",
+    "no-own-server"
+   ],
+   "ngl": 8
+  },
+  {
+   "ctx": 4096,
+   "failed": [
+    "exe-matches-record"
+   ],
+   "m": {
+    "avail_ram_gib": 8.5,
+    "disk_free_gib": 120.0,
+    "exe_ok": false,
+    "foreign_server": false,
+    "model_ok": true,
+    "own_server": false,
+    "port_free": true,
+    "vram_free_mib": 3300
+   },
+   "name": "exe-bad",
+   "names": [
+    "params-in-range",
+    "exe-matches-record",
+    "model-matches-record",
+    "ram",
+    "vram",
+    "disk",
+    "port-free",
+    "no-foreign-server",
+    "no-own-server"
+   ],
+   "ngl": 8
+  },
+  {
+   "ctx": 4096,
+   "failed": [
+    "model-matches-record"
+   ],
+   "m": {
+    "avail_ram_gib": 8.5,
+    "disk_free_gib": 120.0,
+    "exe_ok": true,
+    "foreign_server": false,
+    "model_ok": false,
+    "own_server": false,
+    "port_free": true,
+    "vram_free_mib": 3300
+   },
+   "name": "model-bad",
+   "names": [
+    "params-in-range",
+    "exe-matches-record",
+    "model-matches-record",
+    "ram",
+    "vram",
+    "disk",
+    "port-free",
+    "no-foreign-server",
+    "no-own-server"
+   ],
+   "ngl": 8
+  },
+  {
+   "ctx": 4096,
+   "failed": [
+    "params-in-range",
+    "vram"
+   ],
+   "m": {
+    "avail_ram_gib": 8.5,
+    "disk_free_gib": 120.0,
+    "exe_ok": true,
+    "foreign_server": false,
+    "model_ok": true,
+    "own_server": false,
+    "port_free": true,
+    "vram_free_mib": 3300
+   },
+   "name": "ngl-out-of-range",
+   "names": [
+    "params-in-range",
+    "exe-matches-record",
+    "model-matches-record",
+    "ram",
+    "vram",
+    "disk",
+    "port-free",
+    "no-foreign-server",
+    "no-own-server"
+   ],
+   "ngl": 21
+  },
+  {
+   "ctx": 5000,
+   "failed": [
+    "params-in-range"
+   ],
+   "m": {
+    "avail_ram_gib": 8.5,
+    "disk_free_gib": 120.0,
+    "exe_ok": true,
+    "foreign_server": false,
+    "model_ok": true,
+    "own_server": false,
+    "port_free": true,
+    "vram_free_mib": 3300
+   },
+   "name": "ctx-out-of-range",
+   "names": [
+    "params-in-range",
+    "exe-matches-record",
+    "model-matches-record",
+    "ram",
+    "vram",
+    "disk",
+    "port-free",
+    "no-foreign-server",
+    "no-own-server"
+   ],
+   "ngl": 8
+  },
+  {
+   "ctx": 4096,
+   "failed": [
+    "exe-matches-record",
+    "model-matches-record",
+    "ram",
+    "vram",
+    "disk",
+    "port-free",
+    "no-foreign-server",
+    "no-own-server"
+   ],
+   "m": {
+    "avail_ram_gib": 1.0,
+    "disk_free_gib": 1,
+    "exe_ok": false,
+    "foreign_server": true,
+    "model_ok": false,
+    "own_server": true,
+    "port_free": false,
+    "vram_free_mib": 100
+   },
+   "name": "many-failures",
+   "names": [
+    "params-in-range",
+    "exe-matches-record",
+    "model-matches-record",
+    "ram",
+    "vram",
+    "disk",
+    "port-free",
+    "no-foreign-server",
+    "no-own-server"
+   ],
+   "ngl": 8
+  }
+ ],
+ "policy": {
+  "disk_min_gib": 20,
+  "port": 8080,
+  "ram_base_gib": 6.5,
+  "ram_floor_gib": 1.0,
+  "ram_per_4096_ctx_gib": 1.2,
+  "vram_hard_limit_mib": 3700,
+  "vram_margin_mib": 250
+ },
+ "table": [
+  {
+   "ctx": 4096,
+   "est": 600,
+   "need": 850,
+   "ngl": 0,
+   "ram": 6.5
+  },
+  {
+   "ctx": 4096,
+   "est": 751,
+   "need": 1001,
+   "ngl": 1,
+   "ram": 6.5
+  },
+  {
+   "ctx": 4096,
+   "est": 902,
+   "need": 1152,
+   "ngl": 2,
+   "ram": 6.5
+  },
+  {
+   "ctx": 4096,
+   "est": 1053,
+   "need": 1303,
+   "ngl": 3,
+   "ram": 6.5
+  },
+  {
+   "ctx": 4096,
+   "est": 1204,
+   "need": 1454,
+   "ngl": 4,
+   "ram": 6.5
+  },
+  {
+   "ctx": 4096,
+   "est": 1355,
+   "need": 1605,
+   "ngl": 5,
+   "ram": 6.5
+  },
+  {
+   "ctx": 4096,
+   "est": 1506,
+   "need": 1756,
+   "ngl": 6,
+   "ram": 6.5
+  },
+  {
+   "ctx": 4096,
+   "est": 1657,
+   "need": 1907,
+   "ngl": 7,
+   "ram": 6.5
+  },
+  {
+   "ctx": 4096,
+   "est": 1808,
+   "need": 2058,
+   "ngl": 8,
+   "ram": 6.5
+  },
+  {
+   "ctx": 4096,
+   "est": 1959,
+   "need": 2209,
+   "ngl": 9,
+   "ram": 6.5
+  },
+  {
+   "ctx": 4096,
+   "est": 2110,
+   "need": 2360,
+   "ngl": 10,
+   "ram": 6.5
+  },
+  {
+   "ctx": 4096,
+   "est": 2261,
+   "need": 2511,
+   "ngl": 11,
+   "ram": 6.5
+  },
+  {
+   "ctx": 4096,
+   "est": 2412,
+   "need": 2662,
+   "ngl": 12,
+   "ram": 6.5
+  },
+  {
+   "ctx": 4096,
+   "est": 2563,
+   "need": 2813,
+   "ngl": 13,
+   "ram": 6.5
+  },
+  {
+   "ctx": 4096,
+   "est": 2714,
+   "need": 2964,
+   "ngl": 14,
+   "ram": 6.5
+  },
+  {
+   "ctx": 4096,
+   "est": 2865,
+   "need": 3115,
+   "ngl": 15,
+   "ram": 6.5
+  },
+  {
+   "ctx": 4096,
+   "est": 3016,
+   "need": 3266,
+   "ngl": 16,
+   "ram": 6.5
+  },
+  {
+   "ctx": 4096,
+   "est": 3167,
+   "need": 3417,
+   "ngl": 17,
+   "ram": 6.5
+  },
+  {
+   "ctx": 4096,
+   "est": 3318,
+   "need": 3568,
+   "ngl": 18,
+   "ram": 6.5
+  },
+  {
+   "ctx": 4096,
+   "est": 3469,
+   "need": 3719,
+   "ngl": 19,
+   "ram": 6.5
+  },
+  {
+   "ctx": 4096,
+   "est": 3620,
+   "need": 3870,
+   "ngl": 20,
+   "ram": 6.5
+  },
+  {
+   "ctx": 8192,
+   "est": 600,
+   "need": 850,
+   "ngl": 0,
+   "ram": 7.7
+  },
+  {
+   "ctx": 8192,
+   "est": 767,
+   "need": 1017,
+   "ngl": 1,
+   "ram": 7.7
+  },
+  {
+   "ctx": 8192,
+   "est": 934,
+   "need": 1184,
+   "ngl": 2,
+   "ram": 7.7
+  },
+  {
+   "ctx": 8192,
+   "est": 1101,
+   "need": 1351,
+   "ngl": 3,
+   "ram": 7.7
+  },
+  {
+   "ctx": 8192,
+   "est": 1268,
+   "need": 1518,
+   "ngl": 4,
+   "ram": 7.7
+  },
+  {
+   "ctx": 8192,
+   "est": 1435,
+   "need": 1685,
+   "ngl": 5,
+   "ram": 7.7
+  },
+  {
+   "ctx": 8192,
+   "est": 1602,
+   "need": 1852,
+   "ngl": 6,
+   "ram": 7.7
+  },
+  {
+   "ctx": 8192,
+   "est": 1769,
+   "need": 2019,
+   "ngl": 7,
+   "ram": 7.7
+  },
+  {
+   "ctx": 8192,
+   "est": 1936,
+   "need": 2186,
+   "ngl": 8,
+   "ram": 7.7
+  },
+  {
+   "ctx": 8192,
+   "est": 2103,
+   "need": 2353,
+   "ngl": 9,
+   "ram": 7.7
+  },
+  {
+   "ctx": 8192,
+   "est": 2270,
+   "need": 2520,
+   "ngl": 10,
+   "ram": 7.7
+  },
+  {
+   "ctx": 8192,
+   "est": 2437,
+   "need": 2687,
+   "ngl": 11,
+   "ram": 7.7
+  },
+  {
+   "ctx": 8192,
+   "est": 2604,
+   "need": 2854,
+   "ngl": 12,
+   "ram": 7.7
+  },
+  {
+   "ctx": 8192,
+   "est": 2771,
+   "need": 3021,
+   "ngl": 13,
+   "ram": 7.7
+  },
+  {
+   "ctx": 8192,
+   "est": 2938,
+   "need": 3188,
+   "ngl": 14,
+   "ram": 7.7
+  },
+  {
+   "ctx": 8192,
+   "est": 3105,
+   "need": 3355,
+   "ngl": 15,
+   "ram": 7.7
+  },
+  {
+   "ctx": 8192,
+   "est": 3272,
+   "need": 3522,
+   "ngl": 16,
+   "ram": 7.7
+  },
+  {
+   "ctx": 8192,
+   "est": 3439,
+   "need": 3689,
+   "ngl": 17,
+   "ram": 7.7
+  },
+  {
+   "ctx": 8192,
+   "est": 3606,
+   "need": 3856,
+   "ngl": 18,
+   "ram": 7.7
+  },
+  {
+   "ctx": 8192,
+   "est": 3773,
+   "need": 4023,
+   "ngl": 19,
+   "ram": 7.7
+  },
+  {
+   "ctx": 8192,
+   "est": 3940,
+   "need": 4190,
+   "ngl": 20,
+   "ram": 7.7
+  },
+  {
+   "ctx": 12288,
+   "est": 600,
+   "need": 850,
+   "ngl": 0,
+   "ram": 8.9
+  },
+  {
+   "ctx": 12288,
+   "est": 783,
+   "need": 1033,
+   "ngl": 1,
+   "ram": 8.9
+  },
+  {
+   "ctx": 12288,
+   "est": 966,
+   "need": 1216,
+   "ngl": 2,
+   "ram": 8.9
+  },
+  {
+   "ctx": 12288,
+   "est": 1149,
+   "need": 1399,
+   "ngl": 3,
+   "ram": 8.9
+  },
+  {
+   "ctx": 12288,
+   "est": 1332,
+   "need": 1582,
+   "ngl": 4,
+   "ram": 8.9
+  },
+  {
+   "ctx": 12288,
+   "est": 1515,
+   "need": 1765,
+   "ngl": 5,
+   "ram": 8.9
+  },
+  {
+   "ctx": 12288,
+   "est": 1698,
+   "need": 1948,
+   "ngl": 6,
+   "ram": 8.9
+  },
+  {
+   "ctx": 12288,
+   "est": 1881,
+   "need": 2131,
+   "ngl": 7,
+   "ram": 8.9
+  },
+  {
+   "ctx": 12288,
+   "est": 2064,
+   "need": 2314,
+   "ngl": 8,
+   "ram": 8.9
+  },
+  {
+   "ctx": 12288,
+   "est": 2247,
+   "need": 2497,
+   "ngl": 9,
+   "ram": 8.9
+  },
+  {
+   "ctx": 12288,
+   "est": 2430,
+   "need": 2680,
+   "ngl": 10,
+   "ram": 8.9
+  },
+  {
+   "ctx": 12288,
+   "est": 2613,
+   "need": 2863,
+   "ngl": 11,
+   "ram": 8.9
+  },
+  {
+   "ctx": 12288,
+   "est": 2796,
+   "need": 3046,
+   "ngl": 12,
+   "ram": 8.9
+  },
+  {
+   "ctx": 12288,
+   "est": 2979,
+   "need": 3229,
+   "ngl": 13,
+   "ram": 8.9
+  },
+  {
+   "ctx": 12288,
+   "est": 3162,
+   "need": 3412,
+   "ngl": 14,
+   "ram": 8.9
+  },
+  {
+   "ctx": 12288,
+   "est": 3345,
+   "need": 3595,
+   "ngl": 15,
+   "ram": 8.9
+  },
+  {
+   "ctx": 12288,
+   "est": 3528,
+   "need": 3778,
+   "ngl": 16,
+   "ram": 8.9
+  },
+  {
+   "ctx": 12288,
+   "est": 3711,
+   "need": 3961,
+   "ngl": 17,
+   "ram": 8.9
+  },
+  {
+   "ctx": 12288,
+   "est": 3894,
+   "need": 4144,
+   "ngl": 18,
+   "ram": 8.9
+  },
+  {
+   "ctx": 12288,
+   "est": 4077,
+   "need": 4327,
+   "ngl": 19,
+   "ram": 8.9
+  },
+  {
+   "ctx": 12288,
+   "est": 4260,
+   "need": 4510,
+   "ngl": 20,
+   "ram": 8.9
+  }
+ ]
+}
