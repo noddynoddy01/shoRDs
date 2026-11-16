@@ -11,7 +11,7 @@ import {
   Dimensions
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useTheme, ThemeType, themes, FontScaleType, fontScaleNames } from "../context/ThemeContext";
+import { useTheme, ThemeChoice, THEME_OPTIONS, themes, FontScaleType, fontScaleNames } from "../context/ThemeContext";
 import { colors as defaultColors, radius } from "../constants/theme";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "../context/AuthContext";
@@ -30,13 +30,7 @@ type SettingsTrayProps = {
   onLogout?: () => void;
 };
 
-const themeOptions: { key: ThemeType; name: string; color: string; border: string }[] = [
-  { key: "dark", name: "Space (Dark)", color: "#0B1020", border: "rgba(103, 232, 249, 0.4)" },
-  { key: "light", name: "Clean (Light)", color: "#F8FAFC", border: "rgba(15, 23, 42, 0.2)" },
-  { key: "nord", name: "Frost (Nord)", color: "#2E3440", border: "#88C0D0" },
-  { key: "sepia", name: "Reading (Sepia)", color: "#F5ECD7", border: "#8B5A2B" },
-  { key: "emerald", name: "Matrix (Green)", color: "#062419", border: "#34D399" }
-];
+const themeOptions: { key: ThemeChoice; name: string; color: string; border: string }[] = THEME_OPTIONS.map((o) => ({ key: o.key, name: o.name, color: o.bg, border: o.accent }));
 
 const sizeOptions: { key: FontScaleType; label: string }[] = [
   { key: "small", label: "A-" },
@@ -46,7 +40,7 @@ const sizeOptions: { key: FontScaleType; label: string }[] = [
 ];
 
 export function SettingsTray({ visible, onClose, currentUserProfile, onProfileUpdate, onLogout }: SettingsTrayProps) {
-  const { theme, colors, setTheme, fontScaleType, setFontScale, fontSizeScale } = useTheme();
+  const { theme, themeChoice, colors, setTheme, fontScaleType, setFontScale, fontSizeScale } = useTheme();
 
   const styles = getStyles(colors, fontSizeScale);
   const { logout } = useAuth();
@@ -121,7 +115,7 @@ export function SettingsTray({ visible, onClose, currentUserProfile, onProfileUp
               <Text style={styles.sectionLabel}>App Color Theme</Text>
               <View style={styles.themeGrid}>
                 {themeOptions.map((opt) => {
-                  const isSelected = theme === opt.key;
+                  const isSelected = themeChoice === opt.key;
                   return (
                     <Pressable
                       key={opt.key}

@@ -4,7 +4,7 @@ import { ReactNode, useCallback } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { Screen } from "@/components/Screen";
 import { useLoad } from "@/components/social/useLoad";
-import { Avatar, Badge, Banner, Button, Card, Columns, EmptyState, FadeIn, Pills, Row, SectionHeader, SkeletonList, Stat } from "@/components/ui";
+import { Avatar, Badge, Banner, Button, Card, Columns, EmptyState, FadeIn, Pills, Row, SectionHeader, SkeletonList, Stat, ThemeButton } from "@/components/ui";
 import type { IconName } from "@/components/ui";
 import { spacing, tokens } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
@@ -76,6 +76,7 @@ export default function DashboardScreen() {
               <Text accessibilityRole="header" style={{ color: colors.text, fontSize: tokens.fontSize.xxl * k, fontWeight: tokens.weight.heavy, letterSpacing: -0.4 }} numberOfLines={1}>{title.greeting}</Text>
               <Text style={{ color: colors.muted, fontSize: tokens.fontSize.sm * k }}>{title.sub}</Text>
             </View>
+            <ThemeButton />
             <Pressable onPress={() => router.push("/notifications" as never)} accessibilityRole="button" accessibilityLabel={counters.notifications > 0 ? `Notifications, ${counters.notifications} unread` : "Notifications"} hitSlop={8} style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}>
               <Ionicons name="notifications-outline" size={24} color={colors.text} />
               {counters.notifications > 0 ? <View style={{ position: "absolute", top: 6, right: 4, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: tokens.danger, alignItems: "center", justifyContent: "center", paddingHorizontal: 4 }}><Text style={{ color: "#fff", fontSize: 10, fontWeight: tokens.weight.bold }}>{counters.notifications > 99 ? "99+" : counters.notifications}</Text></View> : null}

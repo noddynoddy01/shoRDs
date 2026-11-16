@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { Platform, useWindowDimensions } from "react-native";
+import { Appearance, Platform, useWindowDimensions } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { colors as defaultColors } from "../constants/theme";
 
@@ -62,6 +62,24 @@ export const themes = {
     overlay: "rgba(91, 70, 50, 0.4)",
     cardGradient: ["rgba(160,82,45,0.08)", "rgba(205,133,63,0.04)", "rgba(251,247,239,0.96)"]
   },
+  contrast: {
+    background: "#000000",
+    surface: "#0A0A0A",
+    card: "#121212",
+    cardElevated: "#1E1E1E",
+    ink: "#FFFFFF",
+    primary: "#FFD60A",
+    accent: "#4FD1FF",
+    accentSoft: "#9BE7FF",
+    success: "#3DDC84",
+    warning: "#FFB020",
+    text: "#FFFFFF",
+    muted: "#E5E7EB",
+    subdued: "#B6BCC6",
+    border: "rgba(255, 255, 255, 0.45)",
+    overlay: "rgba(0, 0, 0, 0.85)",
+    cardGradient: ["rgba(255,255,255,0.04)", "rgba(255,255,255,0.02)", "rgba(18,18,18,0.98)"]
+  },
   emerald: {
     background: "#062419",
     surface: "#0B3526",
@@ -83,6 +101,19 @@ export const themes = {
 };
 
 export type ThemeType = keyof typeof themes;
+/** What a person can pick: one of the themes, or "system" to follow the device's light/dark setting. */
+export type ThemeChoice = ThemeType | "system";
+
+/** Every choice with a plain name and swatch colours, in the order they are shown. Used by the appearance picker and the reader settings. */
+export const THEME_OPTIONS: { key: ThemeChoice; name: string; hint: string; bg: string; fg: string; accent: string }[] = [
+  { key: "dark", name: "Dark", hint: "Deep navy, easy at night", bg: "#030712", fg: "#FFFFFF", accent: "#3B82F6" },
+  { key: "light", name: "Light", hint: "Clean and bright", bg: "#F8FAFC", fg: "#0F172A", accent: "#3B82F6" },
+  { key: "system", name: "Match device", hint: "Follows your phone or computer", bg: "#F8FAFC", fg: "#0F172A", accent: "#030712" },
+  { key: "nord", name: "Nord", hint: "Soft arctic blue-grey", bg: "#2E3440", fg: "#ECEFF4", accent: "#88C0D0" },
+  { key: "sepia", name: "Sepia", hint: "Warm paper for long reading", bg: "#F5ECD7", fg: "#4E3629", accent: "#8B5A2B" },
+  { key: "emerald", name: "Emerald", hint: "Dark green", bg: "#062419", fg: "#ECFDF5", accent: "#10B981" },
+  { key: "contrast", name: "High contrast", hint: "Black and yellow, maximum legibility", bg: "#000000", fg: "#FFFFFF", accent: "#FFD60A" }
+];
 
 export const fontScaleNames = {
   small: 0.85,
@@ -102,7 +133,10 @@ export function webWidthBoost(width: number, platform: string = Platform.OS): nu
 type ThemeContextType = {
   theme: ThemeType;
   colors: typeof themes["dark"];
-  setTheme: (theme: ThemeType) => void;
+  /** Pick a theme, or "system" to follow the device. */
+  setTheme: (theme: ThemeChoice) => void;
+  /** What the person picked (may be "system"); `theme` is the one actually showing. */
+  themeChoice: ThemeChoice;
   fontSizeScale: number;
   fontScaleType: FontScaleType;
   setFontScale: (scale: FontScaleType) => void;
@@ -111,15 +145,21 @@ type ThemeContextType = {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<ThemeType>("dark");
+  const [choice, setChoice] = useState<ThemeChoice>("dark");
+  const [deviceScheme, setDeviceScheme] = useState<"dark" | "light">(Appearance.getColorScheme() === "light" ? "light" : "dark");
+  useEffect(() => {
+    const sub = Appearance.addChangeListener(({ colorScheme }) => setDeviceScheme(colorScheme === "light" ? "light" : "dark"));
+    return () => sub.remove();
+  }, []);
+  const theme: ThemeType = choice === "system" ? deviceScheme : choice;
   const [fontScaleType, setFontScaleState] = useState<FontScaleType>("medium");
 
   useEffect(() => {
     AsyncStorage.getItem("shords.theme").then((val) => {
-      if (val && val in themes) {
-        setThemeState(val as ThemeType);
+      if (val && (val in themes || val === "system")) {
+        setChoice(val as ThemeChoice);
       } else {
-        setThemeState("dark");
+        setChoice("dark");
       }
     });
     AsyncStorage.getItem("shords.fontScale").then((val) => {
@@ -129,8 +169,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const setTheme = async (newTheme: ThemeType) => {
-    setThemeState(newTheme);
+  const setTheme = async (newTheme: ThemeChoice) => {
+    setChoice(newTheme);
     await AsyncStorage.setItem("shords.theme", newTheme);
   };
 
@@ -150,6 +190,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         theme,
         colors,
         setTheme,
+        themeChoice: choice,
         fontSizeScale,
         fontScaleType,
         setFontScale

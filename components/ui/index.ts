@@ -6,4 +6,5 @@ export type { BadgeTone } from "./Surface";
 export { PageHeader, SectionHeader, Page, Columns, Row, Stat } from "./Layout";
 export { Modal, ConfirmDialog, Dropdown, Tabs, Select, Banner, ToastProvider, useToast } from "./Overlay";
 export type { MenuItem } from "./Overlay";
+export { ThemePicker, ThemeButton } from "./ThemePicker";
 export { FadeIn, Float, GrowBar, webTransition, useReducedMotion, usePulse } from "./motion";

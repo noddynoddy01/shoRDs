@@ -3,7 +3,7 @@ import { router } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Logo } from "@/components/Logo";
-import { Avatar, Dropdown } from "@/components/ui";
+import { Avatar, Dropdown, ThemeButton } from "@/components/ui";
 import type { PState } from "@/components/ui/Button";
 import { radius, spacing, tokens } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
@@ -37,6 +37,7 @@ export function AppRail({ segments }: { segments: readonly string[] }) {
         })}
       </ScrollView>
       <View style={{ padding: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border }}>
+        <ThemeButton label="Appearance" />
         <Dropdown align="left" accessibilityLabel="Account menu"
           trigger={<View style={s.account}><Avatar name={name} uri={profile?.photoUrl} size={34} /><View style={{ flex: 1 }}><Text numberOfLines={1} style={{ color: colors.text, fontWeight: tokens.weight.semibold, fontSize: tokens.fontSize.sm * k }}>{name}</Text><Text numberOfLines={1} style={{ color: colors.subdued, fontSize: tokens.fontSize.xs * k }}>{profile?.verifiedMentor ? "Verified mentor" : isAdmin ? "Administrator" : profile?.persona ? PERSONA_LABEL[profile.persona] : "Member"}</Text></View><Ionicons name="chevron-up" size={16} color={colors.muted} /></View>}
           items={[

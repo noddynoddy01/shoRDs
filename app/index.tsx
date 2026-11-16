@@ -5,7 +5,7 @@ import { Linking, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimens
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Logo } from "@/components/Logo";
 import { PersonaPicker } from "@/components/social/PersonaPicker";
-import { Button, Card, Dropdown, FadeIn, Float } from "@/components/ui";
+import { Button, Card, Dropdown, FadeIn, Float, ThemeButton } from "@/components/ui";
 import type { IconName } from "@/components/ui";
 import { radius, spacing, tokens } from "@/constants/theme";
 import { site } from "@/constants/site";
@@ -76,6 +76,7 @@ export default function LandingScreen() {
             </View>
           ) : null}
           <View style={{ flexDirection: "row", gap: narrow ? 2 : spacing.sm, alignItems: "center" }}>
+            <ThemeButton />
             <Button small kind="ghost" label="Sign In" onPress={() => router.push("/auth" as never)} />
             <Button small label="Get Started" onPress={() => goto("path")} />
             {!wide ? <Dropdown accessibilityLabel="Menu" trigger={<View style={s.menuBtn}><Ionicons name="menu" size={22} color={colors.text} /></View>} items={navLinks.map((n) => ({ label: n.label, onPress: () => goto(n.key) }))} /> : null}

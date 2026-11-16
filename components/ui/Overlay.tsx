@@ -9,7 +9,7 @@ import { useReducedMotion } from "./motion";
 /** A centred dialog (a bottom sheet on phones). Escape and a tap on the backdrop close it; the title is announced; actions sit in the footer. */
 export function Modal({ visible, title, onClose, children, actions }: { visible: boolean; title: string; onClose: () => void; children: ReactNode; actions?: ReactNode }) {
   const { colors, fontSizeScale: k } = useTheme();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const sheet = width < tokens.breakpoints.tablet;
   return (
     <RNModal visible={visible} transparent animationType={useReducedMotion() ? "none" : "fade"} onRequestClose={onClose} accessibilityViewIsModal>
@@ -19,7 +19,7 @@ export function Modal({ visible, title, onClose, children, actions }: { visible:
             <Text accessibilityRole="header" style={{ flex: 1, color: colors.text, fontSize: tokens.fontSize.xl * k, fontWeight: tokens.weight.heavy }}>{title}</Text>
             <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" hitSlop={10}><Ionicons name="close" size={22} color={colors.muted} /></Pressable>
           </View>
-          <ScrollView style={{ maxHeight: 520 }} contentContainerStyle={{ gap: spacing.sm }} keyboardShouldPersistTaps="handled">{children}</ScrollView>
+          <ScrollView style={{ maxHeight: Math.max(360, Math.min(700, height * 0.72)) }} contentContainerStyle={{ gap: spacing.sm }} keyboardShouldPersistTaps="handled">{children}</ScrollView>
           {actions ? <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: spacing.sm, flexWrap: "wrap" }}>{actions}</View> : null}
         </Pressable>
       </Pressable>

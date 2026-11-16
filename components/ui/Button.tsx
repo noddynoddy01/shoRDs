@@ -13,9 +13,9 @@ export type ButtonKind = "primary" | "secondary" | "danger" | "ghost";
 export function Button({ label, onPress, kind = "primary", loading, disabled, icon, iconRight, small, fullWidth, accessibilityHint }: {
   label: string; onPress: () => void; kind?: ButtonKind; loading?: boolean; disabled?: boolean; icon?: IconName; iconRight?: IconName; small?: boolean; fullWidth?: boolean; accessibilityHint?: string;
 }) {
-  const { colors, fontSizeScale: k } = useTheme();
+  const { colors, fontSizeScale: k, theme } = useTheme();
   const bg = kind === "primary" ? colors.primary : kind === "danger" ? tokens.danger : "transparent";
-  const fg = kind === "primary" || kind === "danger" ? "#FFFFFF" : kind === "ghost" ? colors.accent : colors.text;
+  const fg = kind === "primary" || kind === "danger" ? (kind === "primary" && theme === "contrast" ? "#000000" : "#FFFFFF") : kind === "ghost" ? colors.accent : colors.text;
   const off = !!(disabled || loading);
   return (
     <Pressable
